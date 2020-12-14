@@ -1,2 +1,3 @@
 # OBDDimal
-Experimental BDD library.
+
+An experimental BDD library written in Rust.
