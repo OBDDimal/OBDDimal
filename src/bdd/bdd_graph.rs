@@ -1,4 +1,3 @@
-
 /// Representing the possible states a child of a node in a Binary Decision Diagram can be.
 #[derive(Debug)]
 pub enum Child {
