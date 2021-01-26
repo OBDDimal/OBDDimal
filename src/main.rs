@@ -2,8 +2,11 @@
 mod bdd;
 
 use crate::bdd::bdd_manager::*;
+use crate::bdd::bdd_graph::*;
 
 fn main() {
-    let mgr = BDDManager::new();
-    println!("{:?}", mgr);
+    let mut mgr = BDDManager::new();
+    mgr.make_node(0, mgr.bdd_true(), mgr.bdd_false());
+    mgr.make_node(0, mgr.bdd_true(), mgr.bdd_false());
+    println!("{:?}", &mgr);
 }
