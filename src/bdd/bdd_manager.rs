@@ -12,13 +12,14 @@ pub struct BDDManager {
 impl BDDManager {
     /// Creates a new instance of a BDD manager.
     pub fn new() -> Self    {
-	let mgr = BDDManager {
+	let mut mgr = BDDManager {
 	    numvars: 0,
 	    unique_table: HashMap::new(),
 	};
 
-	mgr.make_node(0, None, None);
-	mgr.make_node(1, None, None);
+	mgr.unique_table.insert(0, Node {top_var: 0, high: None, low: None});
+	mgr.unique_table.insert(1, Node {top_var: 1, high: None, low: None});
+	
 	mgr
     }
 
@@ -32,9 +33,10 @@ impl BDDManager {
 
     /// Creates a node entry in the unique_table. Currently ignores hash collisions!
     pub fn make_node(&mut self, var: u32, high: Node, low: Node) -> Node {
+	println!("{:?}", &self);
 	let node_hash = BDDManager::node_hash(var, &high, &low);
 	if !self.unique_table.contains_key(&node_hash) {
-	    self.unique_table.insert(node_hash, Node {top_var: var, high: Box::new(high), low: Box::new(low)});
+	    self.unique_table.insert(node_hash, Node {top_var: var, high: Some(Box::new(high)), low: Some(Box::new(low))});
 	    return self.unique_table[&node_hash].clone();
 	}
 	return self.unique_table[&node_hash].clone();
@@ -60,13 +62,13 @@ impl BDDManager {
     pub fn restrict(&mut self, subtree: Node, var: u32, val: bool) -> Node {
 	if subtree.top_var > var { return subtree.clone(); }
 	else if subtree.top_var < var {
-	    let h = self.restrict(*subtree.high, var, val);
-	    let l =  self.restrict(*subtree.low, var, val);
+	    let h = self.restrict(*subtree.high.unwrap(), var, val);
+	    let l =  self.restrict(*subtree.low.unwrap(), var, val);
 	    return self.make_node(subtree.top_var, h, l);
 	} else {
 	    match val {
-		true  => self.restrict(*subtree.high, var, val),
-		false => self.restrict(*subtree.low, var, val),
+		true  => self.restrict(*subtree.high.unwrap(), var, val),
+		false => self.restrict(*subtree.low.unwrap(), var, val),
 	    }
 	}
     }

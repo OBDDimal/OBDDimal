@@ -6,7 +6,11 @@ use crate::bdd::bdd_graph::*;
 
 fn main() {
     let mut mgr = BDDManager::new();
-    mgr.make_node(0, mgr.bdd_true(), mgr.bdd_false());
-    mgr.make_node(0, mgr.bdd_true(), mgr.bdd_false());
+
+    let x1 = Node {top_var: 3, high: Some(Box::new(Node {top_var: 4, high: None, low: None})), low: None};
+    let x2 = Node {top_var: 3, high: Some(Box::new(Node {top_var: 5, high: None, low: None})), low: Some(Box::new(Node {top_var: 5, high: None, low: None}))};
+
+    mgr.and(x1, x2);
+    
     println!("{:?}", &mgr);
 }
