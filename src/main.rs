@@ -6,27 +6,14 @@ use crate::bdd::bdd_graph::*;
 
 // x1 * (x2 + x3)
 
-// x1 * !x1
-
 fn main() {
     let mut mgr = BDDManager::new();
-    
-    let bdd = NodeType::COMPLEX(
-        Node {
-            top_var: 1,
-            low: Box::new(NodeType::ZERO),
-            high: Box::new(NodeType::COMPLEX(
-                Node {
-                    top_var: 2,
-                    low: Box::new(NodeType::COMPLEX(
-                        Node {
-                            top_var: 3,
-                            low: Box::new(NodeType::ZERO),
-                            high: Box::new(NodeType::ONE),
-                        })),
-                    high: Box::new(NodeType::ONE),
-                }))
-        });
 
+    let x1 = Node::new(1, NodeType::ZERO, NodeType::ONE);
+    let x2 = Node::new(2, NodeType::ZERO, NodeType::ONE);
+    let x3 = Node::new(3, NodeType::ZERO, NodeType::ONE);
+    let x2orx3 = mgr.or(x2, x3);
+    let bdd = mgr.and(x1, x2orx3);
+    
     println!("{:?}", mgr.satisfiable(bdd));
 }

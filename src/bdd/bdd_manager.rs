@@ -39,9 +39,9 @@ impl BDDManager {
 					return st;
 				}
 				if node.top_var < var {
-					let sr1 = self.restrict(*node.low, var, val);
-					let sr2 = self.restrict(*node.high, var, val);
-					return self.add_node_to_unique(node.top_var, sr1, sr2);
+					let srh = self.restrict(*node.high, var, val);
+					let srl = self.restrict(*node.low, var, val);
+					return self.add_node_to_unique(node.top_var, srl, srh);
 				} else {
 					if val {
 						return self.restrict(*node.high, var, val);
@@ -53,15 +53,46 @@ impl BDDManager {
 		}
 	}
 
-	//BROKEN!
-	pub fn satcount(&mut self, subtree: NodeType) -> u128{
+	// Broken
+	pub fn satcount(&mut self, subtree: NodeType) -> i64 {
+		let st = subtree.clone();
 		match subtree {
 			NodeType::ZERO => 0,
 			NodeType::ONE => 1,
 			NodeType::COMPLEX(n) => {
-				let count_left = self.satcount(*n.low);
-				let count_right = self.satcount(*n.high);
-				return count_left + count_right;
+				(2 as i64).pow((n.top_var - 1) as u32 * self.satcount_rec(st) as u32)
+			}
+		}
+	}
+
+	fn satcount_rec(&mut self, subtree: NodeType) -> i64{
+		match subtree {
+			NodeType::ZERO => 0,
+			NodeType::ONE => 1,
+			NodeType::COMPLEX(n) => {
+				let sub_low = *n.low;
+				let sub_low2 = sub_low.clone();
+				let sub_high = *n.high;
+				let sub_high2 = sub_high.clone();
+				let mut size = 0;
+
+				let s = match sub_low {
+					NodeType::ZERO => 0,
+					NodeType::ONE => 1,
+					NodeType::COMPLEX(ln) => (2 as i64).pow((ln.top_var - n.top_var - 1) as u32)
+				};
+				
+				size += s * self.satcount_rec(sub_low2);
+
+				let s = match sub_high {
+					NodeType::ZERO => 0,
+					NodeType::ONE => 1,
+					NodeType::COMPLEX(hn) => (2 as i64).pow((hn.top_var - n.top_var - 1) as u32)
+				};
+
+				size += s * self.satcount_rec(sub_high2);
+				
+				return size;
 			}
 		}
 	}
@@ -123,9 +154,7 @@ impl BDDManager {
 	
 					if tv == ev { return tv; }
 
-					let r = self.add_node_to_unique(v, tv, ev);
-
-					r
+					self.add_node_to_unique(v, ev, tv)
 				}
 			}
 		}
