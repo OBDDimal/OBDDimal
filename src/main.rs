@@ -4,13 +4,29 @@ mod bdd;
 use crate::bdd::bdd_manager::*;
 use crate::bdd::bdd_graph::*;
 
+// x1 * (x2 + x3)
+
+// x1 * !x1
+
 fn main() {
     let mut mgr = BDDManager::new();
-
-    let x1 = Node {top_var: 3, high: Some(Box::new(Node {top_var: 4, high: None, low: None})), low: None};
-    let x2 = Node {top_var: 3, high: Some(Box::new(Node {top_var: 5, high: None, low: None})), low: Some(Box::new(Node {top_var: 5, high: None, low: None}))};
-
-    mgr.and(x1, x2);
     
-    println!("{:?}", &mgr);
+    let bdd = NodeType::COMPLEX(
+        Node {
+            top_var: 1,
+            low: Box::new(NodeType::ZERO),
+            high: Box::new(NodeType::COMPLEX(
+                Node {
+                    top_var: 2,
+                    low: Box::new(NodeType::COMPLEX(
+                        Node {
+                            top_var: 3,
+                            low: Box::new(NodeType::ZERO),
+                            high: Box::new(NodeType::ONE),
+                        })),
+                    high: Box::new(NodeType::ONE),
+                }))
+        });
+
+    println!("{:?}", mgr.satisfiable(bdd));
 }

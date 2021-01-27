@@ -1,111 +1,145 @@
 use std::collections::HashMap;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use crate::bdd::bdd_graph::*;
 
 #[derive(Debug)]
 pub struct BDDManager {
-    numvars: u32,
-    unique_table: HashMap<u64, Node>,
+	unique_table: HashMap<(i64, NodeType, NodeType), NodeType>,
+	computed_table: HashMap<(NodeType, NodeType, NodeType), NodeType>
 }
 
 impl BDDManager {
     /// Creates a new instance of a BDD manager.
-    pub fn new() -> Self    {
-	let mut mgr = BDDManager {
-	    numvars: 0,
-	    unique_table: HashMap::new(),
-	};
-
-	mgr.unique_table.insert(0, Node {top_var: 0, high: None, low: None});
-	mgr.unique_table.insert(1, Node {top_var: 1, high: None, low: None});
+    pub fn new() -> Self {
+		BDDManager {
+			unique_table: HashMap::new(),
+			computed_table: HashMap::new(),
+		}
+	} 
 	
-	mgr
-    }
+	pub fn add_node_to_unique(&mut self, var: i64, low: NodeType, high: NodeType) -> NodeType {
+		let low_c = low.clone(); 	// Performance not so good because of cloning.
+		let high_c = high.clone();  // Performance not so good because of cloning.
 
-    fn node_hash(v: u32, h: &Node, l: &Node) -> u64 {
-	let mut s = DefaultHasher::new();
-	v.hash(&mut s);
-	h.hash(&mut s);
-	l.hash(&mut s);
-	s.finish()
-    }
-
-    /// Creates a node entry in the unique_table. Currently ignores hash collisions!
-    pub fn make_node(&mut self, var: u32, high: Node, low: Node) -> Node {
-	println!("{:?}", &self);
-	let node_hash = BDDManager::node_hash(var, &high, &low);
-	if !self.unique_table.contains_key(&node_hash) {
-	    self.unique_table.insert(node_hash, Node {top_var: var, high: Some(Box::new(high)), low: Some(Box::new(low))});
-	    return self.unique_table[&node_hash].clone();
+		self.unique_table.entry((var, low, high))
+			.or_insert(NodeType::COMPLEX(
+				Node { 
+					top_var: var, 
+					low: Box::new(low_c), 
+					high: Box::new(high_c) 
+				})).clone()  		// Performance not so good because of cloning.
 	}
-	return self.unique_table[&node_hash].clone();
-    }
 
-    /// Returns the node representing the 1 sink node.
-    pub fn bdd_true(&self) -> Node {
-	self.unique_table[&1].clone()
-    }
-
-    /// Returns the node representing the 0 sink node.
-    pub fn bdd_false(&self) -> Node {
-	self.unique_table[&0].clone()
-    }
-
-    pub fn ithvar(&mut self, i: u32) -> Node {
-	self.numvars += 1;
-	self.unique_table.get_mut(&0).unwrap().top_var = self.numvars;
-	self.unique_table.get_mut(&1).unwrap().top_var = self.numvars;
-	self.make_node(i, self.bdd_true(), self.bdd_false())
-    }
-
-    pub fn restrict(&mut self, subtree: Node, var: u32, val: bool) -> Node {
-	if subtree.top_var > var { return subtree.clone(); }
-	else if subtree.top_var < var {
-	    let h = self.restrict(*subtree.high.unwrap(), var, val);
-	    let l =  self.restrict(*subtree.low.unwrap(), var, val);
-	    return self.make_node(subtree.top_var, h, l);
-	} else {
-	    match val {
-		true  => self.restrict(*subtree.high.unwrap(), var, val),
-		false => self.restrict(*subtree.low.unwrap(), var, val),
-	    }
+	pub fn restrict(&mut self, subtree: NodeType, var: i64, val: bool) -> NodeType {
+		let st = subtree.clone();
+		match subtree {
+			NodeType::ZERO => subtree,
+			NodeType::ONE => subtree,
+			NodeType::COMPLEX(node) => {
+				if node.top_var > var {
+					return st;
+				}
+				if node.top_var < var {
+					let sr1 = self.restrict(*node.low, var, val);
+					let sr2 = self.restrict(*node.high, var, val);
+					return self.add_node_to_unique(node.top_var, sr1, sr2);
+				} else {
+					if val {
+						return self.restrict(*node.high, var, val);
+					} else {
+						return self.restrict(*node.low, var, val);
+					}
+				}
+			}
+		}
 	}
-    }
 
-    pub fn ite(&mut self, i: Node, t: Node, e: Node) -> Node {
-	if i == self.bdd_true()                          { return t; }
-	if i == self.bdd_false()                         { return e; }
-	if t == e                                        { return t; }
-	if t == self.bdd_true() && e == self.bdd_false() { return i; }
+	//BROKEN!
+	pub fn satcount(&mut self, subtree: NodeType) -> u128{
+		match subtree {
+			NodeType::ZERO => 0,
+			NodeType::ONE => 1,
+			NodeType::COMPLEX(n) => {
+				let count_left = self.satcount(*n.low);
+				let count_right = self.satcount(*n.high);
+				return count_left + count_right;
+			}
+		}
+	}
 
-	let split = i.top_var.min(t.top_var).min(e.top_var);
+	/// Returns true if there is a variable assignment which evaluates the given formula to `true`.
+	pub fn satisfiable(&mut self, subtree: NodeType) -> bool {
+		match subtree {
+			NodeType::ZERO => false,
+			NodeType::ONE => true,
+			NodeType::COMPLEX(n) => {
+				let s_left = self.satisfiable(*n.low);
+				let s_right = self.satisfiable(*n.high);
+				return s_left | s_right;
+			}
+		}
+	}
 
-	let ixt = self.restrict(i.clone(), split, true);
-	let txt = self.restrict(t.clone(), split, true);
-	let ext = self.restrict(e.clone(), split, true);
+	pub fn ite(&mut self, f: NodeType, g: NodeType, h: NodeType) -> NodeType {
+		match (f, g, h) {
+			(NodeType::ZERO, _, e) => e,
+			(NodeType::ONE, t, _) => t,
+			(f, NodeType::ONE, NodeType::ZERO) => f,
+			(i, t, e) => {
+				// This is dumb! Do not try this at home! Should be replaced by references.
+				let i_c = i.clone(); // Performance not so good because of cloning.
+				let t_c = t.clone(); // Performance not so good because of cloning.
+				let e_c = e.clone(); // Performance not so good because of cloning.
+				let i_c2 = i.clone(); // Performance not so good because of cloning.
+				let t_c2 = t.clone(); // Performance not so good because of cloning.
+				let e_c2 = e.clone(); // Performance not so good because of cloning.
+				let i_c3 = i.clone(); // Performance not so good because of cloning.
+				let t_c3 = t.clone(); // Performance not so good because of cloning.
+				let e_c3 = e.clone(); // Performance not so good because of cloning.
+				let i_c4 = i.clone(); // Performance not so good because of cloning.
+				let t_c4 = t.clone(); // Performance not so good because of cloning.
+				let e_c4 = e.clone(); // Performance not so good because of cloning.
 
-	let pos_ftor = self.ite(ixt, txt, ext);
+				if self.computed_table.contains_key(&(i, t, e)) {
+					return self.computed_table[&(i_c, t_c, e_c)].clone(); // Performance not so good because of cloning.
+				} else {
+					let v = match (i_c2, t_c2, e_c2) {
+						(NodeType::COMPLEX(i_n), NodeType::COMPLEX(t_n), NodeType::COMPLEX(e_n)) => i_n.top_var.min(t_n.top_var).min(e_n.top_var),
+						(NodeType::COMPLEX(i_n), _, NodeType::COMPLEX(e_n)) => i_n.top_var.min(e_n.top_var),
+						(NodeType::COMPLEX(i_n), NodeType::COMPLEX(t_n), _) => i_n.top_var.min(t_n.top_var),
+						(_, _, _) => panic!("Something went very wrong with the patterns of ITE!"),
+					};
 
-	let ixf = self.restrict(i, split, false);
-	let txf = self.restrict(t, split, false);
-	let exf = self.restrict(e, split, false);
+					let ixt = self.restrict(i_c3, v, true);
+					let txt = self.restrict(t_c3, v, true);
+					let ext = self.restrict(e_c3, v, true);
 
-	let neg_ftor = self.ite(ixf, txf, exf);
+					let tv = self.ite(ixt, txt, ext);
 
-	self.make_node(split, pos_ftor, neg_ftor)	
-    }
+					let ixf = self.restrict(i_c4, v, false);
+					let txf = self.restrict(t_c4, v, false);
+					let exf = self.restrict(e_c4, v, false);
 
-    // Bryant API
-    pub fn and(&mut self, lhs: Node, rhs: Node) -> Node {
-	self.ite(lhs, rhs, self.bdd_false())
-    }
+					let ev = self.ite(ixf, txf, exf);
+	
+					if tv == ev { return tv; }
 
-    pub fn or(&mut self, lhs: Node, rhs: Node) -> Node {
-	self.ite(lhs, self.bdd_true(), rhs)
-    }
+					let r = self.add_node_to_unique(v, tv, ev);
 
-    pub fn not(&mut self, inp: Node) -> Node {
-	self.ite(inp, self.bdd_false(), self.bdd_true())
-    }
+					r
+				}
+			}
+		}
+	}
+
+	pub fn and(&mut self, lhs: NodeType, rhs: NodeType) -> NodeType {
+		self.ite(lhs, rhs, NodeType::ZERO)
+	}
+
+	pub fn or(&mut self, lhs: NodeType, rhs: NodeType) -> NodeType {
+		self.ite(lhs, NodeType::ONE, rhs)
+	}
+
+	pub fn not(&mut self, val: NodeType) -> NodeType {
+		self.ite(val, NodeType::ZERO, NodeType::ONE)
+	}
 }
