@@ -137,7 +137,11 @@ impl BDDManager {
 						(NodeType::COMPLEX(i_n), NodeType::COMPLEX(t_n), NodeType::COMPLEX(e_n)) => i_n.top_var.min(t_n.top_var).min(e_n.top_var),
 						(NodeType::COMPLEX(i_n), _, NodeType::COMPLEX(e_n)) => i_n.top_var.min(e_n.top_var),
 						(NodeType::COMPLEX(i_n), NodeType::COMPLEX(t_n), _) => i_n.top_var.min(t_n.top_var),
-						(_, _, _) => panic!("Something went very wrong with the patterns of ITE!"),
+						(_, NodeType::COMPLEX(t_n), NodeType::COMPLEX(e_n)) => e_n.top_var.min(t_n.top_var),
+						(NodeType::COMPLEX(i_n), _, _) => i_n.top_var,
+						(_, NodeType::COMPLEX(t_n), _) => t_n.top_var,
+						(_, _, NodeType::COMPLEX(e_n)) => e_n.top_var,
+						(_, _, _) => panic!("There was no assignment for v."),
 					};
 
 					let ixt = self.restrict(i_c3, v, true);
