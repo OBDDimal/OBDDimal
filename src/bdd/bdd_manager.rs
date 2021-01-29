@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use crate::bdd::bdd_graph::*;
+use crate::input::boolean_function::*;
 
 #[derive(Debug)]
 pub struct BDDManager {
@@ -14,9 +15,9 @@ impl BDDManager {
 			unique_table: HashMap::new(),
 			computed_table: HashMap::new(),
 		}
-	} 
+	}
 	
-	pub fn add_node_to_unique(&mut self, var: i64, low: NodeType, high: NodeType) -> NodeType {
+	fn add_node_to_unique(&mut self, var: i64, low: NodeType, high: NodeType) -> NodeType {
 		let low_c = low.clone(); 	// Performance not so good because of cloning.
 		let high_c = high.clone();  // Performance not so good because of cloning.
 
@@ -29,7 +30,7 @@ impl BDDManager {
 				})).clone()  		// Performance not so good because of cloning.
 	}
 
-	pub fn restrict(&mut self, subtree: NodeType, var: i64, val: bool) -> NodeType {
+	fn restrict(&mut self, subtree: NodeType, var: i64, val: bool) -> NodeType {
 		let st = subtree.clone();
 		match subtree {
 			NodeType::ZERO => subtree,
@@ -110,7 +111,7 @@ impl BDDManager {
 		}
 	}
 
-	pub fn ite(&mut self, f: NodeType, g: NodeType, h: NodeType) -> NodeType {
+	fn ite(&mut self, f: NodeType, g: NodeType, h: NodeType) -> NodeType {
 		match (f, g, h) {
 			(NodeType::ZERO, _, e) => e,
 			(NodeType::ONE, t, _) => t,

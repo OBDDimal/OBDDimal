@@ -1,5 +1,5 @@
 [package]
-name = "OBDDimal"
+name = "obbdimal"
 version = "0.1.0"
 authors = ["Timo Netzer <timo.netzer@uni-ulm.de>"]
 edition = "2018"
