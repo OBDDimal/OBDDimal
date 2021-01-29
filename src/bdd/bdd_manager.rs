@@ -4,8 +4,9 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct BDDManager {
-    unique_table: HashMap<(i64, NodeType, NodeType), NodeType>,
-    computed_table: HashMap<(NodeType, NodeType, NodeType), NodeType>,
+    pub unique_table: HashMap<(i64, NodeType, NodeType), NodeType>,
+	computed_table: HashMap<(NodeType, NodeType, NodeType), NodeType>,
+	pub bdd: NodeType,
 }
 
 impl BDDManager {
@@ -13,9 +14,42 @@ impl BDDManager {
     pub fn new() -> Self {
         BDDManager {
             unique_table: HashMap::new(),
-            computed_table: HashMap::new(),
+			computed_table: HashMap::new(),
+			bdd: NodeType::ZERO,
         }
-    }
+	}
+	
+	pub fn new_from_cnf(cnf: Symbol) -> Self {
+		let mut mgr = Self::new();
+		mgr.bdd = Self::new_from_cnf_rec(cnf, &mut mgr);
+		mgr
+	}
+
+	pub fn new_from_cnf_rec(cnf: Symbol, mgr: &mut Self) -> NodeType {
+		match cnf {
+			Symbol::Posterminal(i) => Node::new(i as i64, NodeType::ZERO, NodeType::ONE),
+			Symbol::Negterminal(i) => Node::new(i as i64, NodeType::ONE, NodeType::ZERO),
+			Symbol::Function(func) => {
+				match func.op {
+					Operator::And => {
+						let l = Self::new_from_cnf_rec(*func.lhs, mgr);
+						let r = Self::new_from_cnf_rec(*func.rhs, mgr);
+						let res = mgr.and(l, r);
+						println!("{:?}", res);
+						res
+					}
+					Operator::Or => {
+						let l = Self::new_from_cnf_rec(*func.lhs, mgr);
+						let r = Self::new_from_cnf_rec(*func.rhs, mgr);
+						let res = mgr.or(l, r);
+						println!("{:?}", res);
+						res
+					}
+				}
+				
+			}
+		}
+	}
 
     fn add_node_to_unique(&mut self, var: i64, low: NodeType, high: NodeType) -> NodeType {
         let low_c = low.clone(); // Performance not so good because of cloning.
@@ -100,16 +134,8 @@ impl BDDManager {
     }
 
     /// Returns true if there is a variable assignment which evaluates the given formula to `true`.
-    pub fn satisfiable(&mut self, subtree: NodeType) -> bool {
-        match subtree {
-            NodeType::ZERO => false,
-            NodeType::ONE => true,
-            NodeType::COMPLEX(n) => {
-                let s_left = self.satisfiable(*n.low);
-                let s_right = self.satisfiable(*n.high);
-                s_left | s_right
-            }
-        }
+    pub fn satisfiable(&mut self) -> bool {
+        !(self.bdd == NodeType::ZERO)
     }
 
     fn ite(&mut self, f: NodeType, g: NodeType, h: NodeType) -> NodeType {

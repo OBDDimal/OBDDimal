@@ -9,5 +9,7 @@ use crate::input::parser::*;
 
 fn main() {
     let input = parse_file("debug_input/easy1.dimacs").unwrap();
-    println!("{:?}", BooleanFunction::new_cnf_formula(input));
+    let input_symbols = BooleanFunction::new_cnf_formula(input);
+    let mgr = BDDManager::new_from_cnf(input_symbols);
+    println!("{:?}", mgr.bdd)
 }
