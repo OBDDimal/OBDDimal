@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{self, BufRead};
-use std::path::Path;
 use std::num::ParseIntError;
+use std::path::Path;
 
 #[derive(Debug)]
 pub enum FileFormatError {
@@ -14,7 +14,7 @@ pub fn parse_file(path: &str) -> Result<Vec<Vec<i32>>, FileFormatError> {
     if let Ok(lines) = get_lines_iterator(path) {
         for line in lines {
             if let Ok(ip) = line {
-                match ip.chars().nth(0) {
+                match ip.chars().next() {
                     Some('c') | Some('p') => continue,
                     Some(_) => res.push_str(&ip),
                     None => continue,
@@ -25,12 +25,18 @@ pub fn parse_file(path: &str) -> Result<Vec<Vec<i32>>, FileFormatError> {
     res.split('0')
         .map(|x| String::from(x.trim()))
         .filter(|x| !x.is_empty())
-        .map(|x| x.split(' ').map(|y| y.parse::<i32>().map_err(FileFormatError::InvalidNumber)).collect::<Result<Vec<_>, _>>())
+        .map(|x| {
+            x.split(' ')
+                .map(|y| y.parse::<i32>().map_err(FileFormatError::InvalidNumber))
+                .collect::<Result<Vec<_>, _>>()
+        })
         .collect::<Result<Vec<_>, _>>()
 }
 
 fn get_lines_iterator<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where P: AsRef<Path>, {
+where
+    P: AsRef<Path>,
+{
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
 }
