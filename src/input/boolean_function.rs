@@ -1,3 +1,6 @@
+/// A `Symbol` represents either a `BooleanFunction`, 
+/// a terminal symbol containing the index of a variable `Posterminal(u32)`
+/// or a terminal symbol containing the index of a negated variable `Negterminal(u32)`
 #[derive(Debug, Clone)]
 pub enum Symbol {
     Posterminal(u32),
@@ -29,7 +32,9 @@ pub struct BooleanFunction {
 }
 
 impl BooleanFunction {
-    /// Creates a Boolean Function out of a `Vec<Vec<i32>>`.
+    /// Creates a `Symbol` out of a `Vec<Vec<i32>>` where every 'inside' `Vec<i32>` represents a 
+    /// single clause and every literal in this clause is a disjunction (OR) of literals.
+    /// The returning `Symbol` is a conjunction of those clauses.
     pub fn new_cnf_formula(inp: Vec<Vec<i32>>) -> Symbol {
         let inp = inp
             .iter()
