@@ -4,12 +4,36 @@ use std::num::ParseIntError;
 use std::path::Path;
 
 #[derive(Debug)]
-pub enum FileFormatError {
+pub enum DataFormatError {
     InvalidNumber(ParseIntError),
 }
 
-/// Takes the path to a DIMACS CNF file and returns a Result containing the `Vec<Vec<i32>>` or a Error why the parse failed.
-pub fn parse_file(path: &str) -> Result<Vec<Vec<i32>>, FileFormatError> {
+pub fn parse_string(input: &str) -> Result<Vec<Vec<i32>>, DataFormatError> {
+    let lines = input
+        .split("\n")
+        .filter(|l| !matches!(l.chars().next(), Some('p') | Some('c')));
+
+    let mut buff = String::new();
+
+    for l in lines {
+        buff.push_str(l);
+        buff.push(' ');
+    }
+
+    let mut result = vec![];
+    let mut current = vec![];
+
+    for ele in buff.split_whitespace().filter(|x| !x.is_empty()) {
+        if ele != "0" {
+            current.push(ele.parse::<i32>().map_err(DataFormatError::InvalidNumber)?);
+        } else {
+            result.push(current);
+            current = vec![];
+        }
+    }
+
+    Ok(result)
+    /*
     let mut res = String::new();
     if let Ok(lines) = get_lines_iterator(path) {
         for line in lines {
@@ -31,6 +55,7 @@ pub fn parse_file(path: &str) -> Result<Vec<Vec<i32>>, FileFormatError> {
                 .collect::<Result<Vec<_>, _>>()
         })
         .collect::<Result<Vec<_>, _>>()
+        */
 }
 
 fn get_lines_iterator<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>

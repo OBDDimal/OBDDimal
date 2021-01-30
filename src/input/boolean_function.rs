@@ -1,4 +1,4 @@
-/// A `Symbol` represents either a `BooleanFunction`, 
+/// A `Symbol` represents either a `BooleanFunction`,
 /// a terminal symbol containing the index of a variable `Posterminal(u32)`
 /// or a terminal symbol containing the index of a negated variable `Negterminal(u32)`
 #[derive(Debug, Clone)]
@@ -32,13 +32,13 @@ pub struct BooleanFunction {
 }
 
 impl BooleanFunction {
-    /// Creates a `Symbol` out of a `Vec<Vec<i32>>` where every 'inside' `Vec<i32>` represents a 
+    /// Creates a `Symbol` out of a `Vec<Vec<i32>>` where every 'inside' `Vec<i32>` represents a
     /// single clause and every literal in this clause is a disjunction (OR) of literals.
     /// The returning `Symbol` is a conjunction of those clauses.
     pub fn new_cnf_formula(inp: Vec<Vec<i32>>) -> Symbol {
         let inp = inp
             .iter()
-            .map(|x| x.iter().map(|x| Symbol::from(*x)).collect::<Vec<Symbol>>())
+            .map(|x| x.iter().map(|&x| Symbol::from(x)).collect::<Vec<Symbol>>())
             .collect::<Vec<Vec<Symbol>>>();
         Self::new_cnf_formula_rec(inp)
     }

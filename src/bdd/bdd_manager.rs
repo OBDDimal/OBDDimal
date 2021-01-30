@@ -5,47 +5,45 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub struct BDDManager {
     unique_table: HashMap<(i64, NodeType, NodeType), NodeType>,
-	computed_table: HashMap<(NodeType, NodeType, NodeType), NodeType>,
-	pub bdd: NodeType,
+    computed_table: HashMap<(NodeType, NodeType, NodeType), NodeType>,
+    pub bdd: NodeType,
 }
 
 impl BDDManager {
     /// Creates a new instance of a BDD manager.
     pub fn new() -> Self {
-        BDDManager {
+        Self {
             unique_table: HashMap::new(),
-			computed_table: HashMap::new(),
-			bdd: NodeType::Zero,
+            computed_table: HashMap::new(),
+            bdd: NodeType::Zero,
         }
-	}
-	
-	/// Creates a new instance of a BDD manager from a given CNF.
-	pub fn from_cnf(cnf: Symbol) -> Self {
-		let mut mgr = Self::new();
-		mgr.bdd = mgr.from_cnf_rec(cnf);
-		mgr
-	}
+    }
 
-	fn from_cnf_rec(&mut self, cnf: Symbol) -> NodeType {
-		match cnf {
-			Symbol::Posterminal(i) => Node::new(i as i64, NodeType::Zero, NodeType::One),
-			Symbol::Negterminal(i) => Node::new(i as i64, NodeType::One, NodeType::Zero),
-			Symbol::Function(func) => {
-				match func.op {
-					Operator::And => {
-						let l = self.from_cnf_rec(*func.lhs);
-                        let r = self.from_cnf_rec(*func.rhs);
-						self.and(l, r)	
-					}
-					Operator::Or => {
-						let l = self.from_cnf_rec(*func.lhs);
-                        let r = self.from_cnf_rec(*func.rhs);
-						self.or(l, r)
-					}
-				}
-			}
-		}
-	}
+    /// Creates a new instance of a BDD manager from a given CNF.
+    pub fn from_cnf(cnf: Symbol) -> Self {
+        let mut mgr = Self::new();
+        mgr.bdd = mgr.from_cnf_rec(cnf);
+        mgr
+    }
+
+    fn from_cnf_rec(&mut self, cnf: Symbol) -> NodeType {
+        match cnf {
+            Symbol::Posterminal(i) => Node::new(i as i64, NodeType::Zero, NodeType::One),
+            Symbol::Negterminal(i) => Node::new(i as i64, NodeType::One, NodeType::Zero),
+            Symbol::Function(func) => match func.op {
+                Operator::And => {
+                    let l = self.from_cnf_rec(*func.lhs);
+                    let r = self.from_cnf_rec(*func.rhs);
+                    self.and(l, r)
+                }
+                Operator::Or => {
+                    let l = self.from_cnf_rec(*func.lhs);
+                    let r = self.from_cnf_rec(*func.rhs);
+                    self.or(l, r)
+                }
+            },
+        }
+    }
 
     fn add_node_to_unique(&mut self, var: i64, low: NodeType, high: NodeType) -> NodeType {
         let low_c = low.clone(); // Performance not so good because of cloning.
@@ -83,8 +81,8 @@ impl BDDManager {
 
     // Broken
     pub fn satcount(&mut self) -> i64 {
-		let st = self.bdd.clone();
-		let st2 = self.bdd.clone();
+        let st = self.bdd.clone();
+        let st2 = self.bdd.clone();
         match st {
             NodeType::Zero => 0,
             NodeType::One => 1,
@@ -127,8 +125,8 @@ impl BDDManager {
     }
 
     /// Returns true if there is a variable assignment which evaluates the given formula to `true`.
-    pub fn satisfiable(&mut self) -> bool {
-        !(self.bdd == NodeType::Zero)
+    pub fn satisfiable(&self) -> bool {
+        self.bdd != NodeType::Zero
     }
 
     fn ite(&mut self, f: NodeType, g: NodeType, h: NodeType) -> NodeType {
@@ -207,5 +205,67 @@ impl BDDManager {
 
     pub fn not(&mut self, val: NodeType) -> NodeType {
         self.ite(val, NodeType::Zero, NodeType::One)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bdd::bdd_graph::NodeType::*;
+
+    fn build_bdd(path: &str) -> BDDManager {
+        let input = crate::input::parser::parse_string(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let input_symbols = BooleanFunction::new_cnf_formula(input);
+        BDDManager::from_cnf(input_symbols)
+    }
+
+    #[test]
+    fn easy1_structural() {
+        let mgr = build_bdd("examples/easy1.dimacs");
+
+        assert_eq!(
+            mgr.bdd,
+            Complex(Node {
+                top_var: 1,
+                low: Box::new(Complex(Node {
+                    top_var: 3,
+                    low: Box::new(One),
+                    high: Box::new(Zero),
+                })),
+                high: Box::new(Complex(Node {
+                    top_var: 2,
+                    low: Box::new(Complex(Node {
+                        top_var: 3,
+                        low: Box::new(Zero),
+                        high: Box::new(One),
+                    })),
+                    high: Box::new(One),
+                })),
+            })
+        );
+    }
+
+    #[test]
+    fn easyns_structural() {
+        let mgr = build_bdd("examples/easyns.dimacs");
+        assert_eq!(mgr.bdd, NodeType::Zero);
+    }
+
+    #[test]
+    fn ns_structural() {
+        let mgr = build_bdd("examples/ns.dimacs");
+        assert_eq!(mgr.bdd, NodeType::Zero);
+    }
+
+    #[test]
+    fn sandwich_satisfiable() {
+        let mgr = build_bdd("examples/sandwich.dimacs");
+        assert!(mgr.satisfiable());
+    }
+
+    //#[test]
+    fn berkeleydb_satisfiable() {
+        let mgr = build_bdd("examples/berkeleydb.dimacs");
+        assert!(mgr.satisfiable());
     }
 }
