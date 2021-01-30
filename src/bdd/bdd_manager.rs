@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct BDDManager {
-    pub unique_table: HashMap<(i64, NodeType, NodeType), NodeType>,
+    unique_table: HashMap<(i64, NodeType, NodeType), NodeType>,
 	computed_table: HashMap<(NodeType, NodeType, NodeType), NodeType>,
 	pub bdd: NodeType,
 }
@@ -15,38 +15,34 @@ impl BDDManager {
         BDDManager {
             unique_table: HashMap::new(),
 			computed_table: HashMap::new(),
-			bdd: NodeType::ZERO,
+			bdd: NodeType::Zero,
         }
 	}
 	
-	pub fn new_from_cnf(cnf: Symbol) -> Self {
+	/// Creates a new instance of a BDD manager from a given CNF.
+	pub fn from_cnf(cnf: Symbol) -> Self {
 		let mut mgr = Self::new();
-		mgr.bdd = Self::new_from_cnf_rec(cnf, &mut mgr);
+		mgr.bdd = mgr.from_cnf_rec(cnf);
 		mgr
 	}
 
-	pub fn new_from_cnf_rec(cnf: Symbol, mgr: &mut Self) -> NodeType {
+	fn from_cnf_rec(&mut self, cnf: Symbol) -> NodeType {
 		match cnf {
-			Symbol::Posterminal(i) => Node::new(i as i64, NodeType::ZERO, NodeType::ONE),
-			Symbol::Negterminal(i) => Node::new(i as i64, NodeType::ONE, NodeType::ZERO),
+			Symbol::Posterminal(i) => Node::new(i as i64, NodeType::Zero, NodeType::One),
+			Symbol::Negterminal(i) => Node::new(i as i64, NodeType::One, NodeType::Zero),
 			Symbol::Function(func) => {
 				match func.op {
 					Operator::And => {
-						let l = Self::new_from_cnf_rec(*func.lhs, mgr);
-						let r = Self::new_from_cnf_rec(*func.rhs, mgr);
-						let res = mgr.and(l, r);
-						println!("{:?}", res);
-						res
+						let l = self.from_cnf_rec(*func.lhs);
+                        let r = self.from_cnf_rec(*func.rhs);
+						self.and(l, r)	
 					}
 					Operator::Or => {
-						let l = Self::new_from_cnf_rec(*func.lhs, mgr);
-						let r = Self::new_from_cnf_rec(*func.rhs, mgr);
-						let res = mgr.or(l, r);
-						println!("{:?}", res);
-						res
+						let l = self.from_cnf_rec(*func.lhs);
+                        let r = self.from_cnf_rec(*func.rhs);
+						self.or(l, r)
 					}
 				}
-				
 			}
 		}
 	}
@@ -57,20 +53,16 @@ impl BDDManager {
 
         self.unique_table
             .entry((var, low, high))
-            .or_insert(NodeType::COMPLEX(Node {
-                top_var: var,
-                low: Box::new(low_c),
-                high: Box::new(high_c),
-            }))
+            .or_insert(Node::new(var, low_c, high_c))
             .clone() // Performance not so good because of cloning.
     }
 
     fn restrict(&mut self, subtree: NodeType, var: i64, val: bool) -> NodeType {
         let st = subtree.clone();
         match subtree {
-            NodeType::ZERO => subtree,
-            NodeType::ONE => subtree,
-            NodeType::COMPLEX(node) => {
+            NodeType::Zero => subtree,
+            NodeType::One => subtree,
+            NodeType::Complex(node) => {
                 if node.top_var > var {
                     return st;
                 }
@@ -90,22 +82,23 @@ impl BDDManager {
     }
 
     // Broken
-    pub fn satcount(&mut self, subtree: NodeType) -> i64 {
-        let st = subtree.clone();
-        match subtree {
-            NodeType::ZERO => 0,
-            NodeType::ONE => 1,
-            NodeType::COMPLEX(n) => {
-                2_i64.pow((n.top_var - 1) as u32 * self.satcount_rec(st) as u32)
+    pub fn satcount(&mut self) -> i64 {
+		let st = self.bdd.clone();
+		let st2 = self.bdd.clone();
+        match st {
+            NodeType::Zero => 0,
+            NodeType::One => 1,
+            NodeType::Complex(n) => {
+                2_i64.pow((n.top_var - 1) as u32 * self.satcount_rec(st2) as u32)
             }
         }
     }
 
     fn satcount_rec(&mut self, subtree: NodeType) -> i64 {
         match subtree {
-            NodeType::ZERO => 0,
-            NodeType::ONE => 1,
-            NodeType::COMPLEX(n) => {
+            NodeType::Zero => 0,
+            NodeType::One => 1,
+            NodeType::Complex(n) => {
                 let sub_low = *n.low;
                 let sub_low2 = sub_low.clone();
                 let sub_high = *n.high;
@@ -113,17 +106,17 @@ impl BDDManager {
                 let mut size = 0;
 
                 let s = match sub_low {
-                    NodeType::ZERO => 0,
-                    NodeType::ONE => 1,
-                    NodeType::COMPLEX(ln) => 2_i64.pow((ln.top_var - n.top_var - 1) as u32),
+                    NodeType::Zero => 0,
+                    NodeType::One => 1,
+                    NodeType::Complex(ln) => 2_i64.pow((ln.top_var - n.top_var - 1) as u32),
                 };
 
                 size += s * self.satcount_rec(sub_low2);
 
                 let s = match sub_high {
-                    NodeType::ZERO => 0,
-                    NodeType::ONE => 1,
-                    NodeType::COMPLEX(hn) => 2_i64.pow((hn.top_var - n.top_var - 1) as u32),
+                    NodeType::Zero => 0,
+                    NodeType::One => 1,
+                    NodeType::Complex(hn) => 2_i64.pow((hn.top_var - n.top_var - 1) as u32),
                 };
 
                 size += s * self.satcount_rec(sub_high2);
@@ -135,14 +128,14 @@ impl BDDManager {
 
     /// Returns true if there is a variable assignment which evaluates the given formula to `true`.
     pub fn satisfiable(&mut self) -> bool {
-        !(self.bdd == NodeType::ZERO)
+        !(self.bdd == NodeType::Zero)
     }
 
     fn ite(&mut self, f: NodeType, g: NodeType, h: NodeType) -> NodeType {
         match (f, g, h) {
-            (NodeType::ZERO, _, e) => e,
-            (NodeType::ONE, t, _) => t,
-            (f, NodeType::ONE, NodeType::ZERO) => f,
+            (NodeType::Zero, _, e) => e,
+            (NodeType::One, t, _) => t,
+            (f, NodeType::One, NodeType::Zero) => f,
             (i, t, e) => {
                 // This is dumb! Do not try this at home! Should be replaced by references.
                 let i_c = i.clone(); // Performance not so good because of cloning.
@@ -163,22 +156,22 @@ impl BDDManager {
                 } else {
                     let v = match (i_c2, t_c2, e_c2) {
                         (
-                            NodeType::COMPLEX(i_n),
-                            NodeType::COMPLEX(t_n),
-                            NodeType::COMPLEX(e_n),
+                            NodeType::Complex(i_n),
+                            NodeType::Complex(t_n),
+                            NodeType::Complex(e_n),
                         ) => i_n.top_var.min(t_n.top_var).min(e_n.top_var),
-                        (NodeType::COMPLEX(i_n), _, NodeType::COMPLEX(e_n)) => {
+                        (NodeType::Complex(i_n), _, NodeType::Complex(e_n)) => {
                             i_n.top_var.min(e_n.top_var)
                         }
-                        (NodeType::COMPLEX(i_n), NodeType::COMPLEX(t_n), _) => {
+                        (NodeType::Complex(i_n), NodeType::Complex(t_n), _) => {
                             i_n.top_var.min(t_n.top_var)
                         }
-                        (_, NodeType::COMPLEX(t_n), NodeType::COMPLEX(e_n)) => {
+                        (_, NodeType::Complex(t_n), NodeType::Complex(e_n)) => {
                             e_n.top_var.min(t_n.top_var)
                         }
-                        (NodeType::COMPLEX(i_n), _, _) => i_n.top_var,
-                        (_, NodeType::COMPLEX(t_n), _) => t_n.top_var,
-                        (_, _, NodeType::COMPLEX(e_n)) => e_n.top_var,
+                        (NodeType::Complex(i_n), _, _) => i_n.top_var,
+                        (_, NodeType::Complex(t_n), _) => t_n.top_var,
+                        (_, _, NodeType::Complex(e_n)) => e_n.top_var,
                         (_, _, _) => panic!("There was no assignment for v."),
                     };
 
@@ -205,14 +198,14 @@ impl BDDManager {
     }
 
     pub fn and(&mut self, lhs: NodeType, rhs: NodeType) -> NodeType {
-        self.ite(lhs, rhs, NodeType::ZERO)
+        self.ite(lhs, rhs, NodeType::Zero)
     }
 
     pub fn or(&mut self, lhs: NodeType, rhs: NodeType) -> NodeType {
-        self.ite(lhs, NodeType::ONE, rhs)
+        self.ite(lhs, NodeType::One, rhs)
     }
 
     pub fn not(&mut self, val: NodeType) -> NodeType {
-        self.ite(val, NodeType::ZERO, NodeType::ONE)
+        self.ite(val, NodeType::Zero, NodeType::One)
     }
 }

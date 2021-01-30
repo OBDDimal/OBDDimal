@@ -8,7 +8,7 @@ pub struct Node {
 
 impl Node {
     pub fn new(v: i64, low: NodeType, high: NodeType) -> NodeType {
-        NodeType::COMPLEX(Node {
+        NodeType::Complex(Node {
             top_var: v,
             low: Box::new(low),
             high: Box::new(high),
@@ -18,7 +18,7 @@ impl Node {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum NodeType {
-    ZERO,
-    ONE,
-    COMPLEX(Node),
+    Zero,
+    One,
+    Complex(Node),
 }
