@@ -1,17 +1,19 @@
-/// Representation of a Binary Decision Diagram node, containing the top variable `top_var` and the children `hi` and `lo`).
+use std::rc::Rc;
+
+/// Representation of a Binary Decision Diagram node, containing the top variable `top_var` and the children `hi` and `lo`.
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct Node {
-    pub top_var: i64,        // top_variable
-    pub low: Box<NodeType>,  // 0 side of the bdd
-    pub high: Box<NodeType>, // 1 side of the bdd
+    pub top_var: i64,       // top_variable
+    pub low: Rc<NodeType>,  // 0 side of the bdd
+    pub high: Rc<NodeType>, // 1 side of the bdd
 }
 
 impl Node {
-    pub fn new(v: i64, low: NodeType, high: NodeType) -> NodeType {
+    pub fn new(v: i64, low: Rc<NodeType>, high: Rc<NodeType>) -> NodeType {
         NodeType::Complex(Node {
             top_var: v,
-            low: Box::new(low),
-            high: Box::new(high),
+            low: low,
+            high: high,
         })
     }
 }

@@ -5,5 +5,4 @@ authors = ["Timo Netzer <timo.netzer@uni-ulm.de>"]
 edition = "2018"
 
 [dependencies]
-rand = "0.8.0"
 

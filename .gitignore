@@ -64,3 +64,14 @@ flycheck_*.el
 # Added by cargo
 
 /target
+
+# Vscode
+
+.vscode/*
+*.code-workspace
+
+# Local History for Visual Studio Code
+.history/
+
+.vscode
+.vim
