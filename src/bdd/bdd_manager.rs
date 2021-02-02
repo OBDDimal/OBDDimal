@@ -3,6 +3,7 @@ use crate::input::boolean_function::*;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+/// Used as key for the unique_table.
 #[derive(Hash, Debug, Clone, Eq, PartialEq)]
 struct UniqueKey {
     tv: i64,
@@ -16,6 +17,7 @@ impl UniqueKey {
     }
 }
 
+/// Used as the key for the computed_table.
 #[derive(Hash, Debug, Clone, Eq, PartialEq)]
 struct ComputedKey {
     f: Rc<NodeType>,
@@ -29,6 +31,12 @@ impl ComputedKey {
     }
 }
 
+/// All the data formats that are currently supported to create a BDD from.
+pub enum InputFormat {
+    CNF,
+}
+
+/// Represents a wrapper struct for a BDD, allowing us to query methods on it.
 #[derive(Debug)]
 pub struct BDDManager {
     unique_table: HashMap<UniqueKey, Rc<NodeType>>,
@@ -37,22 +45,30 @@ pub struct BDDManager {
 }
 
 impl BDDManager {
-    /// Creates a new instance of a BDD manager.
-    pub fn new() -> Self {
-        Self {
-            unique_table: HashMap::new(),
-            computed_table: HashMap::new(),
-            bdd: Rc::new(NodeType::Zero),
-        }
+    /// Creates a new instance of a BDD manager out of a given input format.
+    /// Currently there is only `InputFormat::CNF` supported, which represents Dimacs CNF.
+    pub fn from_format(data: &str, format: InputFormat) -> Self {
+        let input_vec_data = crate::input::parser::parse_string(data).unwrap();
+        let symbolic_rep = match format {
+            InputFormat::CNF => {
+                crate::boolean_function::BooleanFunction::new_from_cnf_formula(input_vec_data)
+            }
+        };
+        BDDManager::from_cnf(symbolic_rep)
     }
 
     /// Creates a new instance of a BDD manager from a given CNF.
-    pub fn from_cnf(cnf: Symbol) -> Self {
-        let mut mgr = Self::new();
+    fn from_cnf(cnf: Symbol) -> Self {
+        let mut mgr = Self {
+            unique_table: HashMap::new(),
+            computed_table: HashMap::new(),
+            bdd: Rc::new(NodeType::Zero),
+        };
         mgr.bdd = mgr.from_cnf_rec(cnf);
         mgr
     }
 
+    /// Helper method for `from_cnf`.
     fn from_cnf_rec(&mut self, cnf: Symbol) -> Rc<NodeType> {
         match cnf {
             Symbol::Posterminal(i) => Rc::new(Node::new(
@@ -80,6 +96,7 @@ impl BDDManager {
         }
     }
 
+    /// Adds a `NodeType` to the unique_table, if it is not already there.
     fn add_node_to_unique(
         &mut self,
         var: i64,
@@ -93,6 +110,7 @@ impl BDDManager {
         )
     }
 
+    /// Evaluates all the nodes in `subtree` with the given Boolean `val`.
     fn restrict(&mut self, subtree: Rc<NodeType>, var: i64, val: bool) -> Rc<NodeType> {
         match subtree.as_ref() {
             NodeType::Zero => subtree,
@@ -116,58 +134,51 @@ impl BDDManager {
         }
     }
 
-    // Broken
-    /*
+    /// Returns the number of variable assignments that evaluate the represented BDD to true.
     pub fn satcount(&mut self) -> i64 {
-        let st = self.bdd.clone();
-        let st2 = self.bdd.clone();
-        match st {
+        self.satcount_rec(Rc::clone(&self.bdd))
+    }
+
+    /// Helper method fpr `satcount`.
+    fn satcount_rec(&mut self, subtree: Rc<NodeType>) -> i64 {
+        match subtree.as_ref() {
             NodeType::Zero => 0,
             NodeType::One => 1,
             NodeType::Complex(n) => {
-                2_i64.pow((n.top_var - 1) as u32 * self.satcount_rec(st2) as u32)
-            }
-        }
-    }*/
-    /*
-    fn satcount_rec(&mut self, subtree: NodeType) -> i64 {
-        match subtree {
-            NodeType::Zero => 0,
-            NodeType::One => 1,
-            NodeType::Complex(n) => {
-                let sub_low = *n.low;
-                let sub_low2 = sub_low.clone();
-                let sub_high = *n.high;
-                let sub_high2 = sub_high.clone();
+                let bdd_low = n.low.as_ref();
+                let bdd_high = n.high.as_ref();
+
                 let mut size = 0;
 
-                let s = match sub_low {
-                    NodeType::Zero => 0,
-                    NodeType::One => 1,
-                    NodeType::Complex(ln) => 2_i64.pow((ln.top_var - n.top_var - 1) as u32),
+                let s = match bdd_low {
+                    NodeType::Complex(low_node) => {
+                        2_i64.pow(low_node.top_var as u32 - n.top_var as u32 - 1)
+                    }
+                    _ => 1,
                 };
 
-                size += s * self.satcount_rec(sub_low2);
+                size += s * self.satcount_rec(Rc::clone(&n.low));
 
-                let s = match sub_high {
-                    NodeType::Zero => 0,
-                    NodeType::One => 1,
-                    NodeType::Complex(hn) => 2_i64.pow((hn.top_var - n.top_var - 1) as u32),
+                let s = match bdd_high {
+                    NodeType::Complex(high_node) => {
+                        2_i64.pow(high_node.top_var as u32 - n.top_var as u32 - 1)
+                    }
+                    _ => 1,
                 };
 
-                size += s * self.satcount_rec(sub_high2);
+                size += s * self.satcount_rec(Rc::clone(&n.high));
 
                 size
             }
         }
     }
-    */
 
     /// Returns true if there is a variable assignment which evaluates the represented formula to `true`.
     pub fn satisfiable(&self) -> bool {
         self.bdd.as_ref() != &NodeType::Zero
     }
 
+    /// If-then-else, if `f` ite returns `g`, else `h`.
     fn ite(&mut self, f: Rc<NodeType>, g: Rc<NodeType>, h: Rc<NodeType>) -> Rc<NodeType> {
         match (f.as_ref(), g.as_ref(), h.as_ref()) {
             (NodeType::Zero, _, _) => h,
@@ -218,14 +229,17 @@ impl BDDManager {
         }
     }
 
+    /// Calculates the Boolean AND with the given left hand side `lhs` and the given right hand side `rhs`.
     pub fn and(&mut self, lhs: Rc<NodeType>, rhs: Rc<NodeType>) -> Rc<NodeType> {
         self.ite(lhs, rhs, Rc::new(NodeType::Zero))
     }
 
+    /// Calculates the Boolean OR with the given left hand side `lhs` and the given right hand side `rhs`.
     pub fn or(&mut self, lhs: Rc<NodeType>, rhs: Rc<NodeType>) -> Rc<NodeType> {
         self.ite(lhs, Rc::new(NodeType::One), rhs)
     }
 
+    /// Calculates the Boolean NOT with the given value `val`.
     pub fn not(&mut self, val: Rc<NodeType>) -> Rc<NodeType> {
         self.ite(val, Rc::new(NodeType::Zero), Rc::new(NodeType::One))
     }
@@ -239,7 +253,7 @@ mod tests {
     fn build_bdd(path: &str) -> BDDManager {
         let input =
             crate::input::parser::parse_string(&std::fs::read_to_string(path).unwrap()).unwrap();
-        let input_symbols = BooleanFunction::new_cnf_formula(input);
+        let input_symbols = BooleanFunction::new_from_cnf_formula(input);
         BDDManager::from_cnf(input_symbols)
     }
 
@@ -270,9 +284,37 @@ mod tests {
     }
 
     #[test]
+    fn easy1_sat() {
+        let mut mgr = build_bdd("examples/assets/easy1.dimacs");
+        assert!(mgr.satisfiable());
+        assert_eq!(mgr.satcount(), 5);
+    }
+
+    #[test]
+    fn easyns_satcount() {
+        let mut mgr = build_bdd("examples/assets/easyns.dimacs");
+        assert_eq!(mgr.satcount(), 0);
+    }
+
+    #[test]
     fn easyns_structural() {
         let mgr = build_bdd("examples/assets/easyns.dimacs");
         assert_eq!(mgr.bdd.as_ref(), &NodeType::Zero);
+    }
+
+    #[test]
+    fn sandwich_sat() {
+        let mut mgr = build_bdd("examples/assets/sandwich.dimacs");
+        assert!(mgr.satisfiable());
+        assert_eq!(mgr.satcount(), 2808);
+    }
+
+    #[test]
+    #[ignore]
+    fn berkeleydb_sat() {
+        let mut mgr = build_bdd("examples/assets/berkeleydb.dimacs");
+        assert!(mgr.satisfiable());
+        assert_eq!(mgr.satcount(), 0); //Result was 2720267161
     }
 
     #[test]
@@ -280,18 +322,5 @@ mod tests {
     fn ns_structural() {
         let mgr = build_bdd("examples/assets/ns.dimacs");
         assert_eq!(mgr.bdd.as_ref(), &NodeType::Zero);
-    }
-
-    #[test]
-    fn sandwich_satisfiable() {
-        let mgr = build_bdd("examples/assets/sandwich.dimacs");
-        assert!(mgr.satisfiable());
-    }
-
-    #[test]
-    #[ignore]
-    fn berkeleydb_satisfiable() {
-        let mgr = build_bdd("examples/assets/berkeleydb.dimacs");
-        assert!(mgr.satisfiable());
     }
 }

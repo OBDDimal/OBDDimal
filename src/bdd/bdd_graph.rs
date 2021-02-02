@@ -18,6 +18,10 @@ impl Node {
     }
 }
 
+/// Representation of what types a `Node` in a BDD can be.
+/// `Zero` is the terminal 0 node.
+/// `One` is the terminal 1 node.
+/// `Complex(Node)` represents a `Node`.
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum NodeType {
     Zero,
