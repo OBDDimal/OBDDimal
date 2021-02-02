@@ -11,7 +11,7 @@ pub enum DataFormatError {
 /// given `input` as vectors.
 pub fn parse_string(input: &str) -> Result<Vec<Vec<i32>>, DataFormatError> {
     let lines = input
-        .split("\n")
+        .split('\n')
         .filter(|l| !matches!(l.chars().next(), Some('p') | Some('c')));
 
     let mut buff = String::new();

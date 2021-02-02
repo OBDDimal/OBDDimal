@@ -9,11 +9,11 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(v: i64, low: Rc<NodeType>, high: Rc<NodeType>) -> NodeType {
+    pub fn new_node_type(v: i64, low: Rc<NodeType>, high: Rc<NodeType>) -> NodeType {
         NodeType::Complex(Node {
             top_var: v,
-            low: low,
-            high: high,
+            low,
+            high,
         })
     }
 }

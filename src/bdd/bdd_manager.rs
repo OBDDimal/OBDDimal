@@ -71,12 +71,12 @@ impl BDDManager {
     /// Helper method for `from_cnf`.
     fn from_cnf_rec(&mut self, cnf: Symbol) -> Rc<NodeType> {
         match cnf {
-            Symbol::Posterminal(i) => Rc::new(Node::new(
+            Symbol::Posterminal(i) => Rc::new(Node::new_node_type(
                 i as i64,
                 Rc::new(NodeType::Zero),
                 Rc::new(NodeType::One),
             )),
-            Symbol::Negterminal(i) => Rc::new(Node::new(
+            Symbol::Negterminal(i) => Rc::new(Node::new_node_type(
                 i as i64,
                 Rc::new(NodeType::One),
                 Rc::new(NodeType::Zero),
@@ -106,7 +106,7 @@ impl BDDManager {
         Rc::clone(
             self.unique_table
                 .entry(UniqueKey::new(var, low.clone(), high.clone()))
-                .or_insert(Rc::new(Node::new(var, low, high))),
+                .or_insert_with(|| Rc::new(Node::new_node_type(var, low, high))),
         )
     }
 
@@ -123,24 +123,23 @@ impl BDDManager {
                     let srh = self.restrict(Rc::clone(&node.high), var, val);
                     let srl = self.restrict(Rc::clone(&node.low), var, val);
                     self.add_node_to_unique(node.top_var, srl, srh)
+                } else if val {
+                    self.restrict(Rc::clone(&node.high), var, val)
                 } else {
-                    if val {
-                        self.restrict(Rc::clone(&node.high), var, val)
-                    } else {
-                        self.restrict(Rc::clone(&node.low), var, val)
-                    }
+                    self.restrict(Rc::clone(&node.low), var, val)
                 }
             }
         }
     }
 
     /// Returns the number of variable assignments that evaluate the represented BDD to true.
-    pub fn satcount(&mut self) -> i64 {
+    /// Broken!
+    pub fn satcount(&self) -> i64 {
         self.satcount_rec(Rc::clone(&self.bdd))
     }
 
     /// Helper method fpr `satcount`.
-    fn satcount_rec(&mut self, subtree: Rc<NodeType>) -> i64 {
+    fn satcount_rec(&self, subtree: Rc<NodeType>) -> i64 {
         match subtree.as_ref() {
             NodeType::Zero => 0,
             NodeType::One => 1,
@@ -285,14 +284,14 @@ mod tests {
 
     #[test]
     fn easy1_sat() {
-        let mut mgr = build_bdd("examples/assets/easy1.dimacs");
+        let mgr = build_bdd("examples/assets/easy1.dimacs");
         assert!(mgr.satisfiable());
         assert_eq!(mgr.satcount(), 5);
     }
 
     #[test]
     fn easyns_satcount() {
-        let mut mgr = build_bdd("examples/assets/easyns.dimacs");
+        let mgr = build_bdd("examples/assets/easyns.dimacs");
         assert_eq!(mgr.satcount(), 0);
     }
 
@@ -304,7 +303,7 @@ mod tests {
 
     #[test]
     fn sandwich_sat() {
-        let mut mgr = build_bdd("examples/assets/sandwich.dimacs");
+        let mgr = build_bdd("examples/assets/sandwich.dimacs");
         assert!(mgr.satisfiable());
         assert_eq!(mgr.satcount(), 2808);
     }
@@ -312,7 +311,7 @@ mod tests {
     #[test]
     #[ignore]
     fn berkeleydb_sat() {
-        let mut mgr = build_bdd("examples/assets/berkeleydb.dimacs");
+        let mgr = build_bdd("examples/assets/berkeleydb.dimacs");
         assert!(mgr.satisfiable());
         assert_eq!(mgr.satcount(), 0); //Result was 2720267161
     }
