@@ -268,7 +268,7 @@ mod tests {
     }
 
     #[test]
-    fn croocked_input_parse() {
+    fn crooked_input_parse() {
         let input = std::fs::read_to_string("examples/assets/crooked.dimacs").unwrap();
         let output = parse_string(&input, ParserSettings::default()).unwrap();
 
