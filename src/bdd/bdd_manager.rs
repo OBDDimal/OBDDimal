@@ -1,5 +1,6 @@
 use crate::bdd::bdd_graph::*;
 use crate::input::boolean_function::*;
+use crate::input::parser::{Cnf, DataFormatError, ParserSettings};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -41,30 +42,37 @@ pub enum InputFormat {
 pub struct BDDManager {
     unique_table: HashMap<UniqueKey, Rc<NodeType>>,
     computed_table: HashMap<ComputedKey, Rc<NodeType>>,
+    cnf: Cnf,
     pub bdd: Rc<NodeType>,
 }
 
 impl BDDManager {
     /// Creates a new instance of a BDD manager out of a given input format.
     /// Currently there is only `InputFormat::CNF` supported, which represents Dimacs CNF.
-    pub fn from_format(data: &str, format: InputFormat) -> Self {
-        let input_vec_data = crate::input::parser::parse_string(data).unwrap();
+    pub fn from_format(
+        data: &str,
+        format: InputFormat,
+        settings: ParserSettings,
+    ) -> Result<Self, DataFormatError> {
+        let cnf = crate::input::parser::parse_string(data, settings)?;
+
         let symbolic_rep = match format {
             InputFormat::CNF => {
-                crate::boolean_function::BooleanFunction::new_from_cnf_formula(input_vec_data)
+                crate::boolean_function::BooleanFunction::new_from_cnf_formula(cnf.terms.clone())
             }
         };
-        BDDManager::from_cnf(symbolic_rep)
+        Ok(BDDManager::from_cnf(symbolic_rep, cnf))
     }
 
     /// Creates a new instance of a BDD manager from a given CNF.
-    fn from_cnf(cnf: Symbol) -> Self {
+    fn from_cnf(symbols: Symbol, cnf: Cnf) -> Self {
         let mut mgr = Self {
             unique_table: HashMap::new(),
             computed_table: HashMap::new(),
             bdd: Rc::new(NodeType::Zero),
+            cnf,
         };
-        mgr.bdd = mgr.from_cnf_rec(cnf);
+        mgr.bdd = mgr.from_cnf_rec(symbols);
         mgr
     }
 
@@ -134,42 +142,31 @@ impl BDDManager {
 
     /// Returns the number of variable assignments that evaluate the represented BDD to true.
     /// Broken!
-    pub fn satcount(&self) -> i64 {
-        self.satcount_rec(Rc::clone(&self.bdd))
-    }
+    pub fn satcount(&self) -> u64 {
+        let mut count: u64 = 0;
+        let mut stack = vec![];
 
-    /// Helper method fpr `satcount`.
-    fn satcount_rec(&self, subtree: Rc<NodeType>) -> i64 {
-        match subtree.as_ref() {
-            NodeType::Zero => 0,
-            NodeType::One => 1,
-            NodeType::Complex(n) => {
-                let bdd_low = n.low.as_ref();
-                let bdd_high = n.high.as_ref();
+        stack.push((Rc::clone(&self.bdd), 0));
 
-                let mut size = 0;
+        while !stack.is_empty() {
+            let tuple = stack.pop().unwrap(); // unwarp is okay, because stack can't be empty there.
+            let node = tuple.0.as_ref();
+            let depth = tuple.1;
 
-                let s = match bdd_low {
-                    NodeType::Complex(low_node) => {
-                        2_i64.pow(low_node.top_var as u32 - n.top_var as u32 - 1)
+            match node {
+                NodeType::Zero | NodeType::One => {
+                    if node == &NodeType::One {
+                        count += 2_u64.pow(self.cnf.varibale_count - depth);
                     }
-                    _ => 1,
-                };
-
-                size += s * self.satcount_rec(Rc::clone(&n.low));
-
-                let s = match bdd_high {
-                    NodeType::Complex(high_node) => {
-                        2_i64.pow(high_node.top_var as u32 - n.top_var as u32 - 1)
-                    }
-                    _ => 1,
-                };
-
-                size += s * self.satcount_rec(Rc::clone(&n.high));
-
-                size
+                }
+                NodeType::Complex(n) => {
+                    stack.push((Rc::clone(&n.low), depth + 1));
+                    stack.push((Rc::clone(&n.high), depth + 1));
+                }
             }
         }
+
+        count
     }
 
     /// Returns true if there is a variable assignment which evaluates the represented formula to `true`.
@@ -250,10 +247,13 @@ mod tests {
     use crate::bdd::bdd_graph::NodeType::*;
 
     fn build_bdd(path: &str) -> BDDManager {
-        let input =
-            crate::input::parser::parse_string(&std::fs::read_to_string(path).unwrap()).unwrap();
-        let input_symbols = BooleanFunction::new_from_cnf_formula(input);
-        BDDManager::from_cnf(input_symbols)
+        let input = crate::input::parser::parse_string(
+            &std::fs::read_to_string(path).unwrap(),
+            ParserSettings::default(),
+        )
+        .unwrap();
+        let input_symbols = BooleanFunction::new_from_cnf_formula(input.terms.clone());
+        BDDManager::from_cnf(input_symbols, input)
     }
 
     #[test]
@@ -313,13 +313,6 @@ mod tests {
     fn berkeleydb_sat() {
         let mgr = build_bdd("examples/assets/berkeleydb.dimacs");
         assert!(mgr.satisfiable());
-        assert_eq!(mgr.satcount(), 0); //Result was 2720267161
-    }
-
-    #[test]
-    #[ignore]
-    fn ns_structural() {
-        let mgr = build_bdd("examples/assets/ns.dimacs");
-        assert_eq!(mgr.bdd.as_ref(), &NodeType::Zero);
+        assert_eq!(mgr.satcount(), 4080389785);
     }
 }

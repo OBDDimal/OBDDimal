@@ -56,12 +56,11 @@ impl BooleanFunction {
         Self::new_cnf_formula_rec(inp)
     }
 
-    fn new_cnf_formula_rec(inp: Vec<Vec<Symbol>>) -> Symbol {
+    fn new_cnf_formula_rec(mut inp: Vec<Vec<Symbol>>) -> Symbol {
         if inp.len() == 1 {
             return Self::new_cnf_term_rec(inp[0].clone());
         }
 
-        let mut inp = inp;
         let fst = inp[0].clone();
         inp.reverse();
         inp.pop();
