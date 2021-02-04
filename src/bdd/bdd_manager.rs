@@ -303,7 +303,10 @@ mod tests {
 
     #[test]
     fn sandwich_sat() {
+        use std::time::Instant;
+        let now = Instant::now();
         let mgr = build_bdd("examples/assets/sandwich.dimacs");
+        println!("Sandwich build in: {:?}", now.elapsed());
         assert!(mgr.satisfiable());
         assert_eq!(mgr.satcount(), 2808);
     }
@@ -311,7 +314,10 @@ mod tests {
     #[test]
     #[ignore]
     fn berkeleydb_sat() {
+        use std::time::Instant;
+        let now = Instant::now();
         let mgr = build_bdd("examples/assets/berkeleydb.dimacs");
+        println!("BerkeleyDB build in: {:?}", now.elapsed());
         assert!(mgr.satisfiable());
         assert_eq!(mgr.satcount(), 4080389785);
     }
