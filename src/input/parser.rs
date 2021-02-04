@@ -15,10 +15,16 @@ pub enum DataFormatError {
 impl std::fmt::Display for DataFormatError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            DataFormatError::InvalidHeaderData(header_data_type) => write!(f, "Data in given header is invalid: {}", header_data_type),
-            DataFormatError::InvalidNumber(parse_error) => write!(f, "Non-number out of comment line: {}", parse_error),
+            DataFormatError::InvalidHeaderData(header_data_type) => {
+                write!(f, "Data in given header is invalid: {}", header_data_type)
+            }
+            DataFormatError::InvalidNumber(parse_error) => {
+                write!(f, "Non-number out of comment line: {}", parse_error)
+            }
             DataFormatError::MultipleHeaders => write!(f, "File contains more than one headers."),
-            DataFormatError::NonAscendingVariables => write!(f, "Variables are not in ascending order."),
+            DataFormatError::NonAscendingVariables => {
+                write!(f, "Variables are not in ascending order.")
+            }
             DataFormatError::MissingHeader => write!(f, "File is missing a header."),
             DataFormatError::InvalidHeaderFormat => write!(f, "File contains a malformed header."),
         }
@@ -71,25 +77,29 @@ impl Default for ParserSettings {
 /// The ok part of the result contains a vector containing all the clauses of the
 /// given `input` as vectors.
 pub fn parse_string(input: &str, settings: ParserSettings) -> Result<Cnf, DataFormatError> {
+    // Extract every line starting with the letter p.
     let headers = input
         .split('\n')
         .filter(|l| matches!(l.chars().next(), Some('p')))
         .collect::<Vec<_>>();
 
+    // Check the number of found headers.
     match headers.len() {
         0 => {
             if !settings.ignore_header {
-                Err(DataFormatError::MissingHeader)?
+                Err(DataFormatError::MissingHeader)? // If there is no header an error is returned if the setting does not ignore the header.
             }
         }
-        1 => {}
-        _ => Err(DataFormatError::MultipleHeaders)?,
+        1 => {} // If there is exactly 1 header everything is fine.
+        _ => Err(DataFormatError::MultipleHeaders)?, // If there are multiple headers an error is returned.
     }
 
+    // Get all lines that are not header or comment lines.
     let lines = input
         .split('\n')
         .filter(|l| !matches!(l.chars().next(), Some('p') | Some('c')));
 
+    // Concatenate all previous found lines with a space.
     let mut buff = String::new();
 
     for l in lines {
@@ -97,6 +107,7 @@ pub fn parse_string(input: &str, settings: ParserSettings) -> Result<Cnf, DataFo
         buff.push(' ');
     }
 
+    // Create a vector of vectors containing the variables of the cnf.
     let mut terms = vec![];
     let mut current = vec![];
 
@@ -109,22 +120,27 @@ pub fn parse_string(input: &str, settings: ParserSettings) -> Result<Cnf, DataFo
         }
     }
 
+    // Number of terms in the cnf.
     let term_count = terms.len();
 
+    // Create a ordered set of all the absolute values in the cnf.
     let vars = terms
         .iter()
         .flatten()
         .map(|x| x.abs())
         .collect::<BTreeSet<_>>();
 
+    // Number of all used variables in the cnf.
     let var_count = vars.len();
 
     if !settings.ignore_ascending_variables {
+        // Check if all subsequent variables are ascending by exactly +1.
         let is_ascending = vars
             .iter()
             .zip(vars.iter().skip(1))
             .all(|(&lhs, &rhs)| (lhs + 1) == rhs);
 
+        // If the variables are not ascending and the settings do not ignore them, an error is returned.
         if !is_ascending {
             Err(DataFormatError::NonAscendingVariables)?;
         }
@@ -132,32 +148,36 @@ pub fn parse_string(input: &str, settings: ParserSettings) -> Result<Cnf, DataFo
 
     if !settings.ignore_header {
         let header = headers[0]; // Can not panic, because length is exactly 1.
-        let mut split_header = header.split_whitespace();
-        let _ = split_header.next();
-        let _cnf: &str = split_header
+        let mut split_header = header.split_whitespace(); // Iterator over all elements in the header.
+        let _ = split_header.next(); // Discard the first element of the header line 'p'.
+        let _cnf: &str = split_header // "cnf" string of the header.
             .next()
             .ok_or(DataFormatError::InvalidHeaderFormat)?;
-        let header_var_count = split_header
+        let header_var_count = split_header // Variable count from the header.
             .next()
             .ok_or(DataFormatError::InvalidHeaderFormat)
             .and_then(|x| x.parse::<i32>().map_err(DataFormatError::InvalidNumber))?;
-        let header_term_count = split_header
+        let header_term_count = split_header // Term count from the header.
             .next()
             .ok_or(DataFormatError::InvalidHeaderFormat)
             .and_then(|x| x.parse::<i32>().map_err(DataFormatError::InvalidNumber))?;
 
+        // Return an error if the variable count from the cnf header and the calculated variable count does not match.
         if header_var_count != var_count as i32 {
             Err(DataFormatError::InvalidHeaderData(
                 HeaderDataType::VariableCount,
             ))?;
         }
 
+        // Return an error if the term count from the cnf header and the calculated term count does not match.
         if header_term_count != term_count as i32 {
             Err(DataFormatError::InvalidHeaderData(
                 HeaderDataType::TermCount,
             ))?;
         }
     }
+
+    // Return the cnf as a struct.
     Ok(Cnf {
         varibale_count: var_count as u32,
         term_count: term_count as u32,
