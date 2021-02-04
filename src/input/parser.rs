@@ -188,6 +188,7 @@ pub fn parse_string(input: &str, settings: ParserSettings) -> Result<Cnf, DataFo
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Test small dimacs file.
     #[test]
     fn small_input_parse() {
         let input = std::fs::read_to_string("examples/assets/easy1.dimacs").unwrap();
@@ -196,6 +197,7 @@ mod tests {
         assert_eq!(output.terms, vec![vec![1, -3], vec![2, 3, -1]])
     }
 
+    // Test if parser detects non ascending variables.
     #[test]
     fn non_ascending_parse() {
         let input = std::fs::read_to_string("examples/assets/nonascending.dimacs").unwrap();
@@ -203,7 +205,7 @@ mod tests {
 
         assert_eq!(output, Err(DataFormatError::NonAscendingVariables));
     }
-
+    // Test if parser detects the setting to ignore ascending variables.
     #[test]
     fn non_ascending_ignored_parse() {
         let input = std::fs::read_to_string("examples/assets/nonascending.dimacs").unwrap();
@@ -218,7 +220,7 @@ mod tests {
 
         assert_eq!(output.terms, vec![vec![1, 3]]);
     }
-
+    // Test if parser detects mutliple headers.
     #[test]
     fn multiple_header_parse() {
         let input = "p cnf 1 1\np cnf 2 1\n1 2 0";
@@ -226,15 +228,16 @@ mod tests {
 
         assert_eq!(output, Err(DataFormatError::MultipleHeaders));
     }
-
+    // Test if parser detects missing headers.
     #[test]
-    fn ignore_header_parse() {
+    fn missing_header_parse() {
         let input = std::fs::read_to_string("examples/assets/ignoreheader.dimacs").unwrap();
         let output = parse_string(&input, ParserSettings::default());
 
         assert_eq!(output, Err(DataFormatError::MissingHeader));
     }
 
+    // Test if parser detects invalid headers.
     #[test]
     fn invalid_header_format_parse() {
         let input = std::fs::read_to_string("examples/assets/invalidheaderformat.dimacs").unwrap();
@@ -243,6 +246,7 @@ mod tests {
         assert_eq!(output, Err(DataFormatError::InvalidHeaderFormat));
     }
 
+    // Test if parser detects settings to ignore invalid headers.
     #[test]
     fn invalid_header_format_ignored_parse() {
         let input = std::fs::read_to_string("examples/assets/ignoreheader.dimacs").unwrap();
@@ -257,7 +261,7 @@ mod tests {
 
         assert_eq!(output.terms, vec![vec![1, 2]]);
     }
-
+    // Test if parser detects settings to ignore invalid header variable count.
     #[test]
     fn invalid_header_data_variable_parse() {
         let input = std::fs::read_to_string("examples/assets/invalidheaderdata.dimacs").unwrap();
@@ -275,7 +279,7 @@ mod tests {
             ))
         );
     }
-
+    // Test if parser detects settings to ignore invalid header term count.
     #[test]
     fn invalid_header_data_term_parse() {
         let input = std::fs::read_to_string("examples/assets/invalidheaderdata2.dimacs").unwrap();
@@ -293,7 +297,7 @@ mod tests {
             ))
         );
     }
-
+    // Test if parser detects settings to ignore headers.
     #[test]
     fn ignore_header_true_parse() {
         let input = std::fs::read_to_string("examples/assets/ignoreheader.dimacs").unwrap();
@@ -308,7 +312,7 @@ mod tests {
 
         assert_eq!(output.terms, vec![vec![1, 2]]);
     }
-
+    // Test if parser can read crooked input.
     #[test]
     fn crooked_input_parse() {
         let input = std::fs::read_to_string("examples/assets/crooked.dimacs").unwrap();
