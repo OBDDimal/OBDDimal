@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::num::ParseIntError;
 
-//TODO: Implement error trait
+//TODO: Implement error trait (Somehow it is good practice to not implement the Error trait for those kind of 'high-level' errors.)
 #[derive(Debug, Eq, PartialEq)]
 pub enum DataFormatError {
     InvalidNumber(ParseIntError),
@@ -12,11 +12,33 @@ pub enum DataFormatError {
     InvalidHeaderData(HeaderDataType),
 }
 
+impl std::fmt::Display for DataFormatError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            DataFormatError::InvalidHeaderData(header_data_type) => write!(f, "Data in given header is invalid: {}", header_data_type),
+            DataFormatError::InvalidNumber(parse_error) => write!(f, "Non-number out of comment line: {}", parse_error),
+            DataFormatError::MultipleHeaders => write!(f, "File contains more than one headers."),
+            DataFormatError::NonAscendingVariables => write!(f, "Variables are not in ascending order."),
+            DataFormatError::MissingHeader => write!(f, "File is missing a header."),
+            DataFormatError::InvalidHeaderFormat => write!(f, "File contains a malformed header."),
+        }
+    }
+}
+
 //TODO: Implement error trait
 #[derive(Debug, Eq, PartialEq)]
 pub enum HeaderDataType {
     VariableCount,
     TermCount,
+}
+
+impl std::fmt::Display for HeaderDataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            HeaderDataType::VariableCount => write!(f, "Wrong number of variables."),
+            HeaderDataType::TermCount => write!(f, "Wrong number of terms."),
+        }
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
