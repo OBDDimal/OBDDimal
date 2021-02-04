@@ -158,7 +158,6 @@ impl BDDManager {
     }
 
     /// Returns the number of variable assignments that evaluate the represented BDD to true.
-    /// Broken!
     pub fn satcount(&self) -> u64 {
         let mut count: u64 = 0;
         let mut stack = vec![];

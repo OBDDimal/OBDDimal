@@ -9,6 +9,7 @@ pub struct Node {
 }
 
 impl Node {
+    /// Creates a `Node` and wraps it into a `NodeType::Complex`.
     pub fn new_node_type(v: i64, low: Rc<NodeType>, high: Rc<NodeType>) -> NodeType {
         NodeType::Complex(Node {
             top_var: v,
