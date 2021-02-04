@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 /// Representation of a Binary Decision Diagram node, containing the top variable `top_var` and the children `hi` and `lo`.
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Node {
     pub top_var: i64,       // top_variable
     pub low: Rc<NodeType>,  // 0 side of the bdd
@@ -22,7 +22,7 @@ impl Node {
 /// `Zero` is the terminal 0 node.
 /// `One` is the terminal 1 node.
 /// `Complex(Node)` represents a `Node`.
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum NodeType {
     Zero,
     One,

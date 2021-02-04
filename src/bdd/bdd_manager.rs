@@ -2,14 +2,23 @@ use crate::bdd::bdd_graph::*;
 use crate::input::boolean_function::*;
 use crate::input::parser::{Cnf, DataFormatError, ParserSettings};
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 /// Used as key for the unique_table.
-#[derive(Hash, Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 struct UniqueKey {
     tv: i64,
     low: Rc<NodeType>,
     high: Rc<NodeType>,
+}
+
+impl Hash for UniqueKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.tv.hash(state);
+        std::ptr::hash(&self.low, state);
+        std::ptr::hash(&self.high, state);
+    }
 }
 
 impl UniqueKey {
@@ -19,11 +28,19 @@ impl UniqueKey {
 }
 
 /// Used as the key for the computed_table.
-#[derive(Hash, Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 struct ComputedKey {
     f: Rc<NodeType>,
     g: Rc<NodeType>,
     h: Rc<NodeType>,
+}
+
+impl Hash for ComputedKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::ptr::hash(&self.f, state);
+        std::ptr::hash(&self.g, state);
+        std::ptr::hash(&self.h, state);
+    }
 }
 
 impl ComputedKey {
@@ -312,7 +329,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn berkeleydb_sat() {
         use std::time::Instant;
         let now = Instant::now();
