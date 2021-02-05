@@ -25,6 +25,7 @@ fn main() {
     let path = if let Some(i) = matches.value_of("INPUT") {
         i
     } else {
+        println!("No input file specified.");
         panic!("No input file specified!");
     };
 

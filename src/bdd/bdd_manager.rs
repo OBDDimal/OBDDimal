@@ -141,7 +141,6 @@ impl BDDManager {
             NodeType::Zero => subtree,
             NodeType::One => subtree,
             NodeType::Complex(node) => {
-                // todo: computed_table
                 if node.top_var > var {
                     return subtree;
                 }
