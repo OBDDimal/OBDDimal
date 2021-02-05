@@ -1,3 +1,4 @@
+use crate::variable_ordering::static_ordering::force_heuristic;
 use std::collections::BTreeSet;
 use std::num::ParseIntError;
 
@@ -73,7 +74,7 @@ impl Default for ParserSettings {
     }
 }
 
-/// Takes a `&str` and returns a `Result<Vec<Vec<i32>>, DataFormatError>`.
+/// Takes a `&str` and returns a `Result<Cnf, DataFormatError>`.
 /// The ok part of the result contains a vector containing all the clauses of the
 /// given `input` as vectors.
 pub fn parse_string(input: &str, settings: ParserSettings) -> Result<Cnf, DataFormatError> {
@@ -177,12 +178,14 @@ pub fn parse_string(input: &str, settings: ParserSettings) -> Result<Cnf, DataFo
         }
     }
 
-    // Return the cnf as a struct.
-    Ok(Cnf {
+    let heuristic_cnf = force_heuristic(Cnf {
         varibale_count: var_count as u32,
         term_count: term_count as u32,
         terms: terms,
-    })
+    });
+
+    // Return the cnf as a struct.
+    Ok(heuristic_cnf)
 }
 
 #[cfg(test)]

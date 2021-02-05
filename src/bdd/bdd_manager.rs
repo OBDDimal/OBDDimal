@@ -135,6 +135,7 @@ impl BDDManager {
         )
     }
 
+    /*
     /// Evaluates all the nodes in `subtree` with the given Boolean `val`.
     fn restrict(&mut self, subtree: Rc<NodeType>, var: i64, val: bool) -> Rc<NodeType> {
         match subtree.as_ref() {
@@ -153,6 +154,27 @@ impl BDDManager {
                 } else {
                     self.restrict(Rc::clone(&node.low), var, val)
                 }
+            }
+        }
+    }
+    */
+
+    pub fn nodecount(&self) -> u64 {
+        if self.bdd.as_ref() == &NodeType::Zero {
+            1
+        } else {
+            Self::nodecount_rec(Rc::clone(&self.bdd))
+        }
+    }
+
+    fn nodecount_rec(subtree: Rc<NodeType>) -> u64 {
+        let root = subtree.as_ref();
+
+        match root {
+            NodeType::Zero => 0,
+            NodeType::One => 0,
+            NodeType::Complex(n) => {
+                1 + Self::nodecount_rec(Rc::clone(&n.low)) + Self::nodecount_rec(Rc::clone(&n.high))
             }
         }
     }
@@ -190,6 +212,33 @@ impl BDDManager {
         self.bdd.as_ref() != &NodeType::Zero
     }
 
+    fn restrict_alternative(&mut self, node: Rc<NodeType>, v: i64, val: bool) -> Rc<NodeType> {
+        match node.as_ref() {
+            NodeType::Complex(n) => {
+                if val {
+                    // we assume v is less or equal to n.top_var
+                    if v < n.top_var {
+                        node
+                    } else if v == n.top_var {
+                        Rc::clone(&n.high)
+                    } else {
+                        panic!("v is bigger than w!");
+                    }
+                } else {
+                    if v < n.top_var {
+                        node
+                    } else if v == n.top_var {
+                        Rc::clone(&n.low)
+                    } else {
+                        panic!("v is bigger than w!");
+                    }
+                }
+            }
+            NodeType::Zero => Rc::new(NodeType::Zero),
+            NodeType::One => Rc::new(NodeType::One),
+        }
+    }
+
     /// If-then-else, if `f` ite returns `g`, else `h`.
     fn ite(&mut self, f: Rc<NodeType>, g: Rc<NodeType>, h: Rc<NodeType>) -> Rc<NodeType> {
         match (f.as_ref(), g.as_ref(), h.as_ref()) {
@@ -213,15 +262,15 @@ impl BDDManager {
                             .min()
                             .unwrap(); // Unwrap can't fail, because the match ensures that at least one NodeType::Complex(n) is present.
 
-                        let ixt = self.restrict(Rc::clone(&f), v, true);
-                        let txt = self.restrict(Rc::clone(&g), v, true);
-                        let ext = self.restrict(Rc::clone(&h), v, true);
+                        let ixt = self.restrict_alternative(Rc::clone(&f), v, true);
+                        let txt = self.restrict_alternative(Rc::clone(&g), v, true);
+                        let ext = self.restrict_alternative(Rc::clone(&h), v, true);
 
                         let tv = self.ite(ixt, txt, ext);
 
-                        let ixf = self.restrict(Rc::clone(&f), v, false);
-                        let txf = self.restrict(Rc::clone(&g), v, false);
-                        let exf = self.restrict(Rc::clone(&h), v, false);
+                        let ixf = self.restrict_alternative(Rc::clone(&f), v, false);
+                        let txf = self.restrict_alternative(Rc::clone(&g), v, false);
+                        let exf = self.restrict_alternative(Rc::clone(&h), v, false);
 
                         let ev = self.ite(ixf, txf, exf);
 
@@ -306,6 +355,24 @@ mod tests {
     }
 
     #[test]
+    fn easyns_nodecount() {
+        let mgr = build_bdd("examples/assets/easyns.dimacs");
+        assert_eq!(mgr.nodecount(), 1);
+    }
+
+    #[test]
+    fn easy1_nodecount() {
+        let mgr = build_bdd("examples/assets/easy1.dimacs");
+        assert_eq!(mgr.nodecount(), 4);
+    }
+
+    #[test]
+    fn sandwich_nodecount() {
+        let mgr = build_bdd("examples/assets/sandwich.dimacs");
+        assert_eq!(mgr.nodecount(), 351); //Should be around 20-50
+    }
+
+    #[test]
     fn easyns_satcount() {
         let mgr = build_bdd("examples/assets/easyns.dimacs");
         assert_eq!(mgr.satcount(), 0);
@@ -328,12 +395,14 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "takes a long time"]
     fn berkeleydb_sat() {
         use std::time::Instant;
         let now = Instant::now();
         let mgr = build_bdd("examples/assets/berkeleydb.dimacs");
         println!("BerkeleyDB build in: {:?}", now.elapsed());
         assert!(mgr.satisfiable());
+        assert_eq!(mgr.nodecount(), 356702); //Should be around 1000-5000
         assert_eq!(mgr.satcount(), 4080389785);
     }
 }
