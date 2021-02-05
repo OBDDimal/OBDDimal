@@ -18,8 +18,12 @@ fn build_berkeley_bdd() {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("Build BBD from sandwich.dimacs", |b| b.iter(|| build_sandwich_bdd()));
-    c.bench_function("Build BBD from berkeley.dimacs", |b| b.iter(|| build_berkeley_bdd()));
+    c.bench_function("Build BBD from sandwich.dimacs", |b| {
+        b.iter(|| build_sandwich_bdd())
+    });
+    c.bench_function("Build BBD from berkeley.dimacs", |b| {
+        b.iter(|| build_berkeley_bdd())
+    });
 }
 
 criterion_group!(benches, criterion_benchmark);

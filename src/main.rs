@@ -1,25 +1,28 @@
+use clap::{App, Arg};
 use obbdimal::bdd_manager::{BDDManager, InputFormat};
 use obbdimal::input::parser::ParserSettings;
-use clap::{Arg, App};
 
 fn main() {
-
     let matches = App::new("OBDDimal")
         .version("0.1")
         .author("Timo Netzer <timo.netzer@uni-ulm.de>")
         .about("A experimental, parallelized BDD library written in Rust.")
-        .arg(Arg::new("INPUT")
-            .short('i')
-            .long("input")
-            .value_name("FILE")
-            .about("Sets the path of the input file to use")
-            .required(true)
-            .takes_value(true))
-        .arg(Arg::new("OUTPUT")
-            .short('o')
-            .long("output")
-            .value_name("FILE")
-            .about("Sets the path where the output is saved"))
+        .arg(
+            Arg::new("INPUT")
+                .short('i')
+                .long("input")
+                .value_name("FILE")
+                .about("Sets the path of the input file to use")
+                .required(true)
+                .takes_value(true),
+        )
+        .arg(
+            Arg::new("OUTPUT")
+                .short('o')
+                .long("output")
+                .value_name("FILE")
+                .about("Sets the path where the output is saved"),
+        )
         .get_matches();
 
     let path = if let Some(i) = matches.value_of("INPUT") {
