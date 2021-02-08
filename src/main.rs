@@ -1,6 +1,7 @@
 use clap::{App, Arg};
-use obbdimal::bdd_manager::{BDDManager, InputFormat};
+use obbdimal::bdd::bdd_ds::InputFormat;
 use obbdimal::input::parser::ParserSettings;
+use obbdimal::bdd::bdd_manager::BddManager;
 
 fn main() {
     let matches = App::new("OBDDimal")
@@ -35,9 +36,9 @@ fn main() {
     // Read data from specified dimacs file.
     let data = std::fs::read_to_string(path).unwrap();
     // Create a BDD from input data (interpreted as dimacs cnf).
-    let mgr = BDDManager::from_format(&data, InputFormat::CNF, ParserSettings::default()).unwrap();
+    let mut mgr = BddManager::new_from_format(&data, InputFormat::CNF, ParserSettings::default()).unwrap();
     // Calculate the number of variable assignments that evaluate the created BDD to true.
-    let sat_count = mgr.satcount();
+    let sat_count = mgr.sat_count();
 
     println!("Number of solutions for the BDD: {:?}", sat_count);
 }

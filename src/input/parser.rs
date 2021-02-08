@@ -1,4 +1,4 @@
-use crate::variable_ordering::static_ordering::force_heuristic;
+use crate::variable_ordering::static_ordering::force;
 use std::collections::BTreeSet;
 use std::num::ParseIntError;
 
@@ -178,7 +178,7 @@ pub fn parse_string(input: &str, settings: ParserSettings) -> Result<Cnf, DataFo
         }
     }
 
-    let heuristic_cnf = force_heuristic(Cnf {
+    let heuristic_cnf = force(Cnf {
         varibale_count: var_count as u32,
         term_count: term_count as u32,
         terms: terms,
