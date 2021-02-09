@@ -31,8 +31,6 @@ impl std::fmt::Display for DataFormatError {
         }
     }
 }
-
-//TODO: Implement error trait
 #[derive(Debug, Eq, PartialEq)]
 pub enum HeaderDataType {
     VariableCount,

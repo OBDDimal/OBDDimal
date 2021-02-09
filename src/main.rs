@@ -41,4 +41,5 @@ fn main() {
     let sat_count = mgr.sat_count();
 
     println!("Number of solutions for the BDD: {:?}", sat_count);
+    println!("Serialization of BDD: {:?}", mgr.serialize_bdd());
 }

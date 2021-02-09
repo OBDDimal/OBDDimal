@@ -47,6 +47,20 @@ impl BddManager {
         self
     }
 
+    pub fn deserialize_bdd(input: &str) {
+
+    }
+
+    pub fn serialize_bdd(&self) -> Result<String, NoBddError> {
+        let bdd = if let Some(x) = &self.bdd {
+            x
+        } else {
+            return Err(NoBddError::NoBddCreated);
+        };
+
+        Ok(bdd.serialize())
+    } 
+
     /// Returns the number of nodes in the bdd as a `Result<u64, NoBddError>`. 
     pub fn node_count(&mut self) -> Result<u64, NoBddError> {
         let bdd = if let Some(x) = &self.bdd {

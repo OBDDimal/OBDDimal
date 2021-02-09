@@ -1,7 +1,7 @@
 use crate::bdd::bdd_graph::*;
 use crate::input::boolean_function::*;
 use crate::input::parser::{Cnf, DataFormatError, ParserSettings};
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::format};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
@@ -280,6 +280,24 @@ impl Bdd {
     pub fn not(&mut self, val: Rc<NodeType>) -> Rc<NodeType> {
         self.ite(val, Rc::new(NodeType::Zero), Rc::new(NodeType::One))
     }
+
+    pub fn serialize(&self) -> String{
+        let root = Rc::clone(&self.bdd);
+        Self::serialize_rec(root)
+    }
+
+    fn serialize_rec(subtree: Rc<NodeType>) -> String {
+        let node = subtree.as_ref();
+
+        match node {
+            NodeType::Zero => String::from("-1"),
+            NodeType::One => String::from("-2"),
+            NodeType::Complex(n) => {
+                let id = n.id;
+                format!("{},{},{}", id, Self::serialize_rec(Rc::clone(&n.low)), Self::serialize_rec(Rc::clone(&n.high)))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -304,15 +322,19 @@ mod tests {
         assert_eq!(
             mgr.bdd.as_ref(),
             &Complex(Node {
+                id: 0,
                 top_var: 1,
                 low: Rc::new(Complex(Node {
+                    id: 0,
                     top_var: 3,
                     low: Rc::new(One),
                     high: Rc::new(Zero),
                 })),
                 high: Rc::new(Complex(Node {
+                    id: 0,
                     top_var: 2,
                     low: Rc::new(Complex(Node {
+                        id: 0,
                         top_var: 3,
                         low: Rc::new(Zero),
                         high: Rc::new(One),
