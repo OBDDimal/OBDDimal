@@ -6,6 +6,7 @@ use rand::seq::SliceRandom;
 use rand::thread_rng;
 
 // TODO: Make this not a Cnf, create a Trait instead.
+#[allow(unreachable_code)] // Only for cleaner console output, otherwise cargo spams the output with warnings.
 pub fn force(cnf: Cnf) -> Cnf {
     return cnf;
     let clauses = cnf.terms;
@@ -19,7 +20,7 @@ pub fn force(cnf: Cnf) -> Cnf {
         let mut cogs_v = HashMap::new();
         let span_old = span;
 
-        for (i, clause) in clauses.iter().enumerate() {
+        for (_i, clause) in clauses.iter().enumerate() {
             let cogs = compute_cog(&clause, &order);
 
             for x in clause {

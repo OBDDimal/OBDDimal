@@ -319,12 +319,16 @@ impl Bdd {
             }
         }
     }
+
+    pub fn deserialize(_input: String) -> Bdd {
+        todo!();
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bdd::bdd_graph::NodeType::*;
+    use crate::bdd::{bdd_graph::NodeType::*};
 
     fn build_bdd(path: &str) -> Bdd {
         let input = crate::input::parser::parse_string(
@@ -372,6 +376,15 @@ mod tests {
         let mgr = build_bdd("examples/assets/easy1.dimacs");
         assert!(mgr.satisfiable());
         assert_eq!(mgr.satcount(), 5);
+    }
+
+    #[test]
+    fn easy1_serialize_deserialize() {
+        let bdd = build_bdd("examples/assets/easy1.dimacs");
+        let ser = bdd.serialize();
+        let bdd = Bdd::deserialize(ser);
+        assert!(bdd.satisfiable());
+        assert_eq!(bdd.satcount(), 5);
     }
 
     #[test]

@@ -47,8 +47,11 @@ impl BddManager {
         self
     }
 
-    pub fn deserialize_bdd(input: &str) {
-
+    pub fn deserialize_bdd(mut self, input: &str) -> Self {
+        self.bdd = Some(Bdd::deserialize(String::from(input)));
+        self.node_count = None;
+        self.sat_count = None;
+        self
     }
 
     pub fn serialize_bdd(&self) -> Result<String, NoBddError> {
