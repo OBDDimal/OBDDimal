@@ -33,6 +33,12 @@ fn main() {
         panic!("No input file specified!");
     };
 
+    let output_path = if let Some(i) = matches.value_of("OUTPUT") {
+        i
+    } else {
+        ""
+    };
+
     // Read data from specified dimacs file.
     let data = std::fs::read_to_string(path).unwrap();
     // Create a BDD from input data (interpreted as dimacs cnf).
@@ -41,5 +47,11 @@ fn main() {
     let sat_count = mgr.sat_count();
 
     println!("Number of solutions for the BDD: {:?}", sat_count);
-    println!("Serialization of BDD: {:?}", mgr.serialize_bdd());
+    
+    if output_path != "" {
+        match std::fs::write(output_path, mgr.serialize_bdd().unwrap()) {
+            Ok(_) => {println!("Wrote BDD to path: {}", output_path)}
+            Err(e) => {println!("Couldn't write BDD to file: {}", e)}
+        }
+    }
 }
