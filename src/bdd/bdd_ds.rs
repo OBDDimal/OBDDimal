@@ -232,7 +232,7 @@ impl Bdd {
             (_, NodeType::One, NodeType::Zero) => f,
             (NodeType::One, _, _) => g,
             (NodeType::Zero, _, _) => h,
-            //(_, t, e) if t == e => f,
+            (_, t, e) if t == e => g,
             (i, t, e) => {
                 match self.computed_table.get(&ComputedKey::new(
                     Rc::clone(&f),
