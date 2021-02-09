@@ -23,7 +23,7 @@ impl BddManager {
     }
 
     /// Creates a new BDD from a given input.
-    /// `format` is the given format of the input. 
+    /// `format` is the given format of the input.
     /// `settings` describe how the parser should interpret the input.
     /// Returns a `BddManager` or a `DataFormatError`.
     pub fn new_from_format(
@@ -62,9 +62,9 @@ impl BddManager {
         };
 
         Ok(bdd.serialize())
-    } 
+    }
 
-    /// Returns the number of nodes in the bdd as a `Result<u64, NoBddError>`. 
+    /// Returns the number of nodes in the bdd as a `Result<u64, NoBddError>`.
     pub fn node_count(&mut self) -> Result<u64, NoBddError> {
         let bdd = if let Some(x) = &self.bdd {
             x
@@ -82,7 +82,7 @@ impl BddManager {
         }
     }
 
-    /// Returns if the bdd is satisfiable as a `Result<bool, NoBddError>`. 
+    /// Returns if the bdd is satisfiable as a `Result<bool, NoBddError>`.
     pub fn satisfiable(&self) -> Result<bool, NoBddError> {
         let bdd = if let Some(x) = &self.bdd {
             x
@@ -93,7 +93,7 @@ impl BddManager {
         Ok(bdd.satisfiable())
     }
 
-    /// Returns the number of ways the bdd is satisfiable as a `Result<u64, NoBddError>`. 
+    /// Returns the number of ways the bdd is satisfiable as a `Result<u64, NoBddError>`.
     pub fn sat_count(&mut self) -> Result<u64, NoBddError> {
         let bdd = if let Some(x) = &self.bdd {
             x

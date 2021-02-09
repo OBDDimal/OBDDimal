@@ -312,7 +312,7 @@ impl Bdd {
                     NodeType::Complex(high_n) => high_n.id.to_string(),
                 };
                 let id = n.id;
-                
+
                 let low = Self::serialize_rec(Rc::clone(&n.low));
                 let high = Self::serialize_rec(Rc::clone(&n.high));
                 format!("{},{},{}\n{}\n{}", id, low_id, high_id, low, high)
@@ -328,7 +328,7 @@ impl Bdd {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bdd::{bdd_graph::NodeType::*};
+    use crate::bdd::bdd_graph::NodeType::*;
 
     fn build_bdd(path: &str) -> Bdd {
         let input = crate::input::parser::parse_string(
@@ -433,8 +433,3 @@ mod tests {
         assert_eq!(mgr.satcount(), 4080389785);
     }
 }
-
-
-
-
-
