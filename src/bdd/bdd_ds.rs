@@ -200,7 +200,6 @@ impl Bdd {
                 let order_v = order.iter().position(|&x| x as i64 == v).unwrap();
                 let order_top_var = order.iter().position(|&x| x as i64 == n.top_var).unwrap();
                 if val {
-                    // we assume v is less or equal to n.top_var (w)
                     if order_v < order_top_var {
                         node
                     } else if order_v == order_top_var {
