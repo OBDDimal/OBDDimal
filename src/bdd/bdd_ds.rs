@@ -163,7 +163,7 @@ impl Bdd {
         stack.push((Rc::clone(&self.bdd), 0));
 
         while !stack.is_empty() {
-            let tuple = stack.pop().unwrap(); // unwarp is okay, because stack can't be empty there.
+            let tuple = stack.pop().unwrap(); // unwrap is okay, because stack can't be empty there.
             let node = tuple.0.as_ref();
             let depth = tuple.1;
 
@@ -188,25 +188,37 @@ impl Bdd {
         self.bdd.as_ref() != &NodeType::Zero
     }
 
-    fn restrict_alternative(&mut self, node: Rc<NodeType>, v: i64, val: bool) -> Rc<NodeType> {
+    fn restrict(
+        &mut self,
+        node: Rc<NodeType>,
+        v: i64,
+        order: &Vec<i32>,
+        val: bool,
+    ) -> Rc<NodeType> {
         match node.as_ref() {
             NodeType::Complex(n) => {
+                let order_v = order.iter().position(|&x| x as i64 == v).unwrap();
+                let order_top_var = order.iter().position(|&x| x as i64 == n.top_var).unwrap();
                 if val {
                     // we assume v is less or equal to n.top_var (w)
-                    if v < n.top_var {
+                    if order_v < order_top_var {
                         node
-                    } else if v == n.top_var {
+                    } else if order_v == order_top_var {
                         Rc::clone(&n.high)
                     } else {
-                        panic!("v is bigger than w!");
+                        let low = self.restrict(Rc::clone(&n.low), v, order, val);
+                        let high = self.restrict(Rc::clone(&n.high), v, order, val);
+                        self.add_node_to_unique(n.top_var, low, high)
                     }
                 } else {
-                    if v < n.top_var {
+                    if order_v < order_top_var {
                         node
-                    } else if v == n.top_var {
+                    } else if order_v == order_top_var {
                         Rc::clone(&n.low)
                     } else {
-                        panic!("v is bigger than w!");
+                        let low = self.restrict(Rc::clone(&n.low), v, order, val);
+                        let high = self.restrict(Rc::clone(&n.high), v, order, val);
+                        self.add_node_to_unique(n.top_var, low, high)
                     }
                 }
             }
@@ -218,9 +230,10 @@ impl Bdd {
     /// If-then-else, if `f` ite returns `g`, else `h`.
     fn ite(&mut self, f: Rc<NodeType>, g: Rc<NodeType>, h: Rc<NodeType>) -> Rc<NodeType> {
         match (f.as_ref(), g.as_ref(), h.as_ref()) {
-            (NodeType::Zero, _, _) => h,
-            (NodeType::One, _, _) => g,
             (_, NodeType::One, NodeType::Zero) => f,
+            (NodeType::One, _, _) => g,
+            (NodeType::Zero, _, _) => h,
+            //(_, t, e) if t == e => f,
             (i, t, e) => {
                 match self.computed_table.get(&ComputedKey::new(
                     Rc::clone(&f),
@@ -238,15 +251,17 @@ impl Bdd {
                             .min()
                             .unwrap(); // Unwrap can't fail, because the match ensures that at least one NodeType::Complex(n) is present.
 
-                        let ixt = self.restrict_alternative(Rc::clone(&f), v, true);
-                        let txt = self.restrict_alternative(Rc::clone(&g), v, true);
-                        let ext = self.restrict_alternative(Rc::clone(&h), v, true);
+                        let order = self.cnf.order.clone();
+
+                        let ixt = self.restrict(Rc::clone(&f), v, &order, true);
+                        let txt = self.restrict(Rc::clone(&g), v, &order, true);
+                        let ext = self.restrict(Rc::clone(&h), v, &order, true);
 
                         let tv = self.ite(ixt, txt, ext);
 
-                        let ixf = self.restrict_alternative(Rc::clone(&f), v, false);
-                        let txf = self.restrict_alternative(Rc::clone(&g), v, false);
-                        let exf = self.restrict_alternative(Rc::clone(&h), v, false);
+                        let ixf = self.restrict(Rc::clone(&f), v, &order, false);
+                        let txf = self.restrict(Rc::clone(&g), v, &order, false);
+                        let exf = self.restrict(Rc::clone(&h), v, &order, false);
 
                         let ev = self.ite(ixf, txf, exf);
 
@@ -302,38 +317,65 @@ impl Bdd {
             NodeType::One => String::from(""),
             NodeType::Complex(n) => {
                 let low_id = match n.low.as_ref() {
-                    NodeType::Zero => String::from("ZERO"),
-                    NodeType::One => String::from("ONE"),
+                    NodeType::Zero => String::from("0"),
+                    NodeType::One => String::from("1"),
                     NodeType::Complex(low_n) => low_n.id.to_string(),
                 };
                 let high_id = match n.high.as_ref() {
-                    NodeType::Zero => String::from("ZERO"),
-                    NodeType::One => String::from("ONE"),
+                    NodeType::Zero => String::from("0"),
+                    NodeType::One => String::from("1"),
                     NodeType::Complex(high_n) => high_n.id.to_string(),
                 };
                 let id = n.id;
 
                 let low = Self::serialize_rec(Rc::clone(&n.low));
                 let high = Self::serialize_rec(Rc::clone(&n.high));
-                format!("{},{},{}\n{}\n{}", id, low_id, high_id, low, high)
+                format!(
+                    "{},{},{},{}\n{}\n{}",
+                    id, n.top_var, low_id, high_id, low, high
+                )
             }
         }
     }
 
-    pub fn deserialize(_input: String) -> Bdd {
-        todo!();
+    pub fn deserialize(input: String) -> Bdd {
+        let first = input.lines().next().unwrap();
+        let mut line_splitted = first.split_terminator(',');
+        let id = line_splitted.next().unwrap().parse::<u64>().unwrap();
+        let top_var = line_splitted.next().unwrap().parse::<i64>().unwrap();
+
+        Bdd {
+            unique_table: HashMap::new(),
+            computed_table: HashMap::new(),
+            cnf: Cnf {
+                varibale_count: 0,
+                term_count: 0,
+                terms: vec![],
+                order: vec![],
+            },
+            bdd: Rc::new(Self::deserialize_rec(
+                id,
+                top_var,
+                input.lines().skip(1).collect(),
+            )),
+        }
     }
 
-    fn deserialize_rec(input: String) -> Bdd {
-        let mut lines = input.lines();
-        let current = lines.next();
+    fn deserialize_rec(id: u64, top_var: i64, next: String) -> NodeType {
+        match top_var {
+            0 => Node::new_node_type(-1, Rc::new(NodeType::One), Rc::new(NodeType::Zero)),
+            1 => Node::new_node_type(-2, Rc::new(NodeType::Zero), Rc::new(NodeType::One)),
+            _ => {
+                let next_low = next.lines().skip(1).collect();
+                let next_high = next.lines().skip(2).collect();
 
-        let mut symbols = current.unwrap().split_terminator(',');
-        let id = symbols.next();
-        let low_id = symbols.next();
-        let high_id = symbols.next();
-
-        todo!();
+                Node::new_node_type(
+                    top_var,
+                    Rc::new(Self::deserialize_rec(id, top_var, next_low)),
+                    Rc::new(Self::deserialize_rec(id, top_var, next_high)),
+                )
+            }
+        }
     }
 }
 
@@ -391,10 +433,12 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not implemented yet"]
     fn easy1_serialize_deserialize() {
         let bdd = build_bdd("examples/assets/easy1.dimacs");
         let ser = bdd.serialize();
         let bdd = Bdd::deserialize(ser);
+        println!("{:?}", bdd);
         assert!(bdd.satisfiable());
         assert_eq!(bdd.satcount(), 5);
     }

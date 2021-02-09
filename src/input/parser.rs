@@ -1,6 +1,6 @@
 use crate::variable_ordering::static_ordering::force;
-use std::collections::BTreeSet;
 use std::num::ParseIntError;
+use std::{collections::BTreeSet, env::var};
 
 //TODO: Implement error trait (Somehow it is good practice to not implement the Error trait for those kind of 'high-level' errors.)
 #[derive(Debug, Eq, PartialEq)]
@@ -46,11 +46,12 @@ impl std::fmt::Display for HeaderDataType {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Cnf {
     pub varibale_count: u32,
     pub term_count: u32,
     pub terms: Vec<Vec<i32>>,
+    pub order: Vec<i32>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -176,14 +177,18 @@ pub fn parse_string(input: &str, settings: ParserSettings) -> Result<Cnf, DataFo
         }
     }
 
-    let heuristic_cnf = force(Cnf {
+    let mut cnf = Cnf {
         varibale_count: var_count as u32,
         term_count: term_count as u32,
         terms: terms,
-    });
+        order: (1_i32..=var_count as i32).collect::<Vec<i32>>(),
+    };
 
+    let (order, _span) = force(cnf.clone());
+
+    cnf.order = order;
     // Return the cnf as a struct.
-    Ok(heuristic_cnf)
+    Ok(cnf)
 }
 
 #[cfg(test)]

@@ -13,7 +13,7 @@ fn main() {
                 .short('i')
                 .long("input")
                 .value_name("FILE")
-                .about("Sets the path of the input file to use")
+                .about("Path to the input file (currently only dimacs cnf files are supported)")
                 .required(true)
                 .takes_value(true),
         )
@@ -22,7 +22,7 @@ fn main() {
                 .short('o')
                 .long("output")
                 .value_name("FILE")
-                .about("Sets the path where the output is saved"),
+                .about("Path where the serialized BDD should be saved"),
         )
         .get_matches();
 

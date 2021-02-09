@@ -7,8 +7,7 @@ use rand::thread_rng;
 
 // TODO: Make this not a Cnf, create a Trait instead.
 #[allow(unreachable_code)] // Only for cleaner console output, otherwise cargo spams the output with warnings.
-pub fn force(cnf: Cnf) -> Cnf {
-    return cnf;
+pub fn force(cnf: Cnf) -> (Vec<i32>, i32) {
     let clauses = cnf.terms;
     let mut order: Vec<i32> = (1_i32..(cnf.varibale_count + 1) as i32).collect();
 
@@ -41,7 +40,7 @@ pub fn force(cnf: Cnf) -> Cnf {
             tlocs.push((key, center / n));
         }
 
-        tlocs.sort_by(|(_, b1), (_, b2)| b1.cmp(b2));
+        tlocs.sort_by(|(_, b1), (_, b2)| b1.cmp(b2)); // switcharoo'ed cmp
 
         order = tlocs.iter().map(|(&a, _)| a as i32).collect();
 
@@ -52,20 +51,7 @@ pub fn force(cnf: Cnf) -> Cnf {
         }
     }
 
-    let clauses = clauses
-        .iter()
-        .map(|y| {
-            y.iter()
-                .filter_map(|&x| order.iter().position(|&y| y == x as i32))
-        })
-        .map(|y| y.map(|x| x as i32).collect())
-        .collect();
-    println!("{:?}", clauses);
-    Cnf {
-        varibale_count: cnf.varibale_count,
-        term_count: cnf.term_count,
-        terms: clauses,
-    }
+    (order, span)
 }
 
 fn compute_cog(clause: &Vec<i32>, order: &Vec<i32>) -> i32 {

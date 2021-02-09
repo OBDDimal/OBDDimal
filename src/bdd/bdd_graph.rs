@@ -3,7 +3,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-static NODE_ID: AtomicUsize = AtomicUsize::new(0);
+static NODE_ID: AtomicUsize = AtomicUsize::new(2);
 
 /// Representation of a Binary Decision Diagram node, containing the top variable `top_var` and the children `hi` and `lo`.
 #[derive(Debug, PartialEq, Eq, Clone)]
