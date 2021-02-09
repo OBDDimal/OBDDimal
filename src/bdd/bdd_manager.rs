@@ -1,3 +1,5 @@
+use std::{fmt::Display, write};
+
 use crate::bdd_ds::Bdd;
 use crate::bdd_ds::InputFormat;
 use crate::parser::{DataFormatError, ParserSettings};
@@ -6,6 +8,18 @@ use crate::parser::{DataFormatError, ParserSettings};
 pub enum NoBddError {
     NoBddCreated,
 }
+
+impl Display for NoBddError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            NoBddError::NoBddCreated => write!(
+                f,
+                "There is no BDD for the current manager. Try to add a BDD first."
+            ),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct BddManager {
     bdd: Option<Bdd>,

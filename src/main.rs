@@ -47,7 +47,12 @@ fn main() {
     // Calculate the number of variable assignments that evaluate the created BDD to true.
     let sat_count = mgr.sat_count();
 
-    println!("Number of solutions for the BDD: {:?}", sat_count);
+    match sat_count {
+        Ok(num) => println!("Number of solutions for the BDD: {:?}", num),
+        Err(e) => {
+            println!("{}", e)
+        }
+    }
 
     if output_path != "" {
         match std::fs::write(output_path, mgr.serialize_bdd().unwrap()) {

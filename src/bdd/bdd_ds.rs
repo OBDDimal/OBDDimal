@@ -323,6 +323,18 @@ impl Bdd {
     pub fn deserialize(_input: String) -> Bdd {
         todo!();
     }
+
+    fn deserialize_rec(input: String) -> Bdd {
+        let mut lines = input.lines();
+        let current = lines.next();
+
+        let mut symbols = current.unwrap().split_terminator(',');
+        let id = symbols.next();
+        let low_id = symbols.next();
+        let high_id = symbols.next();
+
+        todo!();
+    }
 }
 
 #[cfg(test)]
