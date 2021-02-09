@@ -1,6 +1,6 @@
 use crate::variable_ordering::static_ordering::force;
 use std::num::ParseIntError;
-use std::{collections::BTreeSet, env::var};
+use std::{collections::BTreeSet};
 
 //TODO: Implement error trait (Somehow it is good practice to not implement the Error trait for those kind of 'high-level' errors.)
 #[derive(Debug, Eq, PartialEq)]

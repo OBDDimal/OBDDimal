@@ -6,7 +6,7 @@ use rand::seq::SliceRandom;
 use rand::thread_rng;
 
 // TODO: Make this not a Cnf, create a Trait instead.
-#[allow(unreachable_code)] // Only for cleaner console output, otherwise cargo spams the output with warnings.
+#[allow(unreachable_code, mutable_borrow_reservation_conflict)] // Only for cleaner console output, otherwise cargo spams the output with warnings.
 pub fn force(cnf: Cnf) -> (Vec<i32>, i32) {
     let clauses = cnf.terms;
     let mut order: Vec<i32> = (1_i32..(cnf.varibale_count + 1) as i32).collect();
