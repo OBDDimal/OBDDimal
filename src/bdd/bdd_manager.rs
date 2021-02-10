@@ -53,7 +53,7 @@ impl BddManager {
         })
     }
 
-    /// Creates a new BddManager out of a `BddManager` and a `Bdd`.
+    /// Creates a new `BddManager` out of a `BddManager` and a `Bdd`.
     pub fn add_bdd(mut self, bdd: Bdd) -> Self {
         self.bdd = Some(bdd);
         self.node_count = None;
@@ -61,6 +61,7 @@ impl BddManager {
         self
     }
 
+    /// Creates a new `BddManager` out of a previously serialized `Bdd`, given by `input`.
     pub fn deserialize_bdd(mut self, input: &str) -> Self {
         self.bdd = Some(Bdd::deserialize(String::from(input)));
         self.node_count = None;
@@ -68,6 +69,7 @@ impl BddManager {
         self
     }
 
+    /// Serializes the current `Bdd` or returns an error if no `Bdd` is currently held by the `BddManager`.
     pub fn serialize_bdd(&self) -> Result<String, NoBddError> {
         let bdd = if let Some(x) = &self.bdd {
             x
