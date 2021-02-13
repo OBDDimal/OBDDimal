@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
-// TODO: Make this not a Cnf, create a Trait instead.
-#[allow(unreachable_code, mutable_borrow_reservation_conflict)] // Only for cleaner console output, otherwise cargo spams the output with warnings.
+// TODO: Make this not a Cnf, create a Trait instead. (Issue #5)
+#[allow(mutable_borrow_reservation_conflict)]
 pub fn force(cnf: Cnf) -> (Vec<i32>, i32) {
     let clauses = cnf.terms;
     let mut order: Vec<i32> = (1_i32..(cnf.varibale_count + 1) as i32).collect();
@@ -93,3 +93,44 @@ fn compute_span(clauses: &Vec<Vec<i32>>, order: &Vec<i32>) -> i32 {
 
     span.iter().sum()
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::Cnf;
+
+    use super::force;
+    // Not sure how to test the correctness of the FORCE heuristic. 
+    // Currently there are only tests for valid outputs.
+    #[test]
+    fn force_variable_uniqueness_simple() {
+        let cnf = Cnf {
+            varibale_count: 10,
+            term_count: 5,
+            terms: vec![vec![1, 2, 3],vec![2, 3, 4],vec![3, 4, 5],vec![4, 5, 6],vec![7, 8, 9, 10]],
+            order: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+
+        };
+        let (mut order, _) = force(cnf);
+        
+        order.sort();
+
+        assert_eq!(order, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    }
+
+    #[test]
+    fn force_variable_uniqueness_mixed() {
+        let cnf = Cnf {
+            varibale_count: 10,
+            term_count: 5,
+            terms: vec![vec![1, 2, 3],vec![2, 3, 4],vec![3, 4, 5],vec![4, 5, 6],vec![7, 8, 9, 10]],
+            order: vec![1, 3, 2, 4, 6, 5, 7, 8, 9, 10],
+
+        };
+        let (mut order, _) = force(cnf);
+        
+        order.sort();
+
+        assert_eq!(order, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    }
+}
+
