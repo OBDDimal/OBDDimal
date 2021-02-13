@@ -1,6 +1,6 @@
 use std::{fmt::Display, write};
 
-use crate::bdd_ds::Bdd;
+use crate::{bdd_ds::Bdd, input::static_ordering::StaticOrdering};
 use crate::bdd_ds::InputFormat;
 use crate::parser::{DataFormatError, ParserSettings};
 
@@ -44,8 +44,9 @@ impl BddManager {
         cnf: &str,
         format: InputFormat,
         settings: ParserSettings,
+        static_ordering: StaticOrdering,
     ) -> Result<Self, DataFormatError> {
-        let bdd = Bdd::from_format(cnf, format, settings)?;
+        let bdd = Bdd::from_format(cnf, format, settings, static_ordering)?;
         Ok(BddManager {
             bdd: Some(bdd),
             sat_count: None,

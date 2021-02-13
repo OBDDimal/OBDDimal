@@ -1,4 +1,4 @@
-use crate::bdd::bdd_graph::*;
+use crate::{bdd::bdd_graph::*, input::static_ordering::{StaticOrdering, apply_heuristic}};
 use crate::input::boolean_function::*;
 use crate::input::parser::{Cnf, DataFormatError, ParserSettings};
 use std::collections::HashMap;
@@ -70,8 +70,14 @@ impl Bdd {
         data: &str,
         format: InputFormat,
         settings: ParserSettings,
+        static_ordering: StaticOrdering,
     ) -> Result<Self, DataFormatError> {
         let cnf = crate::input::parser::parse_string(data, settings)?;
+
+        let cnf = match static_ordering {
+            StaticOrdering::NONE => cnf,
+            StaticOrdering::FORCE => apply_heuristic(cnf, StaticOrdering::FORCE),
+        };
 
         let symbolic_rep = match format {
             InputFormat::CNF => {

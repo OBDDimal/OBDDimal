@@ -1,4 +1,4 @@
-use obbdimal::bdd::{bdd_ds::InputFormat, bdd_manager::BddManager};
+use obbdimal::{bdd::{bdd_ds::InputFormat, bdd_manager::BddManager}, input::static_ordering::StaticOrdering};
 use obbdimal::input::parser::ParserSettings;
 
 fn main() {
@@ -6,7 +6,7 @@ fn main() {
     let data = std::fs::read_to_string("examples/assets/easy1.dimacs").unwrap();
     // Create a BDD from input data (interpreted as dimacs cnf).
     let mut mgr =
-        BddManager::new_from_format(&data, InputFormat::CNF, ParserSettings::default()).unwrap();
+        BddManager::new_from_format(&data, InputFormat::CNF, ParserSettings::default(), StaticOrdering::NONE).unwrap();
     // Calculate the number of variable assignments that evaluate the created BDD to true.
     let sat_count = mgr.sat_count();
 
