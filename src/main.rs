@@ -1,9 +1,9 @@
 use std::time::Instant;
 
 use clap::{App, Arg};
-use obbdimal::{bdd::bdd_ds::InputFormat, input::static_ordering::StaticOrdering};
 use obbdimal::bdd::bdd_manager::BddManager;
 use obbdimal::input::parser::ParserSettings;
+use obbdimal::{bdd::bdd_ds::InputFormat, input::static_ordering::StaticOrdering};
 
 fn main() {
     let matches = App::new("OBDDimal")
@@ -70,8 +70,13 @@ fn main() {
 
     let timer = Instant::now();
 
-    let mut mgr =
-        BddManager::new_from_format(&data, InputFormat::CNF, ParserSettings::default(), static_ordering).unwrap();
+    let mut mgr = BddManager::new_from_format(
+        &data,
+        InputFormat::CNF,
+        ParserSettings::default(),
+        static_ordering,
+    )
+    .unwrap();
     // Calculate the number of variable assignments that evaluate the created BDD to true.
     let sat_count = mgr.sat_count();
 
@@ -81,7 +86,7 @@ fn main() {
             if matches.is_present("TIMER") {
                 println!("It took {:?} to complete.", timer.elapsed());
             }
-        },
+        }
         Err(e) => {
             println!("{}", e)
         }

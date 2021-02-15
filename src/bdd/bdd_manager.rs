@@ -1,8 +1,8 @@
 use std::{fmt::Display, write};
 
-use crate::{bdd_ds::Bdd, input::static_ordering::StaticOrdering};
 use crate::bdd_ds::InputFormat;
 use crate::parser::{DataFormatError, ParserSettings};
+use crate::{bdd_ds::Bdd, input::static_ordering::StaticOrdering};
 
 #[derive(Debug)]
 pub enum NoBddError {

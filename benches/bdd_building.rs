@@ -1,20 +1,35 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use obbdimal::{bdd::bdd_ds::{Bdd, InputFormat}, input::static_ordering::StaticOrdering};
 use obbdimal::input::parser::ParserSettings;
+use obbdimal::{
+    bdd::bdd_ds::{Bdd, InputFormat},
+    input::static_ordering::StaticOrdering,
+};
 
 fn build_sandwich_bdd() {
     // Read data from a dimacs file.
     let data = std::fs::read_to_string("examples/assets/sandwich.dimacs").unwrap();
     // Create a BDD from input data (interpreted as dimacs cnf).
-    let _mgr = Bdd::from_format(&data, InputFormat::CNF, ParserSettings::default(), StaticOrdering::NONE).unwrap();
+    let _mgr = Bdd::from_format(
+        &data,
+        InputFormat::CNF,
+        ParserSettings::default(),
+        StaticOrdering::NONE,
+    )
+    .unwrap();
 }
 
 fn build_berkeley_bdd() {
     // Read data from a dimacs file.
     let data = std::fs::read_to_string("examples/assets/berkeleydb.dimacs").unwrap();
     // Create a BDD from input data (interpreted as dimacs cnf).
-    let _mgr = Bdd::from_format(&data, InputFormat::CNF, ParserSettings::default(), StaticOrdering::NONE).unwrap();
+    let _mgr = Bdd::from_format(
+        &data,
+        InputFormat::CNF,
+        ParserSettings::default(),
+        StaticOrdering::NONE,
+    )
+    .unwrap();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

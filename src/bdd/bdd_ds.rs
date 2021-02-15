@@ -1,7 +1,10 @@
-use crate::{bdd::bdd_graph::*, input::static_ordering::{StaticOrdering, apply_heuristic}};
 use crate::input::boolean_function::*;
 use crate::input::parser::{Cnf, DataFormatError, ParserSettings};
-use std::{collections::HashMap, iter::FromIterator};
+use crate::{
+    bdd::bdd_graph::*,
+    input::static_ordering::{apply_heuristic, StaticOrdering},
+};
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
@@ -313,7 +316,9 @@ impl Bdd {
         let result = Self::serialize_rec(root);
         let mut buffer = String::new();
 
-        let variable_order = self.cnf.order
+        let variable_order = self
+            .cnf
+            .order
             .iter()
             .map(|i| i.to_string())
             .collect::<Vec<String>>()

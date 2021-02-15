@@ -1,12 +1,12 @@
 use crate::{parser::Cnf, variable_ordering::static_ordering::force};
 
-/// Currently supported heurisitcs for static variable ordering. 
+/// Currently supported heurisitcs for static variable ordering.
 pub enum StaticOrdering {
     NONE,
     FORCE,
 }
 
-/// Applies a given static variable ordering heuristic to a given `Cnf` 
+/// Applies a given static variable ordering heuristic to a given `Cnf`
 /// and returns a new `Cnf` with the newly calculated order.
 /// Currently the following heuristics are supported:
 /// -NONE
@@ -14,7 +14,7 @@ pub enum StaticOrdering {
 pub fn apply_heuristic(cnf: Cnf, heuristic: StaticOrdering) -> Cnf {
     match heuristic {
         StaticOrdering::NONE => cnf,
-        StaticOrdering::FORCE => apply_force(cnf)
+        StaticOrdering::FORCE => apply_force(cnf),
     }
 }
 
