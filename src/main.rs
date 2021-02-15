@@ -38,7 +38,13 @@ fn main() {
             Arg::new("TIMER")
                 .short('t')
                 .long("timer")
-                .about("Also prints how long the program was running. (Not very exact for short time periods)"),
+                .about("Also prints how long the program was running (Not very exact for short time periods)"),
+        )
+        .arg(
+            Arg::new("VERBOSE")
+                .short('v')
+                .long("verbose")
+                .about("Prints the selected options before running the calculations")
         )
         .get_matches();
 
@@ -49,8 +55,11 @@ fn main() {
         panic!("No input file specified!");
     };
 
+    let mut selected_output_path = "NONE";
+
     let output_path = if let Some(i) = matches.value_of("OUTPUT") {
-        i
+        selected_output_path = i;
+        selected_output_path
     } else {
         ""
     };
@@ -59,14 +68,23 @@ fn main() {
     let data = std::fs::read_to_string(path).unwrap();
     // Create a BDD from input data (interpreted as dimacs cnf).
 
+    let mut selected_static_ordering = "NONE";
+
     let static_ordering = if let Some(s) = matches.value_of("STATIC VARIABLE ORDERING") {
         match s {
-            "FORCE" => StaticOrdering::FORCE,
+            "FORCE" => {
+                selected_static_ordering = "FORCE";
+                StaticOrdering::FORCE
+            }
             _ => StaticOrdering::NONE,
         }
     } else {
         StaticOrdering::NONE
     };
+
+    if matches.is_present("VERBOSE") {
+        println!("Selected input path: {}\nSelected output path: {}\nSelected static variable ordering: {}\nSelected timer state: {}\n", path, selected_output_path, selected_static_ordering, matches.is_present("TIMER"));
+    }
 
     let timer = Instant::now();
 
