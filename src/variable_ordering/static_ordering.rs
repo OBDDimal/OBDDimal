@@ -103,34 +103,38 @@ mod tests {
     // Currently there are only tests for valid outputs.
     #[test]
     fn force_variable_uniqueness_simple() {
-        let cnf = Cnf {
-            varibale_count: 10,
-            term_count: 5,
-            terms: vec![vec![1, 2, 3],vec![2, 3, 4],vec![3, 4, 5],vec![4, 5, 6],vec![7, 8, 9, 10]],
-            order: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        for _ in 1..1000 {
+            let cnf = Cnf {
+                varibale_count: 10,
+                term_count: 5,
+                terms: vec![vec![1, 2, 3],vec![2, 3, 4],vec![3, 4, 5],vec![4, 5, 6],vec![7, 8, 9, 10]],
+                order: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
 
-        };
-        let (mut order, _) = force(cnf);
-        
-        order.sort();
+            };
+            let (mut order, _) = force(cnf);
+            
+            order.sort();
 
-        assert_eq!(order, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+            assert_eq!(order, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        }
     }
 
     #[test]
     fn force_variable_uniqueness_mixed() {
-        let cnf = Cnf {
-            varibale_count: 10,
-            term_count: 5,
-            terms: vec![vec![1, 2, 3],vec![2, 3, 4],vec![3, 4, 5],vec![4, 5, 6],vec![7, 8, 9, 10]],
-            order: vec![1, 3, 2, 4, 6, 5, 7, 8, 9, 10],
+        for _ in 1..1000 {
+            let cnf = Cnf {
+                varibale_count: 10,
+                term_count: 5,
+                terms: vec![vec![1, 2, 3],vec![2, 3, 4],vec![3, 4, 5],vec![4, 5, 6],vec![7, 8, 9, 10]],
+                order: vec![1, 3, 2, 4, 6, 5, 7, 8, 9, 10],
 
-        };
-        let (mut order, _) = force(cnf);
-        
-        order.sort();
+            };
+            let (mut order, _) = force(cnf);
+            
+            order.sort();
 
-        assert_eq!(order, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+            assert_eq!(order, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        }
     }
 }
 

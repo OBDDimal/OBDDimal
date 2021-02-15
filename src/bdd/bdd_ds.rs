@@ -1,7 +1,7 @@
 use crate::{bdd::bdd_graph::*, input::static_ordering::{StaticOrdering, apply_heuristic}};
 use crate::input::boolean_function::*;
 use crate::input::parser::{Cnf, DataFormatError, ParserSettings};
-use std::collections::HashMap;
+use std::{collections::HashMap, iter::FromIterator};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
@@ -306,12 +306,23 @@ impl Bdd {
         let result = Self::serialize_rec(root);
         let mut buffer = String::new();
 
+        let variable_order = self.cnf.order
+            .iter()
+            .map(|i| i.to_string())
+            .collect::<Vec<String>>()
+            .join(" ");
+
         for l in result.split_whitespace() {
             buffer.push_str(l);
             buffer.push_str("\n");
         }
 
-        buffer
+        let mut serialized_bdd = String::new();
+        serialized_bdd.push_str(&variable_order);
+        serialized_bdd.push_str("\n");
+        serialized_bdd.push_str(&buffer);
+
+        serialized_bdd
     }
 
     fn serialize_rec(subtree: Rc<NodeType>) -> String {
