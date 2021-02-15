@@ -301,6 +301,13 @@ impl Bdd {
         self.ite(val, Rc::new(NodeType::Zero), Rc::new(NodeType::One))
     }
 
+    /// Serializes `self` to a String representing the BDD.
+    /// The serialization of the BDD obeys the following rules:
+    /// 1. The first line of the string is the variable ordering of the BDD.
+    /// 2. Every following line represents a node, where the first number is the internal ID of the node
+    /// the second number is the `top_var` of the current node, the thrid number is the id of the node connected to the low edge
+    /// the fourth number is the id of the node connected to the high edge of the current node.
+    /// 3. Internal ID 0 and 1 are representations of the terminal ZERO and ONE node.
     pub fn serialize(&self) -> String {
         let root = Rc::clone(&self.bdd);
         let result = Self::serialize_rec(root);
