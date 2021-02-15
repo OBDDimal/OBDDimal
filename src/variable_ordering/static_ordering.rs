@@ -6,6 +6,7 @@ use rand::seq::SliceRandom;
 use rand::thread_rng;
 
 // TODO: Make this not a Cnf, create a Trait instead. (Issue #5)
+// This function is a translation from a given python implementation.
 #[allow(mutable_borrow_reservation_conflict)]
 pub fn force(cnf: Cnf) -> (Vec<i32>, i32) {
     let clauses = cnf.terms;

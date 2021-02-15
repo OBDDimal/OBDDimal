@@ -239,6 +239,7 @@ impl Bdd {
     fn ite(&mut self, f: Rc<NodeType>, g: Rc<NodeType>, h: Rc<NodeType>) -> Rc<NodeType> {
         match (f.as_ref(), g.as_ref(), h.as_ref()) {
             (_, NodeType::One, NodeType::Zero) => f,
+            (_, NodeType::Zero, NodeType::One) => self.not(f),
             (NodeType::One, _, _) => g,
             (NodeType::Zero, _, _) => h,
             (_, t, e) if t == e => g,
