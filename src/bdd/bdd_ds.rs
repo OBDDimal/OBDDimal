@@ -59,6 +59,7 @@ pub enum InputFormat {
 /// Represents a wrapper struct for a BDD, allowing us to query methods on it.
 #[derive(Debug)]
 pub struct Bdd {
+    //FNV Hash bases HashMaps are faster for smaller keys, so should be a performance boost here.
     unique_table: fnv::FnvHashMap<UniqueKey, Rc<NodeType>>,
     computed_table: fnv::FnvHashMap<ComputedKey, Rc<NodeType>>,
     cnf: Cnf,
