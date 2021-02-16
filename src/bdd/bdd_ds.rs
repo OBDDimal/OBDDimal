@@ -4,7 +4,6 @@ use crate::{
     bdd::bdd_graph::*,
     input::static_ordering::{apply_heuristic, StaticOrdering},
 };
-use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
@@ -60,8 +59,8 @@ pub enum InputFormat {
 /// Represents a wrapper struct for a BDD, allowing us to query methods on it.
 #[derive(Debug)]
 pub struct Bdd {
-    unique_table: HashMap<UniqueKey, Rc<NodeType>>,
-    computed_table: HashMap<ComputedKey, Rc<NodeType>>,
+    unique_table: fnv::FnvHashMap<UniqueKey, Rc<NodeType>>,
+    computed_table: fnv::FnvHashMap<ComputedKey, Rc<NodeType>>,
     cnf: Cnf,
     pub bdd: Rc<NodeType>,
 }
@@ -93,8 +92,8 @@ impl Bdd {
     /// Creates a new instance of a BDD manager from a given CNF.
     fn from_cnf(symbols: Symbol, cnf: Cnf) -> Self {
         let mut mgr = Self {
-            unique_table: HashMap::new(),
-            computed_table: HashMap::new(),
+            unique_table: fnv::FnvHashMap::default(),
+            computed_table: fnv::FnvHashMap::default(),
             bdd: Rc::new(NodeType::Zero),
             cnf,
         };
@@ -374,8 +373,8 @@ impl Bdd {
         let top_var = line_splitted.next().unwrap().parse::<i64>().unwrap();
 
         Bdd {
-            unique_table: HashMap::new(),
-            computed_table: HashMap::new(),
+            unique_table: fnv::FnvHashMap::default(),
+            computed_table: fnv::FnvHashMap::default(),
             cnf: Cnf {
                 varibale_count: 0,
                 term_count: 0,
