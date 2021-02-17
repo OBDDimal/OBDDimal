@@ -1,11 +1,16 @@
+use fnv::FnvHashMap;
+
 use crate::input::boolean_function::*;
 use crate::input::parser::{Cnf, DataFormatError, ParserSettings};
 use crate::{
     bdd::bdd_graph::*,
     input::static_ordering::{apply_heuristic, StaticOrdering},
 };
-use std::hash::{Hash, Hasher};
 use std::rc::Rc;
+use std::{
+    env::var,
+    hash::{Hash, Hasher},
+};
 
 /// Used as key for the unique_table.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -172,7 +177,7 @@ impl Bdd {
         stack.push((Rc::clone(&self.bdd), 0));
 
         while !stack.is_empty() {
-            let tuple = stack.pop().unwrap(); // unwrap is okay, because stack can't be empty there.
+            let tuple = stack.pop().unwrap(); // unwrap is okay, because stack can't be empty here.
             let node = tuple.0.as_ref();
             let depth = tuple.1;
 
@@ -367,42 +372,95 @@ impl Bdd {
         }
     }
 
+    /// Deserializes the given string (which was previously serialized by `serialize`) into a `Bdd`.
+    /// TODO: Error handling for wrong input formats.
     pub fn deserialize(input: String) -> Bdd {
-        let first = input.lines().next().unwrap();
-        let mut line_splitted = first.split_terminator(',');
-        let id = line_splitted.next().unwrap().parse::<u64>().unwrap();
-        let top_var = line_splitted.next().unwrap().parse::<i64>().unwrap();
+        let mut line_iter = input.lines();
+        // Get the variable order from the input, which is the first line of the given string.
+        let var_order = line_iter
+            .next()
+            .unwrap()
+            .split_whitespace()
+            .map(|y| y.parse::<i32>().unwrap())
+            .collect::<Vec<i32>>();
+
+        let cnf = Cnf {
+            varibale_count: var_order.len() as u32,
+            term_count: 0,
+            terms: vec![],
+            order: var_order,
+        };
+
+        let mut rest_input = String::new();
+
+        for l in line_iter {
+            rest_input.push_str(&(l.to_string() + "\n"));
+        }
+
+        let current_line = String::from(rest_input.lines().next().unwrap());
+
+        let (bdd, unique_table) =
+            Self::deserialize_rec(rest_input, current_line, FnvHashMap::default());
 
         Bdd {
-            unique_table: fnv::FnvHashMap::default(),
-            computed_table: fnv::FnvHashMap::default(),
-            cnf: Cnf {
-                varibale_count: 0,
-                term_count: 0,
-                terms: vec![],
-                order: vec![],
-            },
-            bdd: Rc::new(Self::deserialize_rec(
-                id,
-                top_var,
-                input.lines().skip(1).collect(),
-            )),
+            unique_table: unique_table,
+            computed_table: FnvHashMap::default(),
+            cnf: cnf,
+            bdd: bdd,
         }
     }
 
-    fn deserialize_rec(id: u64, top_var: i64, next: String) -> NodeType {
-        match top_var {
-            0 => Node::new_node_type(-1, Rc::new(NodeType::One), Rc::new(NodeType::Zero)),
-            1 => Node::new_node_type(-2, Rc::new(NodeType::Zero), Rc::new(NodeType::One)),
-            _ => {
-                let next_low = next.lines().skip(1).collect();
-                let next_high = next.lines().skip(2).collect();
+    fn deserialize_rec(
+        complete_input: String,
+        current: String,
+        hash_map: FnvHashMap<UniqueKey, Rc<NodeType>>,
+    ) -> (Rc<NodeType>, FnvHashMap<UniqueKey, Rc<NodeType>>) {
+        let mut current_line = current.split(',');
+        let internal_id = current_line.next().unwrap().parse::<i64>().unwrap();
+        let top_var = current_line.next().unwrap().parse::<i64>().unwrap();
+        let low_id = current_line.next().unwrap().parse::<u32>().unwrap();
+        let high_id = current_line.next().unwrap().parse::<u32>().unwrap();
 
-                Node::new_node_type(
+        println!("{}, {}, {}, {}", internal_id, top_var, low_id, high_id);
+
+        let low_line = match complete_input
+            .lines()
+            .filter(|x| x.split(',').next().unwrap().parse::<u32>().unwrap() == low_id)
+            .next()
+        {
+            Some(i) => {
+                println!("Low_id: {}, Low line: {}", low_id, i);
+                String::from(i)
+            }
+            None => return (Rc::new(NodeType::Zero), hash_map),
+        };
+        let high_line = match complete_input
+            .lines()
+            .filter(|x| x.split(',').next().unwrap().parse::<u32>().unwrap() == high_id)
+            .next()
+        {
+            Some(i) => {
+                println!("High_id: {}, High line: {}", high_id, i);
+                String::from(i)
+            }
+            None => return (Rc::new(NodeType::One), hash_map),
+        };
+
+        match internal_id {
+            0 => (Rc::new(NodeType::Zero), hash_map),
+            1 => (Rc::new(NodeType::One), hash_map),
+            _ => {
+                let (low, hash_map) =
+                    Self::deserialize_rec(complete_input.clone(), low_line, hash_map);
+                let (high, mut hash_map) =
+                    Self::deserialize_rec(complete_input, high_line, hash_map);
+                let node = Rc::new(Node::new_node_type(
                     top_var,
-                    Rc::new(Self::deserialize_rec(id, top_var, next_low)),
-                    Rc::new(Self::deserialize_rec(id, top_var, next_high)),
-                )
+                    Rc::clone(&low),
+                    Rc::clone(&high),
+                ));
+                hash_map.insert(UniqueKey::new(top_var, low, high), Rc::clone(&node));
+                (node, hash_map)
             }
         }
     }
@@ -410,6 +468,8 @@ impl Bdd {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::write;
+
     use super::*;
     use crate::bdd::bdd_graph::NodeType::*;
 
@@ -462,10 +522,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not implemented yet"]
+    //#[ignore = "not implemented yet"]
     fn easy1_serialize_deserialize() {
         let bdd = build_bdd("examples/assets/easy1.dimacs");
         let ser = bdd.serialize();
+        let _ = write("sertest", ser.clone());
         let bdd = Bdd::deserialize(ser);
         println!("{:?}", bdd);
         assert!(bdd.satisfiable());

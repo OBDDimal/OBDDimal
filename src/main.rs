@@ -57,11 +57,12 @@ fn main() {
 
     let mut selected_output_path = "NONE";
 
-    let output_path = if let Some(i) = matches.value_of("OUTPUT") {
-        selected_output_path = i;
-        selected_output_path
-    } else {
-        ""
+    let output_path = match matches.value_of("OUTPUT") {
+        Some(i) => {
+            selected_output_path = i;
+            selected_output_path
+        }
+        None => "",
     };
 
     // Read data from specified dimacs file.
@@ -70,16 +71,12 @@ fn main() {
 
     let mut selected_static_ordering = "NONE";
 
-    let static_ordering = if let Some(s) = matches.value_of("STATIC VARIABLE ORDERING") {
-        match s {
-            "FORCE" => {
-                selected_static_ordering = "FORCE";
-                StaticOrdering::FORCE
-            }
-            _ => StaticOrdering::NONE,
+    let static_ordering = match matches.value_of("STATIC VARIABLE ORDERING") {
+        Some("FORCE") => {
+            selected_static_ordering = "FORCE";
+            StaticOrdering::FORCE
         }
-    } else {
-        StaticOrdering::NONE
+        _ => StaticOrdering::NONE,
     };
 
     if matches.is_present("VERBOSE") {
