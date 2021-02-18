@@ -1,7 +1,4 @@
-use std::{
-    fs::{read, read_to_string},
-    time::Instant,
-};
+use std::time::Instant;
 
 use clap::{App, Arg};
 use obbdimal::bdd::bdd_manager::BddManager;
