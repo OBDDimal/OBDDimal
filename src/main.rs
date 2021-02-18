@@ -9,17 +9,6 @@ use obbdimal::input::parser::ParserSettings;
 use obbdimal::{bdd::bdd_ds::InputFormat, input::static_ordering::StaticOrdering};
 
 fn main() {
-    let cnf = read_to_string("examples/assets/easy1.dimacs").unwrap();
-    let mgr = BddManager::new_from_format(
-        &cnf,
-        InputFormat::CNF,
-        ParserSettings::default(),
-        StaticOrdering::FORCE,
-    )
-    .unwrap();
-    let ser = mgr.serialize_bdd().unwrap();
-    mgr.deserialize_bdd(&ser);
-
     let matches = App::new("OBDDimal")
         .version("0.1")
         .author("Timo Netzer <timo.netzer@uni-ulm.de>")
@@ -30,8 +19,17 @@ fn main() {
                 .long("input")
                 .value_name("FILE")
                 .about("Path to the input file (currently only dimacs cnf files are supported)")
-                .required(true)
-                .takes_value(true),
+                .takes_value(true)
+                .required_unless_present("LOAD"),
+        )
+        .arg(
+            Arg::new("LOAD")
+                .short('l')
+                .long("load")
+                .value_name("FILE")
+                .about("Path to the input file of a previously saved BDD")
+                .takes_value(true)
+                .required_unless_present("INPUT"),
         )
         .arg(
             Arg::new("STATIC VARIABLE ORDERING")
@@ -62,11 +60,23 @@ fn main() {
         )
         .get_matches();
 
-    let path = if let Some(i) = matches.value_of("INPUT") {
-        i
-    } else {
-        println!("No input file specified.");
-        panic!("No input file specified!");
+    match matches.value_of("LOAD") {
+        Some(i) => {
+            let data = std::fs::read_to_string(i).unwrap();
+            let mgr = BddManager::new();
+            let mut mgr = mgr.deserialize_bdd(&data);
+            println!("Loaded BDD got {} solutions.", mgr.sat_count().unwrap());
+            return;
+        }
+        None => {}
+    }
+
+    let path = match matches.value_of("INPUT") {
+        Some(i) => i,
+        None => {
+            println!("No input file specified.");
+            panic!("No input file specified!");
+        }
     };
 
     let mut selected_output_path = "NONE";

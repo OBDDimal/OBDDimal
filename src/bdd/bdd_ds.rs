@@ -6,11 +6,8 @@ use crate::{
     bdd::bdd_graph::*,
     input::static_ordering::{apply_heuristic, StaticOrdering},
 };
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use std::{
-    env::var,
-    hash::{Hash, Hasher},
-};
 
 /// Used as key for the unique_table.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -376,7 +373,8 @@ impl Bdd {
     }
 
     /// Deserializes the given string (which was previously serialized by `serialize`) into a `Bdd`.
-    /// TODO: Error handling for wrong input formats.
+    /// TODO: Error handling for wrong input formats. Cleanup code. (Some cases are checked multiple times)
+    /// TODO: Enhance runtime by removing linear iteration of input data.
     /// WARNING: VERY EXPERIMENTAL AND NOT THOROUGHLY TESTED (Workd with easy1.dimacs and sandwich.dimacs)
     pub fn deserialize(input: String) -> Bdd {
         let mut line_iter = input.lines();
@@ -541,23 +539,19 @@ mod tests {
     }
 
     #[test]
-    //#[ignore = "not implemented yet"]
     fn easy1_serialize_deserialize() {
         let bdd = build_bdd("examples/assets/easy1.dimacs");
         let ser = bdd.serialize();
         let bdd = Bdd::deserialize(ser);
-        println!("{:?}", bdd);
         assert!(bdd.satisfiable());
         assert_eq!(bdd.satcount(), 5);
     }
 
     #[test]
-    //#[ignore = "not implemented yet"]
     fn sandwich_serialize_deserialize() {
         let bdd = build_bdd("examples/assets/sandwich.dimacs");
         let ser = bdd.serialize();
         let bdd = Bdd::deserialize(ser);
-        println!("{:?}", bdd);
         assert!(bdd.satisfiable());
         assert_eq!(bdd.satcount(), 2808);
     }
@@ -600,11 +594,21 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "takes a long time"]
+    #[ignore = "Takes a long time"]
     fn berkeleydb_sat() {
         let mgr = build_bdd("examples/assets/berkeleydb.dimacs");
         assert!(mgr.satisfiable());
         assert_eq!(mgr.nodecount(), 356704); //Should be around 1000-5000
         assert_eq!(mgr.satcount(), 4080389785);
+    }
+
+    #[test]
+    #[ignore = "Takes a long time."]
+    fn berkeley_serialize_deserialize() {
+        let bdd = build_bdd("examples/assets/berkeleydb.dimacs");
+        let ser = bdd.serialize();
+        let bdd = Bdd::deserialize(ser);
+        assert!(bdd.satisfiable());
+        assert_eq!(bdd.satcount(), 4080389785);
     }
 }
