@@ -373,7 +373,7 @@ impl Bdd {
     }
 
     /// Deserializes the given string (which was previously serialized by `serialize`) into a `Bdd`.
-    /// TODO: Error handling for wrong input formats. Cleanup code. (Some cases are checked multiple times)
+    /// TODO: Error handling for wrong input formats.
     /// TODO: Enhance runtime by removing linear iteration of input data.
     /// WARNING: VERY EXPERIMENTAL AND NOT THOROUGHLY TESTED (Workd with easy1.dimacs and sandwich.dimacs)
     pub fn deserialize(input: String) -> Bdd {
@@ -386,6 +386,7 @@ impl Bdd {
             .map(|y| y.parse::<i32>().unwrap())
             .collect::<Vec<i32>>();
 
+        // Create an empty Cnf for the Bdd
         let cnf = Cnf {
             varibale_count: var_order.len() as u32,
             term_count: 0,
@@ -393,17 +394,21 @@ impl Bdd {
             order: var_order,
         };
 
+        // Rebuild the input without the variable ordering
         let mut rest_input = String::new();
 
         for l in line_iter {
             rest_input.push_str(&(l.to_string() + "\n"));
         }
 
+        // Get the first line of the input, which represents the root node.
         let current_line = String::from(rest_input.lines().next().unwrap());
 
+        // Feed the input into the recursive build process. It returns the corresponding Bdd and HashMap.
         let (bdd, unique_table) =
             Self::deserialize_rec(rest_input, current_line, FnvHashMap::default());
 
+        // Create the final Bdd.
         Bdd {
             unique_table: unique_table,
             computed_table: FnvHashMap::default(),
@@ -417,70 +422,57 @@ impl Bdd {
         current: String,
         hash_map: FnvHashMap<UniqueKey, Rc<NodeType>>,
     ) -> (Rc<NodeType>, FnvHashMap<UniqueKey, Rc<NodeType>>) {
+        // Extract the important features of a given line.
         let mut current_line = current.split(',');
         let internal_id = current_line.next().unwrap().parse::<i64>().unwrap();
         let top_var = current_line.next().unwrap().parse::<i64>().unwrap();
         let low_id = current_line.next().unwrap().parse::<u32>().unwrap();
         let high_id = current_line.next().unwrap().parse::<u32>().unwrap();
 
+        // If we are internal_id == 0, we are the ZERO sink node.
         if internal_id == 0 {
             return (Rc::new(NodeType::Zero), hash_map);
         }
 
+        // If we are internal_id == 1, we are the ONE sink node.
         if internal_id == 1 {
             return (Rc::new(NodeType::One), hash_map);
         }
 
+        // Search for the line in the input representing the ID of the low edge.
         let low_line = match complete_input
             .lines()
             .filter(|x| x.split(',').next().unwrap().parse::<u32>().unwrap() == low_id)
             .next()
         {
-            Some(i) => String::from(i),
-            None => match low_id {
-                0 => {
-                    return (Rc::new(NodeType::Zero), hash_map);
-                }
-                1 => {
-                    return (Rc::new(NodeType::One), hash_map);
-                }
-                _ => panic!("Can't be reached!"),
-            },
+            Some(i) => String::from(i), // If there is a corresponding line, get it.
+            None => panic!("Can't be reached!"), // TODO: Otherwise do a better error handling job.
         };
+
+        // Search for the line in the input representing the ID of the high edge.
         let high_line = match complete_input
             .lines()
             .filter(|x| x.split(',').next().unwrap().parse::<u32>().unwrap() == high_id)
             .next()
         {
-            Some(i) => String::from(i),
-            None => match low_id {
-                0 => {
-                    return (Rc::new(NodeType::Zero), hash_map);
-                }
-                1 => {
-                    return (Rc::new(NodeType::One), hash_map);
-                }
-                _ => panic!("Can't be reached!"),
-            },
+            Some(i) => String::from(i), // If there is a corresponding line, get it.
+            None => panic!("Can't be reached!"), // TODO: Otherwise do a better error handling job.
         };
 
-        match internal_id {
-            0 => (Rc::new(NodeType::Zero), hash_map),
-            1 => (Rc::new(NodeType::One), hash_map),
-            _ => {
-                let (low, hash_map) =
-                    Self::deserialize_rec(complete_input.clone(), low_line, hash_map);
-                let (high, mut hash_map) =
-                    Self::deserialize_rec(complete_input, high_line, hash_map);
-                let node = Rc::new(Node::new_node_type(
-                    top_var,
-                    Rc::clone(&low),
-                    Rc::clone(&high),
-                ));
-                hash_map.insert(UniqueKey::new(top_var, low, high), Rc::clone(&node));
-                (node, hash_map)
-            }
-        }
+        // Get the low edge of the Bdd.
+        let (low, hash_map) = Self::deserialize_rec(complete_input.clone(), low_line, hash_map);
+        // Get the high edge of the Bdd.
+        let (high, mut hash_map) = Self::deserialize_rec(complete_input, high_line, hash_map);
+        // Construct the node of the Bdd.
+        let node = Rc::new(Node::new_node_type(
+            top_var,
+            Rc::clone(&low),
+            Rc::clone(&high),
+        ));
+        // Add the node to the unique_table.
+        hash_map.insert(UniqueKey::new(top_var, low, high), Rc::clone(&node));
+        // Return the constructed node and the filled unique_table.
+        (node, hash_map)
     }
 }
 
