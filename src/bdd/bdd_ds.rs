@@ -317,6 +317,7 @@ impl Bdd {
     /// the second number is the `top_var` of the current node, the thrid number is the id of the node connected to the low edge
     /// the fourth number is the id of the node connected to the high edge of the current node.
     /// 3. Internal ID 0 and 1 are representations of the terminal ZERO and ONE node.
+    /// The last two lines have to be appended as the sink nodes for the recursive deserialization to work.
     pub fn serialize(&self) -> String {
         let root = Rc::clone(&self.bdd);
         let result = Self::serialize_rec(root);
@@ -339,6 +340,8 @@ impl Bdd {
         serialized_bdd.push_str(&variable_order);
         serialized_bdd.push_str("\n");
         serialized_bdd.push_str(&buffer);
+        serialized_bdd.push_str("0,0,0,0\n");
+        serialized_bdd.push_str("1,0,0,0\n");
 
         serialized_bdd
     }
@@ -374,6 +377,7 @@ impl Bdd {
 
     /// Deserializes the given string (which was previously serialized by `serialize`) into a `Bdd`.
     /// TODO: Error handling for wrong input formats.
+    /// WARNING: VERY EXPERIMENTAL AND NOT THOROUGHLY TESTED (Workd with easy1.dimacs and sandwich.dimacs)
     pub fn deserialize(input: String) -> Bdd {
         let mut line_iter = input.lines();
         // Get the variable order from the input, which is the first line of the given string.
@@ -421,29 +425,45 @@ impl Bdd {
         let low_id = current_line.next().unwrap().parse::<u32>().unwrap();
         let high_id = current_line.next().unwrap().parse::<u32>().unwrap();
 
-        println!("{}, {}, {}, {}", internal_id, top_var, low_id, high_id);
+        if internal_id == 0 {
+            return (Rc::new(NodeType::Zero), hash_map);
+        }
+
+        if internal_id == 1 {
+            return (Rc::new(NodeType::One), hash_map);
+        }
 
         let low_line = match complete_input
             .lines()
             .filter(|x| x.split(',').next().unwrap().parse::<u32>().unwrap() == low_id)
             .next()
         {
-            Some(i) => {
-                println!("Low_id: {}, Low line: {}", low_id, i);
-                String::from(i)
-            }
-            None => return (Rc::new(NodeType::Zero), hash_map),
+            Some(i) => String::from(i),
+            None => match low_id {
+                0 => {
+                    return (Rc::new(NodeType::Zero), hash_map);
+                }
+                1 => {
+                    return (Rc::new(NodeType::One), hash_map);
+                }
+                _ => panic!("Can't be reached!"),
+            },
         };
         let high_line = match complete_input
             .lines()
             .filter(|x| x.split(',').next().unwrap().parse::<u32>().unwrap() == high_id)
             .next()
         {
-            Some(i) => {
-                println!("High_id: {}, High line: {}", high_id, i);
-                String::from(i)
-            }
-            None => return (Rc::new(NodeType::One), hash_map),
+            Some(i) => String::from(i),
+            None => match low_id {
+                0 => {
+                    return (Rc::new(NodeType::Zero), hash_map);
+                }
+                1 => {
+                    return (Rc::new(NodeType::One), hash_map);
+                }
+                _ => panic!("Can't be reached!"),
+            },
         };
 
         match internal_id {
@@ -468,7 +488,6 @@ impl Bdd {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::write;
 
     use super::*;
     use crate::bdd::bdd_graph::NodeType::*;
@@ -526,11 +545,21 @@ mod tests {
     fn easy1_serialize_deserialize() {
         let bdd = build_bdd("examples/assets/easy1.dimacs");
         let ser = bdd.serialize();
-        let _ = write("sertest", ser.clone());
         let bdd = Bdd::deserialize(ser);
         println!("{:?}", bdd);
         assert!(bdd.satisfiable());
         assert_eq!(bdd.satcount(), 5);
+    }
+
+    #[test]
+    //#[ignore = "not implemented yet"]
+    fn sandwich_serialize_deserialize() {
+        let bdd = build_bdd("examples/assets/sandwich.dimacs");
+        let ser = bdd.serialize();
+        let bdd = Bdd::deserialize(ser);
+        println!("{:?}", bdd);
+        assert!(bdd.satisfiable());
+        assert_eq!(bdd.satcount(), 2808);
     }
 
     #[test]

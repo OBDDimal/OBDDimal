@@ -1,4 +1,7 @@
-use std::time::Instant;
+use std::{
+    fs::{read, read_to_string},
+    time::Instant,
+};
 
 use clap::{App, Arg};
 use obbdimal::bdd::bdd_manager::BddManager;
@@ -6,6 +9,17 @@ use obbdimal::input::parser::ParserSettings;
 use obbdimal::{bdd::bdd_ds::InputFormat, input::static_ordering::StaticOrdering};
 
 fn main() {
+    let cnf = read_to_string("examples/assets/easy1.dimacs").unwrap();
+    let mgr = BddManager::new_from_format(
+        &cnf,
+        InputFormat::CNF,
+        ParserSettings::default(),
+        StaticOrdering::FORCE,
+    )
+    .unwrap();
+    let ser = mgr.serialize_bdd().unwrap();
+    mgr.deserialize_bdd(&ser);
+
     let matches = App::new("OBDDimal")
         .version("0.1")
         .author("Timo Netzer <timo.netzer@uni-ulm.de>")
