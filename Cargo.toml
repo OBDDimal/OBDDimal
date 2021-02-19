@@ -1,0 +1,17 @@
+[package]
+name = "obbdimal"
+version = "0.1.0"
+authors = ["Timo Netzer <timo.netzer@uni-ulm.de>"]
+edition = "2018"
+
+[dependencies]
+clap = {features = ["yaml"]}
+rand = "0.8.3"
+fnv = "1.0.7"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "bdd_building"
+harness = false
