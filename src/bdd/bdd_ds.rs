@@ -95,7 +95,7 @@ impl Bdd {
     /// Creates a new instance of a BDD manager from a given CNF.
     fn from_cnf(symbols: Symbol, cnf: Cnf) -> Self {
         let mut mgr = Self {
-            unique_table: fnv::FnvHashMap::default(),
+            unique_table: fnv::FnvHashMap::with_capacity_and_hasher(10000000, Default::default()),
             computed_table: fnv::FnvHashMap::default(),
             bdd: Rc::new(NodeType::Zero),
             cnf,

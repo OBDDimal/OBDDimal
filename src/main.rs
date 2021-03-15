@@ -67,6 +67,7 @@ fn main() {
     .unwrap();
     // Calculate the number of variable assignments that evaluate the created BDD to true.
     let sat_count = mgr.sat_count();
+    println!("Node Count = {:?}!", mgr.node_count());
 
     match sat_count {
         Ok(num) => {
