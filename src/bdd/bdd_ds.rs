@@ -7,14 +7,14 @@ use crate::{
     input::static_ordering::{apply_heuristic, StaticOrdering},
 };
 use std::hash::{Hash, Hasher};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Used as key for the unique_table.
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct UniqueKey {
     tv: i64,
-    low: Rc<NodeType>,
-    high: Rc<NodeType>,
+    low: Arc<NodeType>,
+    high: Arc<NodeType>,
 }
 
 impl Hash for UniqueKey {
@@ -26,7 +26,7 @@ impl Hash for UniqueKey {
 }
 
 impl UniqueKey {
-    fn new(tv: i64, low: Rc<NodeType>, high: Rc<NodeType>) -> Self {
+    fn new(tv: i64, low: Arc<NodeType>, high: Arc<NodeType>) -> Self {
         Self { tv, low, high }
     }
 }
@@ -34,9 +34,9 @@ impl UniqueKey {
 /// Used as the key for the computed_table.
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct ComputedKey {
-    f: Rc<NodeType>,
-    g: Rc<NodeType>,
-    h: Rc<NodeType>,
+    f: Arc<NodeType>,
+    g: Arc<NodeType>,
+    h: Arc<NodeType>,
 }
 
 impl Hash for ComputedKey {
@@ -48,7 +48,7 @@ impl Hash for ComputedKey {
 }
 
 impl ComputedKey {
-    fn new(f: Rc<NodeType>, g: Rc<NodeType>, h: Rc<NodeType>) -> Self {
+    fn new(f: Arc<NodeType>, g: Arc<NodeType>, h: Arc<NodeType>) -> Self {
         Self { f, g, h }
     }
 }
@@ -62,10 +62,10 @@ pub enum InputFormat {
 #[derive(Debug)]
 pub struct Bdd {
     //FNV Hash bases HashMaps are faster for smaller keys, so should be a performance boost here.
-    unique_table: fnv::FnvHashMap<UniqueKey, Rc<NodeType>>,
-    computed_table: fnv::FnvHashMap<ComputedKey, Rc<NodeType>>,
+    unique_table: fnv::FnvHashMap<UniqueKey, Arc<NodeType>>,
+    computed_table: fnv::FnvHashMap<ComputedKey, Arc<NodeType>>,
     cnf: Cnf,
-    pub bdd: Rc<NodeType>,
+    pub bdd: Arc<NodeType>,
 }
 
 impl Bdd {
@@ -97,7 +97,7 @@ impl Bdd {
         let mut mgr = Self {
             unique_table: fnv::FnvHashMap::with_capacity_and_hasher(10000000, Default::default()),
             computed_table: fnv::FnvHashMap::default(),
-            bdd: Rc::new(NodeType::Zero),
+            bdd: Arc::new(NodeType::Zero),
             cnf,
         };
         mgr.bdd = mgr.from_cnf_rec(symbols);
@@ -105,17 +105,17 @@ impl Bdd {
     }
 
     /// Helper method for `from_cnf`.
-    fn from_cnf_rec(&mut self, cnf: Symbol) -> Rc<NodeType> {
+    fn from_cnf_rec(&mut self, cnf: Symbol) -> Arc<NodeType> {
         match cnf {
-            Symbol::Posterminal(i) => Rc::new(Node::new_node_type(
+            Symbol::Posterminal(i) => Arc::new(Node::new_node_type(
                 i as i64,
-                Rc::new(NodeType::Zero),
-                Rc::new(NodeType::One),
+                Arc::new(NodeType::Zero),
+                Arc::new(NodeType::One),
             )),
-            Symbol::Negterminal(i) => Rc::new(Node::new_node_type(
+            Symbol::Negterminal(i) => Arc::new(Node::new_node_type(
                 i as i64,
-                Rc::new(NodeType::One),
-                Rc::new(NodeType::Zero),
+                Arc::new(NodeType::One),
+                Arc::new(NodeType::Zero),
             )),
             Symbol::Function(func) => match func.op {
                 Operator::And => {
@@ -136,13 +136,13 @@ impl Bdd {
     fn add_node_to_unique(
         &mut self,
         var: i64,
-        low: Rc<NodeType>,
-        high: Rc<NodeType>,
-    ) -> Rc<NodeType> {
-        Rc::clone(
+        low: Arc<NodeType>,
+        high: Arc<NodeType>,
+    ) -> Arc<NodeType> {
+        Arc::clone(
             self.unique_table
                 .entry(UniqueKey::new(var, low.clone(), high.clone()))
-                .or_insert_with(|| Rc::new(Node::new_node_type(var, low, high))),
+                .or_insert_with(|| Arc::new(Node::new_node_type(var, low, high))),
         )
     }
 
@@ -150,18 +150,18 @@ impl Bdd {
         if self.bdd.as_ref() == &NodeType::Zero {
             1
         } else {
-            2 + Self::nodecount_rec(Rc::clone(&self.bdd))
+            2 + Self::nodecount_rec(Arc::clone(&self.bdd))
         }
     }
 
-    fn nodecount_rec(subtree: Rc<NodeType>) -> u64 {
+    fn nodecount_rec(subtree: Arc<NodeType>) -> u64 {
         let root = subtree.as_ref();
 
         match root {
             NodeType::Zero => 0,
             NodeType::One => 0,
             NodeType::Complex(n) => {
-                1 + Self::nodecount_rec(Rc::clone(&n.low)) + Self::nodecount_rec(Rc::clone(&n.high))
+                1 + Self::nodecount_rec(Arc::clone(&n.low)) + Self::nodecount_rec(Arc::clone(&n.high))
             }
         }
     }
@@ -171,7 +171,7 @@ impl Bdd {
         let mut count: u64 = 0;
         let mut stack = vec![];
 
-        stack.push((Rc::clone(&self.bdd), 0));
+        stack.push((Arc::clone(&self.bdd), 0));
 
         while !stack.is_empty() {
             let tuple = stack.pop().unwrap(); // unwrap is okay, because stack can't be empty here.
@@ -185,8 +185,8 @@ impl Bdd {
                     }
                 }
                 NodeType::Complex(n) => {
-                    stack.push((Rc::clone(&n.low), depth + 1));
-                    stack.push((Rc::clone(&n.high), depth + 1));
+                    stack.push((Arc::clone(&n.low), depth + 1));
+                    stack.push((Arc::clone(&n.high), depth + 1));
                 }
             }
         }
@@ -201,11 +201,11 @@ impl Bdd {
 
     fn restrict(
         &mut self,
-        node: Rc<NodeType>,
+        node: Arc<NodeType>,
         v: i64,
         order: &Vec<i32>,
         val: bool,
-    ) -> Rc<NodeType> {
+    ) -> Arc<NodeType> {
         match node.as_ref() {
             NodeType::Complex(n) => {
                 let order_v = order.iter().position(|&x| x as i64 == v).unwrap();
@@ -214,20 +214,20 @@ impl Bdd {
                     if order_v < order_top_var {
                         node
                     } else if order_v == order_top_var {
-                        Rc::clone(&n.high)
+                        Arc::clone(&n.high)
                     } else {
-                        let low = self.restrict(Rc::clone(&n.low), v, order, val);
-                        let high = self.restrict(Rc::clone(&n.high), v, order, val);
+                        let low = self.restrict(Arc::clone(&n.low), v, order, val);
+                        let high = self.restrict(Arc::clone(&n.high), v, order, val);
                         self.add_node_to_unique(n.top_var, low, high)
                     }
                 } else {
                     if order_v < order_top_var {
                         node
                     } else if order_v == order_top_var {
-                        Rc::clone(&n.low)
+                        Arc::clone(&n.low)
                     } else {
-                        let low = self.restrict(Rc::clone(&n.low), v, order, val);
-                        let high = self.restrict(Rc::clone(&n.high), v, order, val);
+                        let low = self.restrict(Arc::clone(&n.low), v, order, val);
+                        let high = self.restrict(Arc::clone(&n.high), v, order, val);
                         self.add_node_to_unique(n.top_var, low, high)
                     }
                 }
@@ -238,7 +238,7 @@ impl Bdd {
     }
 
     /// If-then-else, if `f` ite returns `g`, else `h`.
-    fn ite(&mut self, f: Rc<NodeType>, g: Rc<NodeType>, h: Rc<NodeType>) -> Rc<NodeType> {
+    fn ite(&mut self, f: Arc<NodeType>, g: Arc<NodeType>, h: Arc<NodeType>) -> Arc<NodeType> {
         match (f.as_ref(), g.as_ref(), h.as_ref()) {
             (_, NodeType::One, NodeType::Zero) => f,
             (_, NodeType::Zero, NodeType::One) => self.not(f),
@@ -247,11 +247,11 @@ impl Bdd {
             (_, t, e) if t == e => g,
             (i, t, e) => {
                 match self.computed_table.get(&ComputedKey::new(
-                    Rc::clone(&f),
-                    Rc::clone(&g),
-                    Rc::clone(&h),
+                    Arc::clone(&f),
+                    Arc::clone(&g),
+                    Arc::clone(&h),
                 )) {
-                    Some(entry) => Rc::clone(entry),
+                    Some(entry) => Arc::clone(entry),
                     None => {
                         let v = [i, t, e]
                             .iter()
@@ -264,15 +264,15 @@ impl Bdd {
 
                         let order = self.cnf.order.clone();
 
-                        let ixt = self.restrict(Rc::clone(&f), v, &order, true);
-                        let txt = self.restrict(Rc::clone(&g), v, &order, true);
-                        let ext = self.restrict(Rc::clone(&h), v, &order, true);
+                        let ixt = self.restrict(Arc::clone(&f), v, &order, true);
+                        let txt = self.restrict(Arc::clone(&g), v, &order, true);
+                        let ext = self.restrict(Arc::clone(&h), v, &order, true);
 
                         let tv = self.ite(ixt, txt, ext);
 
-                        let ixf = self.restrict(Rc::clone(&f), v, &order, false);
-                        let txf = self.restrict(Rc::clone(&g), v, &order, false);
-                        let exf = self.restrict(Rc::clone(&h), v, &order, false);
+                        let ixf = self.restrict(Arc::clone(&f), v, &order, false);
+                        let txf = self.restrict(Arc::clone(&g), v, &order, false);
+                        let exf = self.restrict(Arc::clone(&h), v, &order, false);
 
                         let ev = self.ite(ixf, txf, exf);
 
@@ -283,7 +283,7 @@ impl Bdd {
                         let r = self.add_node_to_unique(v, ev, tv);
 
                         self.computed_table
-                            .insert(ComputedKey::new(f, g, h), Rc::clone(&r));
+                            .insert(ComputedKey::new(f, g, h), Arc::clone(&r));
 
                         r
                     }
@@ -293,18 +293,18 @@ impl Bdd {
     }
 
     /// Calculates the Boolean AND with the given left hand side `lhs` and the given right hand side `rhs`.
-    pub fn and(&mut self, lhs: Rc<NodeType>, rhs: Rc<NodeType>) -> Rc<NodeType> {
-        self.ite(lhs, rhs, Rc::new(NodeType::Zero))
+    pub fn and(&mut self, lhs: Arc<NodeType>, rhs: Arc<NodeType>) -> Arc<NodeType> {
+        self.ite(lhs, rhs, Arc::new(NodeType::Zero))
     }
 
     /// Calculates the Boolean OR with the given left hand side `lhs` and the given right hand side `rhs`.
-    pub fn or(&mut self, lhs: Rc<NodeType>, rhs: Rc<NodeType>) -> Rc<NodeType> {
-        self.ite(lhs, Rc::new(NodeType::One), rhs)
+    pub fn or(&mut self, lhs: Arc<NodeType>, rhs: Arc<NodeType>) -> Arc<NodeType> {
+        self.ite(lhs, Arc::new(NodeType::One), rhs)
     }
 
     /// Calculates the Boolean NOT with the given value `val`.
-    pub fn not(&mut self, val: Rc<NodeType>) -> Rc<NodeType> {
-        self.ite(val, Rc::new(NodeType::Zero), Rc::new(NodeType::One))
+    pub fn not(&mut self, val: Arc<NodeType>) -> Arc<NodeType> {
+        self.ite(val, Arc::new(NodeType::Zero), Arc::new(NodeType::One))
     }
 
     /// Serializes `self` to a String representing the BDD.
@@ -316,7 +316,7 @@ impl Bdd {
     /// 3. Internal ID 0 and 1 are representations of the terminal ZERO and ONE node.
     /// The last two lines have to be appended as the sink nodes for the recursive deserialization to work.
     pub fn serialize(&self) -> String {
-        let root = Rc::clone(&self.bdd);
+        let root = Arc::clone(&self.bdd);
         let result = Self::serialize_rec(root);
         let mut buffer = String::new();
 
@@ -343,7 +343,7 @@ impl Bdd {
         serialized_bdd
     }
 
-    fn serialize_rec(subtree: Rc<NodeType>) -> String {
+    fn serialize_rec(subtree: Arc<NodeType>) -> String {
         let node = subtree.as_ref();
 
         match node {
@@ -362,8 +362,8 @@ impl Bdd {
                 };
                 let id = n.id;
 
-                let low = Self::serialize_rec(Rc::clone(&n.low));
-                let high = Self::serialize_rec(Rc::clone(&n.high));
+                let low = Self::serialize_rec(Arc::clone(&n.low));
+                let high = Self::serialize_rec(Arc::clone(&n.high));
                 format!(
                     "{},{},{},{}\n{}\n{}",
                     id, n.top_var, low_id, high_id, low, high
@@ -420,8 +420,8 @@ impl Bdd {
     fn deserialize_rec(
         complete_input: String,
         current: String,
-        hash_map: FnvHashMap<UniqueKey, Rc<NodeType>>,
-    ) -> (Rc<NodeType>, FnvHashMap<UniqueKey, Rc<NodeType>>) {
+        hash_map: FnvHashMap<UniqueKey, Arc<NodeType>>,
+    ) -> (Arc<NodeType>, FnvHashMap<UniqueKey, Arc<NodeType>>) {
         // Extract the important features of a given line.
         let mut current_line = current.split(',');
         let internal_id = current_line.next().unwrap().parse::<i64>().unwrap();
@@ -431,12 +431,12 @@ impl Bdd {
 
         // If we are internal_id == 0, we are the ZERO sink node.
         if internal_id == 0 {
-            return (Rc::new(NodeType::Zero), hash_map);
+            return (Arc::new(NodeType::Zero), hash_map);
         }
 
         // If we are internal_id == 1, we are the ONE sink node.
         if internal_id == 1 {
-            return (Rc::new(NodeType::One), hash_map);
+            return (Arc::new(NodeType::One), hash_map);
         }
 
         // Search for the line in the input representing the ID of the low edge.
@@ -464,13 +464,13 @@ impl Bdd {
         // Get the high edge of the Bdd.
         let (high, mut hash_map) = Self::deserialize_rec(complete_input, high_line, hash_map);
         // Construct the node of the Bdd.
-        let node = Rc::new(Node::new_node_type(
+        let node = Arc::new(Node::new_node_type(
             top_var,
-            Rc::clone(&low),
-            Rc::clone(&high),
+            Arc::clone(&low),
+            Arc::clone(&high),
         ));
         // Add the node to the unique_table.
-        hash_map.insert(UniqueKey::new(top_var, low, high), Rc::clone(&node));
+        hash_map.insert(UniqueKey::new(top_var, low, high), Arc::clone(&node));
         // Return the constructed node and the filled unique_table.
         (node, hash_map)
     }
@@ -502,22 +502,22 @@ mod tests {
             &Complex(Node {
                 id: 29,
                 top_var: 1,
-                low: Rc::new(Complex(Node {
+                low: Arc::new(Complex(Node {
                     id: 21,
                     top_var: 3,
-                    low: Rc::new(One),
-                    high: Rc::new(Zero),
+                    low: Arc::new(One),
+                    high: Arc::new(Zero),
                 })),
-                high: Rc::new(Complex(Node {
+                high: Arc::new(Complex(Node {
                     id: 27,
                     top_var: 2,
-                    low: Rc::new(Complex(Node {
+                    low: Arc::new(Complex(Node {
                         id: 24,
                         top_var: 3,
-                        low: Rc::new(Zero),
-                        high: Rc::new(One),
+                        low: Arc::new(Zero),
+                        high: Arc::new(One),
                     })),
-                    high: Rc::new(One),
+                    high: Arc::new(One),
                 })),
             })
         );

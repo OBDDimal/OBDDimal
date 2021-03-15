@@ -1,5 +1,5 @@
 use std::{
-    rc::Rc,
+    sync::Arc,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -10,13 +10,13 @@ static NODE_ID: AtomicUsize = AtomicUsize::new(2);
 pub struct Node {
     pub id: u64,
     pub top_var: i64,       // top_variable
-    pub low: Rc<NodeType>,  // 0 side of the bdd
-    pub high: Rc<NodeType>, // 1 side of the bdd
+    pub low: Arc<NodeType>,  // 0 side of the bdd
+    pub high: Arc<NodeType>, // 1 side of the bdd
 }
 
 impl Node {
     /// Creates a `Node` and wraps it into a `NodeType::Complex`.
-    pub fn new_node_type(v: i64, low: Rc<NodeType>, high: Rc<NodeType>) -> NodeType {
+    pub fn new_node_type(v: i64, low: Arc<NodeType>, high: Arc<NodeType>) -> NodeType {
         NodeType::Complex(Node {
             id: NODE_ID.fetch_add(1, Ordering::SeqCst) as u64,
             top_var: v,
