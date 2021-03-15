@@ -12,13 +12,11 @@ args:
         short: i
         long: input
         takes_value: true
-        required_unless_present: load
     - load:
         help: Input path to a previously saved BDD.
         short: l
         long: load
         takes_value: true
-        required_unless_present: input
     - preorder:
         help: Static variable ordering heuristic which is applied before the BDD is generated.
         short: p
