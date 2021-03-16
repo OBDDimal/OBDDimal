@@ -7,11 +7,12 @@ use crate::{
     input::static_ordering::{apply_heuristic, StaticOrdering},
 };
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use rayon::prelude::*;
 
 /// Used as key for the unique_table.
 #[derive(Debug, Clone, Eq, PartialEq)]
-struct UniqueKey {
+pub struct UniqueKey {
     tv: i64,
     low: Arc<NodeType>,
     high: Arc<NodeType>,
@@ -91,6 +92,72 @@ impl Bdd {
         };
         Ok(Bdd::from_cnf(symbolic_rep, cnf))
     }
+
+    /// Creates a new instance of a BDD manager out of a given input format.
+    /// Currently there is only `InputFormat::CNF` supported, which represents Dimacs CNF.
+    pub fn from_format_para(
+        data: &str,
+        format: InputFormat,
+        settings: ParserSettings,
+        static_ordering: StaticOrdering,
+	unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>
+    ) -> Result<Self, DataFormatError> {
+        let cnf = crate::input::parser::parse_string(data, settings)?;
+	
+        let cnf = match static_ordering {
+            StaticOrdering::NONE => cnf,
+            StaticOrdering::FORCE => apply_heuristic(cnf, StaticOrdering::FORCE),
+        };
+
+        let symbolic_rep = match format {
+            InputFormat::CNF => {
+                crate::boolean_function::BooleanFunction::new_from_cnf_formula(cnf.terms.clone())
+            }
+        };
+        Ok(Bdd::from_cnf_para(symbolic_rep, cnf, unique_table))
+    }
+
+    /// Creates a new instance of a BDD manager from a given CNF.
+    fn from_cnf_para(symbols: Symbol, cnf: Cnf, unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>) -> Self {
+	let cnf1 = cnf.clone();
+        let mut mgr = Self {
+            unique_table: fnv::FnvHashMap::with_capacity_and_hasher(10000000, Default::default()),
+            computed_table: fnv::FnvHashMap::default(),
+            bdd: Arc::new(NodeType::Zero),
+            cnf,
+        };
+        mgr.bdd = mgr.from_cnf_para_rec(symbols, cnf1, unique_table);
+        mgr
+    }
+
+        /// Helper method for `from_cnf`.
+    fn from_cnf_para_rec(&mut self, symbols: Symbol, cnf: Cnf, unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>) -> Arc<NodeType> {
+        match symbols {
+            Symbol::Posterminal(i) => Arc::new(Node::new_node_type(
+                i as i64,
+                Arc::new(NodeType::Zero),
+                Arc::new(NodeType::One),
+            )),
+            Symbol::Negterminal(i) => Arc::new(Node::new_node_type(
+                i as i64,
+                Arc::new(NodeType::One),
+                Arc::new(NodeType::Zero),
+            )),
+            Symbol::Function(func) => match func.op {
+                Operator::And => {
+                    let l = self.from_cnf_para_rec(*func.lhs, cnf.clone(), Arc::clone(&unique_table));
+                    let r = self.from_cnf_para_rec(*func.rhs, cnf.clone(), Arc::clone(&unique_table));
+                    and_para(l, r, unique_table, cnf)
+                }
+                Operator::Or => {
+                    let l = self.from_cnf_para_rec(*func.lhs, cnf.clone(), Arc::clone(&unique_table));
+                    let r = self.from_cnf_para_rec(*func.rhs, cnf.clone(), Arc::clone(&unique_table));
+                    or_para(l, r, unique_table, cnf)
+                }
+            },
+        }
+    }
+
 
     /// Creates a new instance of a BDD manager from a given CNF.
     fn from_cnf(symbols: Symbol, cnf: Cnf) -> Self {
@@ -474,6 +541,131 @@ impl Bdd {
         // Return the constructed node and the filled unique_table.
         (node, hash_map)
     }
+}
+
+/// Calculates the Boolean AND with the given left hand side `lhs` and the given right hand side `rhs`.
+pub fn and_para(lhs: Arc<NodeType>, rhs: Arc<NodeType>, unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>, cnf: Cnf) -> Arc<NodeType> {
+    para_ite(lhs, rhs, Arc::new(NodeType::Zero), unique_table, cnf)
+}
+
+/// Calculates the Boolean OR with the given left hand side `lhs` and the given right hand side `rhs`.
+pub fn or_para(lhs: Arc<NodeType>, rhs: Arc<NodeType>, unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>, cnf: Cnf) -> Arc<NodeType> {
+    para_ite(lhs, Arc::new(NodeType::One), rhs, unique_table, cnf)
+}
+
+fn para_ite(f: Arc<NodeType>, g: Arc<NodeType>, h: Arc<NodeType>, unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>, cnf: Cnf) -> Arc<NodeType> {
+    let mut computed_table = FnvHashMap::default();
+    
+        match (f.as_ref(), g.as_ref(), h.as_ref()) {
+            (_, NodeType::One, NodeType::Zero) => f,
+            (NodeType::One, _, _) => g,
+            (NodeType::Zero, _, _) => h,
+            (_, t, e) if t == e => g,
+            (i, t, e) => {
+                match computed_table.get(&ComputedKey::new(
+                    Arc::clone(&f),
+                    Arc::clone(&g),
+                    Arc::clone(&h),
+                )) {
+                    Some(entry) => Arc::clone(entry),
+                    None => {
+                        let v = [i, t, e]
+                            .iter()
+                            .filter_map(|x| match x {
+                                NodeType::Complex(Node { top_var, .. }) => Some(*top_var),
+                                _ => None,
+                            })
+                            .min()
+                            .unwrap(); // Unwrap can't fail, because the match ensures that at least one NodeType::Complex(n) is present.
+
+                        let order = cnf.order.clone();
+			let cnf_right = cnf.clone();
+			let cnf_left = cnf;
+                        
+                        let ixt = para_restrict(Arc::clone(&f), v, &order, true, Arc::clone(&unique_table));
+                        let txt = para_restrict(Arc::clone(&g), v, &order, true, Arc::clone(&unique_table));
+                        let ext = para_restrict(Arc::clone(&h), v, &order, true, Arc::clone(&unique_table));
+
+                        let ixf = para_restrict(Arc::clone(&f), v, &order, false, Arc::clone(&unique_table));
+                        let txf = para_restrict(Arc::clone(&g), v, &order, false, Arc::clone(&unique_table));
+                        let exf = para_restrict(Arc::clone(&h), v, &order, false, Arc::clone(&unique_table));
+
+                        let arc_to_ut_a = Arc::clone(&unique_table);
+                        let arc_to_ut_b = Arc::clone(&unique_table);
+			
+                        //Obviously not working, but that should be the whole trick of parallelizing ITE.
+                        let (tv, ev) = rayon::join(
+                            || para_ite(ixt, txt, ext, arc_to_ut_a, cnf_left), 
+                            || para_ite(ixf, txf, exf, arc_to_ut_b, cnf_right));
+
+                        if tv == ev {
+                            return tv;
+                        }
+
+                        let r = para_add_node_to_unique(unique_table, v, ev, tv);
+
+                        computed_table
+                            .insert(ComputedKey::new(f, g, h), Arc::clone(&r));
+
+                        r
+                    }
+                }
+            }
+        }
+}
+
+fn para_restrict(
+    node: Arc<NodeType>,
+    v: i64,
+    order: &Vec<i32>,
+    val: bool,
+    unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>
+    ) -> Arc<NodeType> {
+        match node.as_ref() {
+            NodeType::Complex(n) => {
+                let order_v = order.iter().position(|&x| x as i64 == v).unwrap();
+                let order_top_var = order.iter().position(|&x| x as i64 == n.top_var).unwrap();
+                if val {
+                    if order_v < order_top_var {
+                        node
+                    } else if order_v == order_top_var {
+                        Arc::clone(&n.high)
+                    } else {
+                        let low = para_restrict(Arc::clone(&n.low), v, order, val, Arc::clone(&unique_table));
+                        let high = para_restrict(Arc::clone(&n.high), v, order, val, Arc::clone(&unique_table));
+                        para_add_node_to_unique(unique_table, n.top_var, low, high)
+                    }
+                } else {
+                    if order_v < order_top_var {
+                        node
+                    } else if order_v == order_top_var {
+                        Arc::clone(&n.low)
+                    } else {
+                        let low = para_restrict(Arc::clone(&n.low), v, order, val, Arc::clone(&unique_table));
+                        let high = para_restrict(Arc::clone(&n.high), v, order, val, Arc::clone(&unique_table));
+                        para_add_node_to_unique(unique_table, n.top_var, low, high)
+                    }
+                }
+            }
+            NodeType::Zero => node,
+            NodeType::One => node,
+        }
+}
+
+    /// Adds a `NodeType` to the unique_table, if it is not already there.
+fn para_add_node_to_unique(
+    unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>,
+    var: i64,
+    low: Arc<NodeType>,
+    high: Arc<NodeType>,
+) -> Arc<NodeType> {
+    Arc::clone(
+        unique_table
+	    .lock()
+	    .unwrap()
+            .entry(UniqueKey::new(var, low.clone(), high.clone()))
+            .or_insert_with(|| Arc::new(Node::new_node_type(var, low, high))),
+    )
 }
 
 #[cfg(test)]

@@ -1,14 +1,27 @@
 use std::time::Instant;
 
 use clap::{load_yaml, App};
-use obbdimal::bdd::bdd_manager::BddManager;
+use obbdimal::bdd::bdd_manager::{BddManager};
+use obbdimal::bdd::bdd_para_manager::BddParaManager;
 use obbdimal::input::parser::ParserSettings;
 use obbdimal::{bdd::bdd_ds::InputFormat, input::static_ordering::StaticOrdering};
 
 fn main() {
+    let data = std::fs::read_to_string("./examples/assets/sandwich.dimacs").unwrap();
+
+    let mut mgr = BddParaManager::new_parallelized(
+        &data,
+        InputFormat::CNF,
+        ParserSettings::default(),
+        StaticOrdering::FORCE,
+    );
+
+    println!("Parallelized calculated #SAT: {}", mgr.sat_count().unwrap());
+    
+    todo!();
     let yaml = load_yaml!("clap_config.yaml");
     let matches = App::from(yaml).get_matches();
-
+    
     match matches.value_of("load") {
         Some(i) => {
             let data = std::fs::read_to_string(i).unwrap();
