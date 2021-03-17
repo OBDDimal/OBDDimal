@@ -1,27 +1,31 @@
 use std::time::Instant;
 
 use clap::{load_yaml, App};
-use obbdimal::bdd::bdd_manager::{BddManager};
-use obbdimal::bdd::bdd_para_manager::BddParaManager;
+use obbdimal::bdd::manager::{BddManager, BddParaManager, Manager};
 use obbdimal::input::parser::ParserSettings;
 use obbdimal::{bdd::bdd_ds::InputFormat, input::static_ordering::StaticOrdering};
 
 fn main() {
     let data = std::fs::read_to_string("./examples/assets/sandwich.dimacs").unwrap();
     let timer = Instant::now();
-    let mut mgr = BddParaManager::new_parallelized(
+    let mut mgr = BddParaManager::from_format(
         &data,
         InputFormat::CNF,
         ParserSettings::default(),
         StaticOrdering::FORCE,
+    )
+    .unwrap();
+
+    println!(
+        "Parallelized calculated #SAT: {}, in {:?}",
+        mgr.sat_count().unwrap(),
+        timer.elapsed()
     );
-    
-    println!("Parallelized calculated #SAT: {}, in {:?}", mgr.sat_count().unwrap(), timer.elapsed());
-    
-    todo!();
+
+    return;
     let yaml = load_yaml!("clap_config.yaml");
     let matches = App::from(yaml).get_matches();
-    
+
     match matches.value_of("load") {
         Some(i) => {
             let data = std::fs::read_to_string(i).unwrap();
@@ -71,7 +75,7 @@ fn main() {
 
     let timer = Instant::now();
 
-    let mut mgr = BddManager::new_from_format(
+    let mut mgr = BddManager::from_format(
         &data,
         InputFormat::CNF,
         ParserSettings::default(),

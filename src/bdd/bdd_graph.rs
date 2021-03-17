@@ -1,6 +1,6 @@
 use std::{
-    sync::Arc,
     sync::atomic::{AtomicUsize, Ordering},
+    sync::Arc,
 };
 
 static NODE_ID: AtomicUsize = AtomicUsize::new(2);
@@ -9,7 +9,7 @@ static NODE_ID: AtomicUsize = AtomicUsize::new(2);
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Node {
     pub id: u64,
-    pub top_var: i64,       // top_variable
+    pub top_var: i64,        // top_variable
     pub low: Arc<NodeType>,  // 0 side of the bdd
     pub high: Arc<NodeType>, // 1 side of the bdd
 }
