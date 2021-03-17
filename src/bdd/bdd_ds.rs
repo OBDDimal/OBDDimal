@@ -11,7 +11,6 @@ use std::sync::{Arc, Mutex};
 
 //|-------------------------------------------------------------------|
 //|                                                                   |
-//|                                                                   |
 //|     THIS IS A TYPE ALIAS, DO NOT IGNORE IT! IT IS IMPORTANT!      |
 //|               EVERY OCCURENCE OF UniqueTable IS A                 |
 //|      Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>        |
