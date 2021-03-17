@@ -10,6 +10,8 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 use rayon::prelude::*;
 
+type UniqueTable = Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>;
+
 /// Used as key for the unique_table.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct UniqueKey {
@@ -100,7 +102,7 @@ impl Bdd {
         format: InputFormat,
         settings: ParserSettings,
         static_ordering: StaticOrdering,
-	unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>
+	unique_table: UniqueTable
     ) -> Result<Self, DataFormatError> {
         let cnf = crate::input::parser::parse_string(data, settings)?;
 	
@@ -118,7 +120,8 @@ impl Bdd {
     }
 
     /// Creates a new instance of a BDD manager from a given CNF.
-    fn from_cnf_para(symbols: Symbol, cnf: Cnf, unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>) -> Self {
+    /// FIXME: Manager has to support the arc<mutex> type for unique_table
+    fn from_cnf_para(symbols: Symbol, cnf: Cnf, unique_table: UniqueTable) -> Self {
 	let cnf1 = cnf.clone();
         let mut mgr = Self {
             unique_table: fnv::FnvHashMap::with_capacity_and_hasher(10000000, Default::default()),
@@ -126,12 +129,12 @@ impl Bdd {
             bdd: Arc::new(NodeType::Zero),
             cnf,
         };
-        mgr.bdd = mgr.from_cnf_para_rec(symbols, cnf1, unique_table);
+        mgr.bdd = Self::from_cnf_para_rec(symbols, cnf1, unique_table);
         mgr
     }
 
-        /// Helper method for `from_cnf`.
-    fn from_cnf_para_rec(&mut self, symbols: Symbol, cnf: Cnf, unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>) -> Arc<NodeType> {
+    /// Helper method for `from_cnf_para`.
+    fn from_cnf_para_rec(symbols: Symbol, cnf: Cnf, unique_table: UniqueTable) -> Arc<NodeType> {
         match symbols {
             Symbol::Posterminal(i) => Arc::new(Node::new_node_type(
                 i as i64,
@@ -145,13 +148,13 @@ impl Bdd {
             )),
             Symbol::Function(func) => match func.op {
                 Operator::And => {
-                    let l = self.from_cnf_para_rec(*func.lhs, cnf.clone(), Arc::clone(&unique_table));
-                    let r = self.from_cnf_para_rec(*func.rhs, cnf.clone(), Arc::clone(&unique_table));
+                    let l = Self::from_cnf_para_rec(*func.lhs, cnf.clone(), Arc::clone(&unique_table));
+                    let r = Self::from_cnf_para_rec(*func.rhs, cnf.clone(), Arc::clone(&unique_table));
                     and_para(l, r, unique_table, cnf)
                 }
                 Operator::Or => {
-                    let l = self.from_cnf_para_rec(*func.lhs, cnf.clone(), Arc::clone(&unique_table));
-                    let r = self.from_cnf_para_rec(*func.rhs, cnf.clone(), Arc::clone(&unique_table));
+                    let l = Self::from_cnf_para_rec(*func.lhs, cnf.clone(), Arc::clone(&unique_table));
+                    let r = Self::from_cnf_para_rec(*func.rhs, cnf.clone(), Arc::clone(&unique_table));
                     or_para(l, r, unique_table, cnf)
                 }
             },
@@ -544,16 +547,16 @@ impl Bdd {
 }
 
 /// Calculates the Boolean AND with the given left hand side `lhs` and the given right hand side `rhs`.
-pub fn and_para(lhs: Arc<NodeType>, rhs: Arc<NodeType>, unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>, cnf: Cnf) -> Arc<NodeType> {
+pub fn and_para(lhs: Arc<NodeType>, rhs: Arc<NodeType>, unique_table: UniqueTable, cnf: Cnf) -> Arc<NodeType> {
     para_ite(lhs, rhs, Arc::new(NodeType::Zero), unique_table, cnf)
 }
 
 /// Calculates the Boolean OR with the given left hand side `lhs` and the given right hand side `rhs`.
-pub fn or_para(lhs: Arc<NodeType>, rhs: Arc<NodeType>, unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>, cnf: Cnf) -> Arc<NodeType> {
+pub fn or_para(lhs: Arc<NodeType>, rhs: Arc<NodeType>, unique_table: UniqueTable, cnf: Cnf) -> Arc<NodeType> {
     para_ite(lhs, Arc::new(NodeType::One), rhs, unique_table, cnf)
 }
 
-fn para_ite(f: Arc<NodeType>, g: Arc<NodeType>, h: Arc<NodeType>, unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>, cnf: Cnf) -> Arc<NodeType> {
+fn para_ite(f: Arc<NodeType>, g: Arc<NodeType>, h: Arc<NodeType>, unique_table: UniqueTable, cnf: Cnf) -> Arc<NodeType> {
     let mut computed_table = FnvHashMap::default();
     
         match (f.as_ref(), g.as_ref(), h.as_ref()) {
@@ -619,7 +622,7 @@ fn para_restrict(
     v: i64,
     order: &Vec<i32>,
     val: bool,
-    unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>
+    unique_table: UniqueTable
     ) -> Arc<NodeType> {
         match node.as_ref() {
             NodeType::Complex(n) => {
@@ -654,7 +657,7 @@ fn para_restrict(
 
     /// Adds a `NodeType` to the unique_table, if it is not already there.
 fn para_add_node_to_unique(
-    unique_table: Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>,
+    unique_table: UniqueTable,
     var: i64,
     low: Arc<NodeType>,
     high: Arc<NodeType>,
@@ -682,6 +685,40 @@ mod tests {
         .unwrap();
         let input_symbols = BooleanFunction::new_from_cnf_formula(input.terms.clone());
         Bdd::from_cnf(input_symbols, input)
+    }
+
+    fn build_bdd_para(path: &str) -> Bdd {
+	let input = crate::input::parser::parse_string(
+            &std::fs::read_to_string(path).unwrap(),
+            ParserSettings::default(),
+        )
+        .unwrap();
+        let input_symbols = BooleanFunction::new_from_cnf_formula(input.terms.clone());
+	let unique_table = Arc::new(Mutex::new(fnv::FnvHashMap::default()));
+        Bdd::from_cnf_para(input_symbols, input, unique_table)
+    }
+
+    #[test]
+    fn easy1_sat_para() {
+        let mgr = build_bdd_para("examples/assets/easy1.dimacs");
+        assert!(mgr.satisfiable());
+        assert_eq!(mgr.satcount(), 5);
+    }
+
+    #[test]
+    fn sandwich_sat_para() {
+        let mgr = build_bdd_para("examples/assets/sandwich.dimacs");
+        assert!(mgr.satisfiable());
+        assert_eq!(mgr.satcount(), 2808);
+    }
+
+    #[test]
+    #[ignore = "Takes a long time"]
+    fn berkeleydb_sat_para() {
+        let mgr = build_bdd_para("examples/assets/berkeleydb.dimacs");
+        assert!(mgr.satisfiable());
+        assert_eq!(mgr.nodecount(), 356704); //Should be around 1000-5000
+        assert_eq!(mgr.satcount(), 4080389785);
     }
 
     #[test]
@@ -714,7 +751,7 @@ mod tests {
             })
         );
     }
-
+    
     #[test]
     fn easy1_sat() {
         let mgr = build_bdd("examples/assets/easy1.dimacs");

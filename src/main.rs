@@ -8,15 +8,15 @@ use obbdimal::{bdd::bdd_ds::InputFormat, input::static_ordering::StaticOrdering}
 
 fn main() {
     let data = std::fs::read_to_string("./examples/assets/sandwich.dimacs").unwrap();
-
+    let timer = Instant::now();
     let mut mgr = BddParaManager::new_parallelized(
         &data,
         InputFormat::CNF,
         ParserSettings::default(),
         StaticOrdering::FORCE,
     );
-
-    println!("Parallelized calculated #SAT: {}", mgr.sat_count().unwrap());
+    
+    println!("Parallelized calculated #SAT: {}, in {:?}", mgr.sat_count().unwrap(), timer.elapsed());
     
     todo!();
     let yaml = load_yaml!("clap_config.yaml");
