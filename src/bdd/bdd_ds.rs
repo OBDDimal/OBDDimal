@@ -87,7 +87,7 @@ pub struct Bdd {
 }
 
 impl Bdd {
-    /// Creates a new instance of a BDD manager out of a given input format.
+    /// Creates a new instance of a `Bdd` in a sequential fashion out of a given input format.
     /// Currently there is only `InputFormat::CNF` supported, which represents Dimacs CNF.
     pub fn from_format(
         data: &str,
@@ -110,7 +110,7 @@ impl Bdd {
         Ok(Bdd::from_cnf(symbolic_rep, cnf))
     }
 
-    /// Creates a new instance of a BDD manager out of a given input format.
+    /// Creates a new instance of a `Bdd` in a parallelized fashion out of a given input format.
     /// Currently there is only `InputFormat::CNF` supported, which represents Dimacs CNF.
     pub fn from_format_para(
         data: &str,
@@ -131,25 +131,24 @@ impl Bdd {
                 crate::boolean_function::BooleanFunction::new_from_cnf_formula(cnf.terms.clone())
             }
         };
-        Ok(Bdd::from_cnf_para(symbolic_rep, cnf, unique_table))
+        Ok(Bdd::from_cnf_para(symbolic_rep, &cnf, unique_table))
     }
 
     /// Creates a new instance of a BDD manager from a given CNF.
-    /// FIXME: Manager has to support the arc<mutex> type for unique_table
-    fn from_cnf_para(symbols: Symbol, cnf: Cnf, unique_table: UniqueTable) -> Self {
-        let cnf1 = cnf.clone();
+    fn from_cnf_para(symbols: Symbol, cnf: &Cnf, unique_table: UniqueTable) -> Self {
+        let cnf_c = cnf.clone();
         let mut mgr = Self {
             unique_table: fnv::FnvHashMap::with_capacity_and_hasher(10000000, Default::default()),
             computed_table: fnv::FnvHashMap::default(),
             bdd: Arc::new(NodeType::Zero),
-            cnf,
+            cnf: cnf_c,
         };
-        mgr.bdd = Self::from_cnf_para_rec(symbols, cnf1, unique_table);
+        mgr.bdd = Self::from_cnf_para_rec(symbols, cnf, unique_table);
         mgr
     }
 
     /// Helper method for `from_cnf_para`.
-    fn from_cnf_para_rec(symbols: Symbol, cnf: Cnf, unique_table: UniqueTable) -> Arc<NodeType> {
+    fn from_cnf_para_rec(symbols: Symbol, cnf: &Cnf, unique_table: UniqueTable) -> Arc<NodeType> {
         match symbols {
             Symbol::Posterminal(i) => Arc::new(Node::new_node_type(
                 i as i64,
@@ -164,16 +163,16 @@ impl Bdd {
             Symbol::Function(func) => match func.op {
                 Operator::And => {
                     let l =
-                        Self::from_cnf_para_rec(*func.lhs, cnf.clone(), Arc::clone(&unique_table));
+                        Self::from_cnf_para_rec(*func.lhs, cnf, Arc::clone(&unique_table));
                     let r =
-                        Self::from_cnf_para_rec(*func.rhs, cnf.clone(), Arc::clone(&unique_table));
+                        Self::from_cnf_para_rec(*func.rhs, cnf, Arc::clone(&unique_table));
                     and_para(l, r, unique_table, cnf)
                 }
                 Operator::Or => {
                     let l =
-                        Self::from_cnf_para_rec(*func.lhs, cnf.clone(), Arc::clone(&unique_table));
+                        Self::from_cnf_para_rec(*func.lhs, cnf, Arc::clone(&unique_table));
                     let r =
-                        Self::from_cnf_para_rec(*func.rhs, cnf.clone(), Arc::clone(&unique_table));
+                        Self::from_cnf_para_rec(*func.rhs, cnf, Arc::clone(&unique_table));
                     or_para(l, r, unique_table, cnf)
                 }
             },
@@ -570,7 +569,7 @@ pub fn and_para(
     lhs: Arc<NodeType>,
     rhs: Arc<NodeType>,
     unique_table: UniqueTable,
-    cnf: Cnf,
+    cnf: &Cnf,
 ) -> Arc<NodeType> {
     para_ite(lhs, rhs, Arc::new(NodeType::Zero), unique_table, cnf)
 }
@@ -580,7 +579,7 @@ pub fn or_para(
     lhs: Arc<NodeType>,
     rhs: Arc<NodeType>,
     unique_table: UniqueTable,
-    cnf: Cnf,
+    cnf: &Cnf,
 ) -> Arc<NodeType> {
     para_ite(lhs, Arc::new(NodeType::One), rhs, unique_table, cnf)
 }
@@ -590,7 +589,7 @@ fn para_ite(
     g: Arc<NodeType>,
     h: Arc<NodeType>,
     unique_table: UniqueTable,
-    cnf: Cnf,
+    cnf: &Cnf,
 ) -> Arc<NodeType> {
     let mut computed_table = FnvHashMap::default();
 
@@ -615,10 +614,8 @@ fn para_ite(
                         })
                         .min()
                         .unwrap(); // Unwrap can't fail, because the match ensures that at least one NodeType::Complex(n) is present.
-
+		    
                     let order = cnf.order.clone();
-                    let cnf_right = cnf.clone();
-                    let cnf_left = cnf;
 
                     let ixt =
                         para_restrict(Arc::clone(&f), v, &order, true, Arc::clone(&unique_table));
@@ -639,8 +636,8 @@ fn para_ite(
 
                     //Obviously not working, but that should be the whole trick of parallelizing ITE.
                     let (tv, ev) = rayon::join(
-                        || para_ite(ixt, txt, ext, arc_to_ut_a, cnf_left),
-                        || para_ite(ixf, txf, exf, arc_to_ut_b, cnf_right),
+                        || para_ite(ixt, txt, ext, arc_to_ut_a, cnf),
+                        || para_ite(ixf, txf, exf, arc_to_ut_b, cnf),
                     );
 
                     if tv == ev {
@@ -750,7 +747,7 @@ mod tests {
         .unwrap();
         let input_symbols = BooleanFunction::new_from_cnf_formula(input.terms.clone());
         let unique_table = Arc::new(Mutex::new(fnv::FnvHashMap::default()));
-        Bdd::from_cnf_para(input_symbols, input, unique_table)
+        Bdd::from_cnf_para(input_symbols, &input, unique_table)
     }
 
     #[test]
