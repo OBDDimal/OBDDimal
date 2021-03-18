@@ -9,21 +9,21 @@ use crate::{
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
-///|-------------------------------------------------------------------|
-///|                                                                   |
-///|     THIS IS A TYPE ALIAS, DO NOT IGNORE IT! IT IS IMPORTANT!      |
-///|               EVERY OCCURENCE OF UniqueTable IS A                 |
-///|      Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>        |
-///|                          IN DISGUISE                              |
-///|                                                                   |
-///|                             AGAIN                                 |
-///|                                                                   |
-///|     THIS IS A TYPE ALIAS, DO NOT IGNORE IT! IT IS IMPORTANT!      |
-///|               EVERY OCCURENCE OF UniqueTable IS A                 |
-///|      Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>        |
-///|                          IN DISGUISE                              |
-///|                                                                   |
-///|-------------------------------------------------------------------|
+//|-------------------------------------------------------------------|
+//|                                                                   |
+//|     THIS IS A TYPE ALIAS, DO NOT IGNORE IT! IT IS IMPORTANT!      |
+//|               EVERY OCCURENCE OF UniqueTable IS A                 |
+//|      Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>        |
+//|                          IN DISGUISE                              |
+//|                                                                   |
+//|                             AGAIN                                 |
+//|                                                                   |
+//|     THIS IS A TYPE ALIAS, DO NOT IGNORE IT! IT IS IMPORTANT!      |
+//|               EVERY OCCURENCE OF UniqueTable IS A                 |
+//|      Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>        |
+//|                          IN DISGUISE                              |
+//|                                                                   |
+//|-------------------------------------------------------------------|
 
 type UniqueTable = Arc<Mutex<fnv::FnvHashMap<UniqueKey, Arc<NodeType>>>>;
 
@@ -117,9 +117,10 @@ impl Bdd {
         format: InputFormat,
         settings: ParserSettings,
         static_ordering: StaticOrdering,
-        unique_table: UniqueTable,
     ) -> Result<Self, DataFormatError> {
         let cnf = crate::input::parser::parse_string(data, settings)?;
+        let unique_tables =
+            vec![Arc::new(Mutex::new(fnv::FnvHashMap::default())); cnf.varibale_count as usize];
 
         let cnf = match static_ordering {
             StaticOrdering::NONE => cnf,
@@ -131,11 +132,15 @@ impl Bdd {
                 crate::boolean_function::BooleanFunction::new_from_cnf_formula(cnf.terms.clone())
             }
         };
-        Ok(Bdd::from_cnf_para(symbolic_rep, &cnf, unique_table))
+        Ok(Bdd::from_cnf_para(
+            symbolic_rep,
+            &cnf,
+            Arc::new(unique_tables),
+        ))
     }
 
     /// Creates a new instance of a BDD manager from a given CNF.
-    fn from_cnf_para(symbols: Symbol, cnf: &Cnf, unique_table: UniqueTable) -> Self {
+    fn from_cnf_para(symbols: Symbol, cnf: &Cnf, unique_tables: Arc<Vec<UniqueTable>>) -> Self {
         let cnf_c = cnf.clone();
         let mut mgr = Self {
             unique_table: fnv::FnvHashMap::with_capacity_and_hasher(10000000, Default::default()),
@@ -143,12 +148,16 @@ impl Bdd {
             bdd: Arc::new(NodeType::Zero),
             cnf: cnf_c,
         };
-        mgr.bdd = Self::from_cnf_para_rec(symbols, cnf, unique_table);
+        mgr.bdd = Self::from_cnf_para_rec(symbols, cnf, unique_tables);
         mgr
     }
 
     /// Helper method for `from_cnf_para`.
-    fn from_cnf_para_rec(symbols: Symbol, cnf: &Cnf, unique_table: UniqueTable) -> Arc<NodeType> {
+    fn from_cnf_para_rec(
+        symbols: Symbol,
+        cnf: &Cnf,
+        unique_tables: Arc<Vec<UniqueTable>>,
+    ) -> Arc<NodeType> {
         match symbols {
             Symbol::Posterminal(i) => Arc::new(Node::new_node_type(
                 i as i64,
@@ -162,18 +171,14 @@ impl Bdd {
             )),
             Symbol::Function(func) => match func.op {
                 Operator::And => {
-                    let l =
-                        Self::from_cnf_para_rec(*func.lhs, cnf, Arc::clone(&unique_table));
-                    let r =
-                        Self::from_cnf_para_rec(*func.rhs, cnf, Arc::clone(&unique_table));
-                    and_para(l, r, unique_table, cnf)
+                    let l = Self::from_cnf_para_rec(*func.lhs, cnf, Arc::clone(&unique_tables));
+                    let r = Self::from_cnf_para_rec(*func.rhs, cnf, Arc::clone(&unique_tables));
+                    and_para(l, r, unique_tables, cnf)
                 }
                 Operator::Or => {
-                    let l =
-                        Self::from_cnf_para_rec(*func.lhs, cnf, Arc::clone(&unique_table));
-                    let r =
-                        Self::from_cnf_para_rec(*func.rhs, cnf, Arc::clone(&unique_table));
-                    or_para(l, r, unique_table, cnf)
+                    let l = Self::from_cnf_para_rec(*func.lhs, cnf, Arc::clone(&unique_tables));
+                    let r = Self::from_cnf_para_rec(*func.rhs, cnf, Arc::clone(&unique_tables));
+                    or_para(l, r, unique_tables, cnf)
                 }
             },
         }
@@ -568,27 +573,27 @@ impl Bdd {
 pub fn and_para(
     lhs: Arc<NodeType>,
     rhs: Arc<NodeType>,
-    unique_table: UniqueTable,
+    unique_tables: Arc<Vec<UniqueTable>>,
     cnf: &Cnf,
 ) -> Arc<NodeType> {
-    para_ite(lhs, rhs, Arc::new(NodeType::Zero), unique_table, cnf)
+    para_ite(lhs, rhs, Arc::new(NodeType::Zero), unique_tables, cnf)
 }
 
 /// Calculates the Boolean OR with the given left hand side `lhs` and the given right hand side `rhs`.
 pub fn or_para(
     lhs: Arc<NodeType>,
     rhs: Arc<NodeType>,
-    unique_table: UniqueTable,
+    unique_tables: Arc<Vec<UniqueTable>>,
     cnf: &Cnf,
 ) -> Arc<NodeType> {
-    para_ite(lhs, Arc::new(NodeType::One), rhs, unique_table, cnf)
+    para_ite(lhs, Arc::new(NodeType::One), rhs, unique_tables, cnf)
 }
 
 fn para_ite(
     f: Arc<NodeType>,
     g: Arc<NodeType>,
     h: Arc<NodeType>,
-    unique_table: UniqueTable,
+    unique_tables: Arc<Vec<UniqueTable>>,
     cnf: &Cnf,
 ) -> Arc<NodeType> {
     let mut computed_table = FnvHashMap::default();
@@ -614,9 +619,10 @@ fn para_ite(
                         })
                         .min()
                         .unwrap(); // Unwrap can't fail, because the match ensures that at least one NodeType::Complex(n) is present.
-		    
-                    let order = cnf.order.clone();
 
+                    let order = cnf.order.clone();
+                    // get the correct unique_table out of vec
+                    let unique_table = Arc::clone(&unique_tables.as_ref()[(v - 1) as usize]);
                     let ixt =
                         para_restrict(Arc::clone(&f), v, &order, true, Arc::clone(&unique_table));
                     let txt =
@@ -631,20 +637,17 @@ fn para_ite(
                     let exf =
                         para_restrict(Arc::clone(&h), v, &order, false, Arc::clone(&unique_table));
 
-                    let arc_to_ut_a = Arc::clone(&unique_table);
-                    let arc_to_ut_b = Arc::clone(&unique_table);
-
                     //Obviously not working, but that should be the whole trick of parallelizing ITE.
                     let (tv, ev) = rayon::join(
-                        || para_ite(ixt, txt, ext, arc_to_ut_a, cnf),
-                        || para_ite(ixf, txf, exf, arc_to_ut_b, cnf),
+                        || para_ite(ixt, txt, ext, Arc::clone(&unique_tables), cnf),
+                        || para_ite(ixf, txf, exf, Arc::clone(&unique_tables), cnf),
                     );
 
                     if tv == ev {
                         return tv;
                     }
 
-                    let r = para_add_node_to_unique(unique_table, v, ev, tv);
+                    let r = para_add_node_to_unique_enhanced(unique_tables, v, ev, tv);
 
                     computed_table.insert(ComputedKey::new(f, g, h), Arc::clone(&r));
 
@@ -653,6 +656,37 @@ fn para_ite(
             }
         }
     }
+}
+
+/// Adds a `NodeType` to the unique_table, if it is not already there.
+fn para_add_node_to_unique_enhanced(
+    unique_tables: Arc<Vec<UniqueTable>>,
+    var: i64,
+    low: Arc<NodeType>,
+    high: Arc<NodeType>,
+) -> Arc<NodeType> {
+    Arc::clone(
+        unique_tables[(var - 1) as usize]
+            .lock()
+            .unwrap()
+            .entry(UniqueKey::new(var, low.clone(), high.clone()))
+            .or_insert_with(|| Arc::new(Node::new_node_type(var, low, high))),
+    )
+}
+
+fn para_add_node_to_unique(
+    unique_table: UniqueTable,
+    var: i64,
+    low: Arc<NodeType>,
+    high: Arc<NodeType>,
+) -> Arc<NodeType> {
+    Arc::clone(
+        unique_table
+            .lock()
+            .unwrap()
+            .entry(UniqueKey::new(var, low.clone(), high.clone()))
+            .or_insert_with(|| Arc::new(Node::new_node_type(var, low, high))),
+    )
 }
 
 fn para_restrict(
@@ -705,22 +739,6 @@ fn para_restrict(
         NodeType::Zero => node,
         NodeType::One => node,
     }
-}
-
-/// Adds a `NodeType` to the unique_table, if it is not already there.
-fn para_add_node_to_unique(
-    unique_table: UniqueTable,
-    var: i64,
-    low: Arc<NodeType>,
-    high: Arc<NodeType>,
-) -> Arc<NodeType> {
-    Arc::clone(
-        unique_table
-            .lock()
-            .unwrap()
-            .entry(UniqueKey::new(var, low.clone(), high.clone()))
-            .or_insert_with(|| Arc::new(Node::new_node_type(var, low, high))),
-    )
 }
 
 #[cfg(test)]

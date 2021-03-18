@@ -6,7 +6,6 @@ use crate::parser::{DataFormatError, ParserSettings};
 use crate::{bdd_ds::Bdd, input::static_ordering::StaticOrdering};
 
 use super::bdd_graph::NodeType;
-use fnv::FnvHashMap;
 
 #[derive(Debug)]
 pub enum NoBddError {
@@ -213,8 +212,7 @@ impl Manager for BddParaManager {
         settings: ParserSettings,
         static_ordering: StaticOrdering,
     ) -> Result<Self, DataFormatError> {
-        let unique_table = Arc::new(Mutex::new(FnvHashMap::default()));
-        let bdd = Bdd::from_format_para(cnf, format, settings, static_ordering, unique_table)?;
+        let bdd = Bdd::from_format_para(cnf, format, settings, static_ordering)?;
 
         Ok(BddParaManager {
             bdd: Some(bdd),

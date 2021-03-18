@@ -31,32 +31,37 @@ use obbdimal::input::parser::ParserSettings;
 use obbdimal::{bdd::bdd_ds::InputFormat, input::static_ordering::StaticOrdering};
 
 fn main() {
-    let data = std::fs::read_to_string("./examples/assets/berkeleydb.dimacs").unwrap();
+    let data = std::fs::read_to_string("./examples/assets/sandwich.dimacs").unwrap();
     let timer = Instant::now();
     let mut mgr = BddParaManager::from_format(
         &data,
         InputFormat::CNF,
         ParserSettings::default(),
         StaticOrdering::FORCE,
-    ).unwrap();
+    )
+    .unwrap();
 
     println!(
-        "Parallelized calculated #SAT: {}, in {:?}",
+        "Parallelized calculated #SAT: {}, in {:?}\nNode count: {}",
         mgr.sat_count().unwrap(),
-        timer.elapsed()
+        timer.elapsed(),
+        mgr.node_count().unwrap(),
     );
+
     let timer = Instant::now();
     let mut mgr = BddManager::from_format(
         &data,
         InputFormat::CNF,
         ParserSettings::default(),
         StaticOrdering::FORCE,
-    ).unwrap();
-    
+    )
+    .unwrap();
+
     println!(
-        "Sequential calculated #SAT: {}, in {:?}",
+        "Sequential calculated #SAT: {}, in {:?}\nNode count: {}",
         mgr.sat_count().unwrap(),
-        timer.elapsed()
+        timer.elapsed(),
+        mgr.node_count().unwrap(),
     );
 
     return;
