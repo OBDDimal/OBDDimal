@@ -31,48 +31,14 @@ use obbdimal::input::parser::ParserSettings;
 use obbdimal::{bdd::bdd_ds::InputFormat, input::static_ordering::StaticOrdering};
 
 fn main() {
-    let data = std::fs::read_to_string("./examples/assets/sandwich.dimacs").unwrap();
-    let timer = Instant::now();
-    let mut mgr = BddParaManager::from_format(
-        &data,
-        InputFormat::CNF,
-        ParserSettings::default(),
-        StaticOrdering::FORCE,
-    )
-    .unwrap();
-
-    println!(
-        "Parallelized calculated #SAT: {}, in {:?}\nNode count: {}",
-        mgr.sat_count().unwrap(),
-        timer.elapsed(),
-        mgr.node_count().unwrap(),
-    );
-
-    let timer = Instant::now();
-    let mut mgr = BddManager::from_format(
-        &data,
-        InputFormat::CNF,
-        ParserSettings::default(),
-        StaticOrdering::FORCE,
-    )
-    .unwrap();
-
-    println!(
-        "Sequential calculated #SAT: {}, in {:?}\nNode count: {}",
-        mgr.sat_count().unwrap(),
-        timer.elapsed(),
-        mgr.node_count().unwrap(),
-    );
-
-    return;
     let yaml = load_yaml!("clap_config.yaml");
     let matches = App::from(yaml).get_matches();
 
     match matches.value_of("load") {
         Some(i) => {
             let data = std::fs::read_to_string(i).unwrap();
-            let mgr = BddManager::new();
-            let mut mgr = mgr.deserialize_bdd(&data);
+            let mut mgr = BddManager::new();
+            let mgr = mgr.deserialize_bdd(&data);
             println!("Loaded BDD got {} solutions.", mgr.sat_count().unwrap());
             return;
         }
@@ -89,7 +55,7 @@ fn main() {
 
     let mut selected_output_path = "NONE";
 
-    let output_path = match matches.value_of("output") {
+    let output_path = match matches.value_of("save") {
         Some(i) => {
             selected_output_path = i;
             selected_output_path
@@ -117,37 +83,72 @@ fn main() {
 
     let timer = Instant::now();
 
-    let mut mgr = BddManager::from_format(
-        &data,
-        InputFormat::CNF,
-        ParserSettings::default(),
-        static_ordering,
-    )
-    .unwrap();
-    // Calculate the number of variable assignments that evaluate the created BDD to true.
-    let sat_count = mgr.sat_count();
-    println!("Node Count = {:?}!", mgr.node_count());
+    match matches.value_of("parallel") {
+	Some(_) =>  {
+	    let mut mgr = BddParaManager::from_format(
+		&data,
+		InputFormat::CNF,
+		ParserSettings::default(),
+		static_ordering,
+	    ).unwrap();
 
-    match sat_count {
-        Ok(num) => {
-            println!("Number of solutions for the BDD: {:?}", num);
-            if matches.is_present("timer") {
-                println!("It took {:?} to complete.", timer.elapsed());
-            }
-        }
-        Err(e) => {
-            println!("{}", e)
-        }
-    }
+	    let sat_count = mgr.sat_count();
+	    
+	    match sat_count {
+		Ok(num) => {
+		    println!("Number of solutions for the BDD: {:?}", num);
+		    if matches.is_present("timer") {
+			println!("It took {:?} to complete.", timer.elapsed());
+		    }
+		}
+		Err(e) => {
+		    println!("{}", e)
+		}
+	    }
 
-    if output_path != "" {
-        match std::fs::write(output_path, mgr.serialize_bdd().unwrap()) {
-            Ok(_) => {
-                println!("Wrote BDD to path: {}", output_path)
-            }
-            Err(e) => {
-                println!("Couldn't write BDD to file: {}", e)
-            }
-        }
-    }
+	    if output_path != "" {
+		match std::fs::write(output_path, mgr.serialize_bdd().unwrap()) {
+		    Ok(_) => {
+			println!("Wrote BDD to path: {}", output_path)
+		    }
+		    Err(e) => {
+			println!("Couldn't write BDD to file: {}", e)
+		    }
+		}
+	    }
+	},
+	None => {
+	    let mut mgr = BddManager::from_format(
+		&data,
+		InputFormat::CNF,
+		ParserSettings::default(),
+		static_ordering,
+	    ).unwrap();
+	    
+	    let sat_count = mgr.sat_count();
+	    
+	    match sat_count {
+		Ok(num) => {
+		    println!("Number of solutions for the BDD: {:?}", num);
+		    if matches.is_present("timer") {
+			println!("It took {:?} to complete.", timer.elapsed());
+		    }
+		}
+		Err(e) => {
+		    println!("{}", e)
+		}
+	    }
+
+	    if output_path != "" {
+		match std::fs::write(output_path, mgr.serialize_bdd().unwrap()) {
+		    Ok(_) => {
+			println!("Wrote BDD to path: {}", output_path)
+		    }
+		    Err(e) => {
+			println!("Couldn't write BDD to file: {}", e)
+		    }
+		}
+	    }
+	}
+    };
 }

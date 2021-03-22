@@ -1,4 +1,4 @@
-use std::{fmt::Display, sync::Arc, sync::Mutex, write};
+use std::{fmt::Display, sync::Arc, write};
 
 use crate::bdd_ds::InputFormat;
 use crate::bdd_ds::UniqueKey;
@@ -8,6 +8,7 @@ use crate::{bdd_ds::Bdd, input::static_ordering::StaticOrdering};
 use super::bdd_graph::NodeType;
 
 #[derive(Debug)]
+/// Error type if you want to calculate anything in a `Manager` without creating an `Bdd` first.
 pub enum NoBddError {
     NoBddCreated,
 }
@@ -23,6 +24,8 @@ impl Display for NoBddError {
     }
 }
 
+/// Holds all the methods a `Manager` should have.
+/// To give default behaviour to the calculation methods every `Manager` has to implement those getters.
 pub trait Manager {
     fn get_bdd(&self) -> &Option<Bdd>;
     fn get_sat_count(&self) -> &Option<u64>;
@@ -124,6 +127,8 @@ pub trait Manager {
 }
 
 #[derive(Debug)]
+/// A `BddManager` represents a `Manager` holding a Bdd, the creation process of the `Bdd` in a `BddManager` is done in an sequential fashion.
+/// If you want to see what the methods for a `BddManager` are, you have to look at the `Manager` trait.
 pub struct BddManager {
     bdd: Option<Bdd>,
     sat_count: Option<u64>,
@@ -184,6 +189,8 @@ impl Manager for BddManager {
 }
 
 #[derive(Debug)]
+/// A `BddParaManager` represents a `Manager` holding a Bdd, the creation process of the `Bdd` in a `BddParaManager` is done in an parallelized fashion.
+/// If you want to see what the methods for a `BddParaManager` are, you have to look at the `Manager` trait.
 pub struct BddParaManager {
     bdd: Option<Bdd>,
     sat_count: Option<u64>,
