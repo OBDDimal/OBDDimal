@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["obbdimal"] = [{"text":"impl Display for NoBddError","synthetic":false,"types":[]},{"text":"impl Display for DataFormatError","synthetic":false,"types":[]},{"text":"impl Display for HeaderDataType","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["DataFormatError",""],["HeaderDataType",""]],"fn":[["parse_string","Takes a `&str` and returns a `Result<Cnf, DataFormatError>`. The ok part of the result contains a vector containing all the clauses of the given `input` as vectors."]],"struct":[["Cnf",""],["ParserSettings",""]]});

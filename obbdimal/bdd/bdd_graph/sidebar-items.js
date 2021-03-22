@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["NodeType","Representation of what types a `Node` in a BDD can be. `Zero` is the terminal 0 node. `One` is the terminal 1 node. `Complex(Node)` represents a `Node`."]],"static":[["NODE_ID",""]],"struct":[["Node","Representation of a Binary Decision Diagram node, containing the top variable `top_var` and the children `hi` and `lo`."]]});
