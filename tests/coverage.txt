@@ -1,0 +1,13 @@
+Mar 22 19:33:33.532  INFO cargo_tarpaulin::report: Coverage Results:
+|   | Tested/Total Lines:                       |         |
+|   | src/bdd/bdd_ds.rs:                        | 340/381 |
+|   | src/bdd/bdd_graph.rs:                     | 5/6     |
+|   | src/bdd/manager.rs:                       | 24/80   |
+|   | src/input/boolean_function.rs:            | 50/50   |
+|   | src/input/parser.rs:                      | 108/123 |
+|   | src/input/static_ordering.rs:             | 8/9     |
+|   | src/main.rs:                              | 0/18    |
+|   | src/variable_ordering/static_ordering.rs: | 59/59   |
+|   |                                           |         |
+
+81.82% coverage, 594/726 lines covered

@@ -1,6 +1,9 @@
 use obbdimal::input::parser::ParserSettings;
 use obbdimal::{
-    bdd::{bdd_ds::InputFormat, bdd_manager::BddManager},
+    bdd::{
+        bdd_ds::InputFormat,
+        manager::{BddManager, Manager},
+    },
     input::static_ordering::StaticOrdering,
 };
 
@@ -8,7 +11,7 @@ fn main() {
     // Read data from a dimacs file.
     let data = std::fs::read_to_string("examples/assets/easy1.dimacs").unwrap();
     // Create a BDD from input data (interpreted as dimacs cnf).
-    let mut mgr = BddManager::new_from_format(
+    let mut mgr = BddManager::from_format(
         &data,
         InputFormat::CNF,
         ParserSettings::default(),
