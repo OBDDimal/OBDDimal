@@ -7,7 +7,7 @@ use obbdimal::{bdd::bdd_ds::InputFormat, input::static_ordering::StaticOrdering}
 
 fn main() {
     let yaml = load_yaml!("clap_config.yaml");
-    let matches = App::from(yaml).get_matches();
+    let matches = App::from_yaml(yaml).get_matches();
 
     match matches.value_of("load") {
         Some(i) => {
