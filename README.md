@@ -2,6 +2,15 @@
 
 An experimental BDD library written in Rust.
 
+## Running
+This crate contains the `obddimal` library as well as an executable program of
+the same name.
+When running the executable, set the `RUST_LOG` variable to the desired logging
+verbosity:
+```console
+RUST_LOG=info cargo run --release
+```
+
 ## Benchmarking
 Benchmarking is done using the [criterion.rs library](https://github.com/bheisler/criterion.rs).
 To run the benchmarks, run `cargo bench`.

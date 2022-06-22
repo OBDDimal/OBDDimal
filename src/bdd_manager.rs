@@ -69,7 +69,7 @@ impl DDManager {
         for i in iter {
             let clause = &instance.clauses[*i];
 
-            println!("{:?}", clause);
+            log::info!("{:?}", clause);
 
             let mut cbdd = man.zero();
             for x in clause {
@@ -86,7 +86,7 @@ impl DDManager {
 
             man.purge_retain(bdd);
 
-            println!(
+            log::info!(
                 "{:?} ({:?}/{:?})",
                 &man.nodes.len(),
                 n,
@@ -135,7 +135,7 @@ impl DDManager {
 
         self.order[0] = y as u32;
 
-        println!("RESIZE: {:?}", self.order);
+        log::info!("RESIZE: {:?}", self.order);
     }
 
     fn add_node(&mut self, mut node: Box<DDNode>) -> u32 {
