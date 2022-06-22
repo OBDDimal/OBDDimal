@@ -9,5 +9,16 @@ pub fn sandwich_create_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, sandwich_create_benchmark);
+pub fn berkeleydb_create_benchmark(c: &mut Criterion) {
+    let cnf = dimacs::parse_dimacs("examples/berkeleydb.dimacs");
+    c.bench_function("berkeleydb.dimacs bdd creation", |b| {
+        b.iter(|| DDManager::from_instance(&mut cnf.clone(), None))
+    });
+}
+
+criterion_group!(
+    benches,
+    sandwich_create_benchmark,
+    berkeleydb_create_benchmark
+);
 criterion_main!(benches);
