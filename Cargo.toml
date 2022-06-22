@@ -1,7 +1,15 @@
 [package]
 name = "obddimal"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
+
+[lib]
+name = "obddimal"
+path = "src/lib.rs"
+
+[[bin]]
+name = "obddimal"
+path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,3 +26,10 @@ regex = { version = "1.5" }
 rustc-hash = { version = "1.0" }
 
 rand = { version = "0.8.0" }
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "bdd_creation"
+harness = false
