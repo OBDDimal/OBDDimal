@@ -1,5 +1,5 @@
-use crate::core::bdd_node::DDNode;
-use crate::core::dimacs::Instance;
+use super::bdd_node::DDNode;
+use super::dimacs::Instance;
 
 use rustc_hash::{FxHashMap, FxHashSet};
 

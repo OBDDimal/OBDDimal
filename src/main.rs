@@ -1,9 +1,4 @@
-mod core;
-
-use crate::core::bdd_manager::DDManager;
-
-use crate::core::dimacs::parse_dimacs;
-use crate::core::static_ordering::rand;
+use obddimal::{bdd_manager::DDManager, dimacs::parse_dimacs, static_ordering::rand};
 
 fn main() {
     // let mut instance = parse_dimacs("examples/cerf.dimacs");
