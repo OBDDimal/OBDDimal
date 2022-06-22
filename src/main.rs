@@ -1,6 +1,8 @@
 use obddimal::{bdd_manager::DDManager, dimacs::parse_dimacs, static_ordering::rand};
 
 fn main() {
+    env_logger::init();
+
     // let mut instance = parse_dimacs("examples/cerf.dimacs");
     // let mut instance = parse_dimacs("examples/sandwich.dimacs");
     let mut instance = parse_dimacs("examples/berkeleydb.dimacs");
