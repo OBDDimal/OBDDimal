@@ -6,7 +6,7 @@ use std::{
 
 use regex::Regex;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Instance {
     pub no_clauses: u32,
     pub no_variables: u32,
