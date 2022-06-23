@@ -1,7 +1,8 @@
 use super::bdd_node::DDNode;
 use super::dimacs::Instance;
 
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap as HashMap;
+use rustc_hash::FxHashSet as HashSet;
 
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
@@ -9,19 +10,19 @@ use num_traits::{One, Zero};
 use rand::Rng;
 
 pub struct DDManager {
-    pub nodes: FxHashMap<u32, DDNode>,
+    pub nodes: HashMap<u32, DDNode>,
     order: Vec<u32>,
-    var2nodes: Vec<FxHashSet<DDNode>>,
-    c_table: FxHashMap<(u32, u32, u32), u32>,
+    var2nodes: Vec<HashSet<DDNode>>,
+    c_table: HashMap<(u32, u32, u32), u32>,
 }
 
 impl Default for DDManager {
     fn default() -> Self {
         let mut man = DDManager {
-            nodes: FxHashMap::default(),
+            nodes: HashMap::default(),
             order: Vec::new(),
             var2nodes: Vec::new(),
-            c_table: FxHashMap::default(),
+            c_table: HashMap::default(),
         };
 
         man.bootstrap();
@@ -157,7 +158,7 @@ impl DDManager {
         self.nodes.insert(id, *node);
 
         while self.var2nodes.len() <= (var as usize) {
-            self.var2nodes.push(FxHashSet::default())
+            self.var2nodes.push(HashSet::default())
         }
 
         self.ensure_order(var as usize);
@@ -379,10 +380,10 @@ impl DDManager {
     }
 
     pub fn sat_count(&self, f: u32) -> BigUint {
-        self.sat_count_rec(f, &mut FxHashMap::default())
+        self.sat_count_rec(f, &mut HashMap::default())
     }
 
-    fn sat_count_rec(&self, f: u32, cache: &mut FxHashMap<u32, BigUint>) -> BigUint {
+    fn sat_count_rec(&self, f: u32, cache: &mut HashMap<u32, BigUint>) -> BigUint {
         let mut total: BigUint = Zero::zero();
         let node_id = f;
 
@@ -429,7 +430,7 @@ impl DDManager {
 
     #[allow(dead_code)]
     pub fn count_active(&self, f: u32) -> u32 {
-        let mut nodes: FxHashSet<u32> = FxHashSet::default();
+        let mut nodes: HashSet<u32> = HashSet::default();
 
         let mut stack: Vec<u32> = vec![f];
 
@@ -451,7 +452,7 @@ impl DDManager {
     }
 
     pub fn purge_retain(&mut self, f: u32) {
-        let mut keep: FxHashSet<u32> = FxHashSet::default();
+        let mut keep: HashSet<u32> = HashSet::default();
 
         let mut stack: Vec<u32> = vec![f];
 
