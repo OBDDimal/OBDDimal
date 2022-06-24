@@ -153,8 +153,6 @@ impl DDManager {
         let id = node.id;
         let var = node.var;
 
-        let node2 = node.clone();
-
         self.nodes.insert(id, node);
 
         while self.var2nodes.len() <= (var as usize) {
@@ -163,21 +161,21 @@ impl DDManager {
 
         self.ensure_order(var as usize);
 
-        self.var2nodes[var as usize].insert(node2);
+        self.var2nodes[var as usize].insert(node);
 
         id
     }
 
     fn node_get_or_create(&mut self, node: &DDNode) -> u32 {
         if self.var2nodes.len() <= (node.var as usize) {
-            return self.add_node(node.clone());
+            return self.add_node(*node);
         }
 
         let res = self.var2nodes[node.var as usize].get(node);
 
         match res {
             Some(stuff) => stuff.id,
-            None => self.add_node(node.clone()),
+            None => self.add_node(*node)
         }
     }
 
