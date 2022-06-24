@@ -175,7 +175,7 @@ impl DDManager {
 
         match res {
             Some(stuff) => stuff.id,
-            None => self.add_node(*node)
+            None => self.add_node(*node),
         }
     }
 
