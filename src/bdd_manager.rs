@@ -99,21 +99,20 @@ impl DDManager {
         (man, bdd)
     }
 
+    /// Initialize the BDD with zero and one constant nodes
     fn bootstrap(&mut self) {
-        let zero = Box::new(DDNode {
+        let zero = DDNode {
             id: 0,
             var: 0,
             low: 0,
             high: 0,
-            misc: 0,
-        });
-        let one = Box::new(DDNode {
+        };
+        let one = DDNode {
             id: 1,
             var: 0,
             low: 1,
             high: 1,
-            misc: 0,
-        });
+        };
 
         self.add_node(zero);
         self.add_node(one);
@@ -139,8 +138,9 @@ impl DDManager {
         log::info!("RESIZE: {:?}", self.order);
     }
 
-    fn add_node(&mut self, mut node: Box<DDNode>) -> u32 {
+    fn add_node(&mut self, mut node: DDNode) -> u32 {
         if node.id == 0 && node.var != 0 {
+            // Assign new node ID
             let mut id = rand::thread_rng().gen::<u32>();
 
             while self.nodes.get(&id).is_some() {
@@ -153,9 +153,7 @@ impl DDManager {
         let id = node.id;
         let var = node.var;
 
-        let node2 = node.clone();
-
-        self.nodes.insert(id, *node);
+        self.nodes.insert(id, node);
 
         while self.var2nodes.len() <= (var as usize) {
             self.var2nodes.push(HashSet::default())
@@ -163,21 +161,21 @@ impl DDManager {
 
         self.ensure_order(var as usize);
 
-        self.var2nodes[var as usize].insert(*node2);
+        self.var2nodes[var as usize].insert(node);
 
         id
     }
 
-    fn node_get_or_create(&mut self, node: Box<DDNode>) -> u32 {
+    fn node_get_or_create(&mut self, node: &DDNode) -> u32 {
         if self.var2nodes.len() <= (node.var as usize) {
-            return self.add_node(node);
+            return self.add_node(*node);
         }
 
-        let res = self.var2nodes[node.var as usize].get(&*node);
+        let res = self.var2nodes[node.var as usize].get(node);
 
         match res {
             Some(stuff) => stuff.id,
-            None => self.add_node(node),
+            None => self.add_node(*node),
         }
     }
 
@@ -201,16 +199,15 @@ impl DDManager {
     // Variables
 
     pub fn ith_var(&mut self, var: u32) -> u32 {
-        let v = Box::new(DDNode {
+        let v = DDNode {
             id: 0,
             var,
             low: 0,
             high: 1,
-            misc: 0,
-        });
+        };
 
         if self.var2nodes.len() > (var as usize) {
-            let x = self.var2nodes[var as usize].get(&*v);
+            let x = self.var2nodes[var as usize].get(&v);
 
             if let Some(x) = x {
                 return x.id;
@@ -221,16 +218,15 @@ impl DDManager {
     }
 
     pub fn nith_var(&mut self, var: u32) -> u32 {
-        let v = Box::new(DDNode {
+        let v = DDNode {
             id: 0,
             var,
             low: 1,
             high: 0,
-            misc: 0,
-        });
+        };
 
         if self.var2nodes.len() > (var as usize) {
-            let x = self.var2nodes[var as usize].get(&*v);
+            let x = self.var2nodes[var as usize].get(&v);
 
             if let Some(x) = x {
                 return x.id;
@@ -268,18 +264,15 @@ impl DDManager {
     //------------------------------------------------------------------------//
     // N-ary Operations
 
+    /// Find top variable
     fn min_by_order(&self, fvar: u32, gvar: u32, hvar: u32) -> u32 {
-        let list: Vec<u32> = vec![fvar, gvar, hvar]
-            .into_iter()
-            .filter(|x| *x > 0)
-            .collect::<Vec<u32>>();
+        let list = [fvar, gvar, hvar];
 
-        // println!("{:?}", list);
-        let tlist = list
-            .iter()
-            .map(|&x| self.order[x as usize])
-            .collect::<Vec<u32>>();
-        // println!("{:?}", list);
+        let tlist = [
+            self.order[fvar as usize],
+            self.order[gvar as usize],
+            self.order[hvar as usize],
+        ];
 
         let min: u32 = *tlist.iter().min().unwrap();
         let index = tlist.iter().position(|&x| x == min).unwrap();
@@ -322,15 +315,14 @@ impl DDManager {
                     return low;
                 }
 
-                let node = Box::new(DDNode {
+                let node = DDNode {
                     id: 0,
                     var: top,
                     low,
                     high,
-                    misc: 0,
-                });
+                };
 
-                let out = self.node_get_or_create(node);
+                let out = self.node_get_or_create(&node);
 
                 self.c_table.insert((f, g, h), out);
 
