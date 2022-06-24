@@ -2,11 +2,12 @@ use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Copy, Clone)]
 pub struct DDNode {
+    /// Node ID. Special values: 0 and 1 for terminal nodes
     pub id: u32,
+    /// Variable number. Special variable 0 == terminal nodes
     pub var: u32,
     pub low: u32,
     pub high: u32,
-    pub misc: u32,
 }
 
 impl PartialEq for DDNode {
