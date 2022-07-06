@@ -44,7 +44,7 @@ pub fn force(instance: &Instance) -> Vec<u32> {
             let cog: f64 = calc_center_of_gravity(clause, &order);
 
             for x in clause {
-                let y = x.abs() as usize;
+                let y = x.unsigned_abs() as usize;
                 tpos[y] += cog;
                 degree[y] += 1;
             }
@@ -82,7 +82,7 @@ pub fn force(instance: &Instance) -> Vec<u32> {
 fn calc_center_of_gravity(clause: &Vec<i32>, order: &[u32]) -> f64 {
     let mut out = 0;
     for x in clause {
-        out += order[x.abs() as usize];
+        out += order[x.unsigned_abs() as usize];
     }
 
     out as f64 / clause.len() as f64
@@ -94,7 +94,7 @@ fn calc_span(clauses: &Vec<Vec<i32>>, order: &[u32]) -> u32 {
     for clause in clauses {
         let pos = clause
             .iter()
-            .map(|x| order[x.abs() as usize] as u32)
+            .map(|x| order[x.unsigned_abs() as usize] as u32)
             .collect::<Vec<u32>>();
         let min = pos.iter().min().unwrap();
         let max = pos.iter().max().unwrap();
@@ -110,10 +110,10 @@ fn order_dist(instance: &Instance) -> Vec<u32> {
     let mut dists: Vec<Vec<u32>> = vec![vec![0; n]; n];
     for clause in &instance.clauses {
         for x_ in clause {
-            let x = x_.abs() as usize;
+            let x = x_.unsigned_abs() as usize;
 
             for y_ in clause {
-                let y = y_.abs() as usize;
+                let y = y_.unsigned_abs() as usize;
                 if x >= y {
                     break;
                 }
