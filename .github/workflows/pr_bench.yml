@@ -7,6 +7,8 @@ jobs:
     runs-on: [self-hosted, benchmark]
     container: ubuntu:22.04
     steps:
+      - name: Install dependencies
+        run: apt install -y curl
       - name: Install and select latest stable rust toolchain
         uses: actions-rs/toolchain@v1
         with:
