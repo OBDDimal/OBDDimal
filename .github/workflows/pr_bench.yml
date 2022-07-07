@@ -10,7 +10,7 @@ jobs:
       - name: Install dependencies
         run: |
           apt update
-          apt install -y curl git
+          apt install -y curl git build-essential
       - name: Install and select latest stable rust toolchain
         uses: actions-rs/toolchain@v1
         with:
