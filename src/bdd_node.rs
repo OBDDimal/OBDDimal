@@ -1,13 +1,19 @@
 use std::hash::{Hash, Hasher};
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct NodeID(pub u32);
+
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct VarID(pub u32);
+
 #[derive(Debug, Copy, Clone)]
 pub struct DDNode {
     /// Node ID. Special values: 0 and 1 for terminal nodes
-    pub id: u32,
+    pub id: NodeID,
     /// Variable number. Special variable 0 == terminal nodes
-    pub var: u32,
-    pub low: u32,
-    pub high: u32,
+    pub var: VarID,
+    pub low: NodeID,
+    pub high: NodeID,
 }
 
 impl PartialEq for DDNode {
@@ -19,12 +25,13 @@ impl PartialEq for DDNode {
 impl Eq for DDNode {}
 
 impl DDNode {
-    pub fn restrict(&self, top: u32, order: &[u32], val: bool) -> u32 {
-        if self.var == 0 {
+    pub fn restrict(&self, top: VarID, order: &[VarID], val: bool) -> NodeID {
+        if self.var == VarID(0) {
             return self.id;
         }
 
-        if order[top as usize] < order[self.var as usize] {
+        if order[top.0 as usize] < order[self.var.0 as usize] {
+            // Variable does not occur in current function
             return self.id;
         }
 
@@ -36,7 +43,8 @@ impl DDNode {
             }
         }
 
-        panic!("Should not be possible");
+        // Variable occurs further down in the function. This is not supported in this restrict().
+        panic!("Restrict called with variable below current node");
     }
 }
 

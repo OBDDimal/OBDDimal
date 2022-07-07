@@ -1,4 +1,4 @@
-use super::bdd_node::DDNode;
+use super::bdd_node::{DDNode, NodeID, VarID};
 use super::dimacs::Instance;
 
 use rustc_hash::FxHashMap as HashMap;
@@ -10,10 +10,11 @@ use num_traits::{One, Zero};
 use rand::Rng;
 
 pub struct DDManager {
-    pub nodes: HashMap<u32, DDNode>,
-    order: Vec<u32>,
+    pub nodes: HashMap<NodeID, DDNode>,
+    order: Vec<VarID>,
     var2nodes: Vec<HashSet<DDNode>>,
-    c_table: HashMap<(u32, u32, u32), u32>,
+    /// Computed Table: ite(f,g,h) cache
+    c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
 }
 
 impl Default for DDManager {
@@ -30,7 +31,7 @@ impl Default for DDManager {
     }
 }
 
-pub fn align_clauses(clauses: &[Vec<i32>], _order: &[u32]) -> Vec<usize> {
+pub fn align_clauses(clauses: &[Vec<i32>], _order: &[VarID]) -> Vec<usize> {
     let mut shuffle: Vec<(usize, f32)> = Vec::default();
 
     for (i, clause) in clauses.iter().enumerate() {
@@ -49,7 +50,10 @@ pub fn align_clauses(clauses: &[Vec<i32>], _order: &[u32]) -> Vec<usize> {
 }
 
 impl DDManager {
-    pub fn from_instance(instance: &mut Instance, order: Option<Vec<u32>>) -> (DDManager, u32) {
+    pub fn from_instance(
+        instance: &mut Instance,
+        order: Option<Vec<VarID>>,
+    ) -> (DDManager, NodeID) {
         let mut man = DDManager::default();
         if let Some(o) = order {
             man.order = o;
@@ -58,13 +62,13 @@ impl DDManager {
 
         let mut bdd = man.one();
 
-        let mut index_giver = (0..instance.clauses.len()).collect::<Vec<usize>>();
+        let index_giver = if instance.clause_order.is_some() {
+            align_clauses(&instance.clauses, &man.order)
+        } else {
+            (0..instance.clauses.len()).collect()
+        };
 
-        if instance.clause_order.is_some() {
-            index_giver = align_clauses(&instance.clauses, &man.order)
-        }
-
-        let iter = index_giver.iter_mut();
+        let iter = index_giver.iter();
 
         let mut n = 1;
         for i in iter {
@@ -75,9 +79,9 @@ impl DDManager {
             let mut cbdd = man.zero();
             for x in clause {
                 let node = if *x < 0_i32 {
-                    man.nith_var(-x as u32)
+                    man.nith_var(VarID(-x as u32))
                 } else {
-                    man.ith_var(*x as u32)
+                    man.ith_var(VarID(*x as u32))
                 };
 
                 cbdd = man.or(node, cbdd);
@@ -102,16 +106,16 @@ impl DDManager {
     /// Initialize the BDD with zero and one constant nodes
     fn bootstrap(&mut self) {
         let zero = DDNode {
-            id: 0,
-            var: 0,
-            low: 0,
-            high: 0,
+            id: NodeID(0),
+            var: VarID(0),
+            low: NodeID(0),
+            high: NodeID(0),
         };
         let one = DDNode {
-            id: 1,
-            var: 0,
-            low: 1,
-            high: 1,
+            id: NodeID(1),
+            var: VarID(0),
+            low: NodeID(1),
+            high: NodeID(1),
         };
 
         self.add_node(zero);
@@ -125,26 +129,26 @@ impl DDManager {
             return;
         }
 
-        self.order.resize(target + 1, 0);
+        self.order.resize(target + 1, VarID(0));
         let mut y = old_size;
 
         for x in old_size..self.order.len() {
-            self.order[x] = y as u32;
+            self.order[x] = VarID(y as u32);
             y += 1;
         }
 
-        self.order[0] = y as u32;
+        self.order[0] = VarID(y as u32);
 
         log::info!("RESIZE: {:?}", self.order);
     }
 
-    fn add_node(&mut self, mut node: DDNode) -> u32 {
-        if node.id == 0 && node.var != 0 {
+    fn add_node(&mut self, mut node: DDNode) -> NodeID {
+        if node.id == NodeID(0) && node.var != VarID(0) {
             // Assign new node ID
-            let mut id = rand::thread_rng().gen::<u32>();
+            let mut id = NodeID(rand::thread_rng().gen::<u32>());
 
             while self.nodes.get(&id).is_some() {
-                id = rand::thread_rng().gen::<u32>();
+                id = NodeID(rand::thread_rng().gen::<u32>());
             }
 
             node.id = id;
@@ -155,23 +159,23 @@ impl DDManager {
 
         self.nodes.insert(id, node);
 
-        while self.var2nodes.len() <= (var as usize) {
+        while self.var2nodes.len() <= (var.0 as usize) {
             self.var2nodes.push(HashSet::default())
         }
 
-        self.ensure_order(var as usize);
+        self.ensure_order(var.0 as usize);
 
-        self.var2nodes[var as usize].insert(node);
+        self.var2nodes[var.0 as usize].insert(node);
 
         id
     }
 
-    fn node_get_or_create(&mut self, node: &DDNode) -> u32 {
-        if self.var2nodes.len() <= (node.var as usize) {
+    fn node_get_or_create(&mut self, node: &DDNode) -> NodeID {
+        if self.var2nodes.len() <= (node.var.0 as usize) {
             return self.add_node(*node);
         }
 
-        let res = self.var2nodes[node.var as usize].get(node);
+        let res = self.var2nodes[node.var.0 as usize].get(node);
 
         match res {
             Some(stuff) => stuff.id,
@@ -187,27 +191,27 @@ impl DDManager {
     //------------------------------------------------------------------------//
     // Constants
 
-    fn zero(&self) -> u32 {
-        0
+    fn zero(&self) -> NodeID {
+        NodeID(0)
     }
 
-    fn one(&self) -> u32 {
-        1
+    fn one(&self) -> NodeID {
+        NodeID(1)
     }
 
     //------------------------------------------------------------------------//
     // Variables
 
-    pub fn ith_var(&mut self, var: u32) -> u32 {
+    pub fn ith_var(&mut self, var: VarID) -> NodeID {
         let v = DDNode {
-            id: 0,
+            id: NodeID(0),
             var,
-            low: 0,
-            high: 1,
+            low: NodeID(0),
+            high: NodeID(1),
         };
 
-        if self.var2nodes.len() > (var as usize) {
-            let x = self.var2nodes[var as usize].get(&v);
+        if self.var2nodes.len() > (var.0 as usize) {
+            let x = self.var2nodes[var.0 as usize].get(&v);
 
             if let Some(x) = x {
                 return x.id;
@@ -217,16 +221,16 @@ impl DDManager {
         self.add_node(v)
     }
 
-    pub fn nith_var(&mut self, var: u32) -> u32 {
+    pub fn nith_var(&mut self, var: VarID) -> NodeID {
         let v = DDNode {
-            id: 0,
+            id: NodeID(0),
             var,
-            low: 1,
-            high: 0,
+            low: NodeID(1),
+            high: NodeID(0),
         };
 
-        if self.var2nodes.len() > (var as usize) {
-            let x = self.var2nodes[var as usize].get(&v);
+        if self.var2nodes.len() > (var.0 as usize) {
+            let x = self.var2nodes[var.0 as usize].get(&v);
 
             if let Some(x) = x {
                 return x.id;
@@ -239,23 +243,23 @@ impl DDManager {
     //------------------------------------------------------------------------//
     // Unitary Operations
 
-    fn not(&mut self, f: u32) -> u32 {
-        self.ite(f, 0, 1)
+    fn not(&mut self, f: NodeID) -> NodeID {
+        self.ite(f, NodeID(0), NodeID(1))
     }
 
     //------------------------------------------------------------------------//
     // Binary Operations
 
-    pub fn and(&mut self, f: u32, g: u32) -> u32 {
-        self.ite(f, g, 0)
+    pub fn and(&mut self, f: NodeID, g: NodeID) -> NodeID {
+        self.ite(f, g, NodeID(0))
     }
 
-    pub fn or(&mut self, f: u32, g: u32) -> u32 {
-        self.ite(f, 1, g)
+    pub fn or(&mut self, f: NodeID, g: NodeID) -> NodeID {
+        self.ite(f, NodeID(1), g)
     }
 
     #[allow(dead_code)]
-    fn xor(&mut self, f: u32, g: u32) -> u32 {
+    fn xor(&mut self, f: NodeID, g: NodeID) -> NodeID {
         let ng = self.not(g);
 
         self.ite(f, ng, g)
@@ -265,28 +269,28 @@ impl DDManager {
     // N-ary Operations
 
     /// Find top variable
-    fn min_by_order(&self, fvar: u32, gvar: u32, hvar: u32) -> u32 {
+    fn min_by_order(&self, fvar: VarID, gvar: VarID, hvar: VarID) -> VarID {
         let list = [fvar, gvar, hvar];
 
         let tlist = [
-            self.order[fvar as usize],
-            self.order[gvar as usize],
-            self.order[hvar as usize],
+            self.order[fvar.0 as usize],
+            self.order[gvar.0 as usize],
+            self.order[hvar.0 as usize],
         ];
 
-        let min: u32 = *tlist.iter().min().unwrap();
+        let min = *tlist.iter().min().unwrap();
         let index = tlist.iter().position(|&x| x == min).unwrap();
 
         list[index]
     }
 
-    fn ite(&mut self, f: u32, g: u32, h: u32) -> u32 {
+    fn ite(&mut self, f: NodeID, g: NodeID, h: NodeID) -> NodeID {
         match (f, g, h) {
-            (_, 1, 0) => f,
-            (_, 0, 1) => self.not(f),
-            (1, _, _) => g,
-            (0, _, _) => h,
-            (_, t, e) if t == e => g,
+            (_, NodeID(1), NodeID(0)) => f,           // ite(f,1,0)
+            (_, NodeID(0), NodeID(1)) => self.not(f), // ite(f,0,1)
+            (NodeID(1), _, _) => g,                   // ite(1,g,h)
+            (NodeID(0), _, _) => h,                   // ite(0,g,h)
+            (_, t, e) if t == e => t,                 // ite(f,g,g)
             (_, _, _) => {
                 let cache = self.c_table.get(&(f, g, h));
 
@@ -298,7 +302,7 @@ impl DDManager {
                 let gnode = &self.nodes.get(&g).unwrap();
                 let hnode = &self.nodes.get(&h).unwrap();
 
-                let top: u32 = self.min_by_order(fnode.var, gnode.var, hnode.var);
+                let top = self.min_by_order(fnode.var, gnode.var, hnode.var);
 
                 let fxt = fnode.restrict(top, &self.order, true);
                 let gxt = gnode.restrict(top, &self.order, true);
@@ -316,7 +320,7 @@ impl DDManager {
                 }
 
                 let node = DDNode {
-                    id: 0,
+                    id: NodeID(0),
                     var: top,
                     low,
                     high,
@@ -343,7 +347,7 @@ impl DDManager {
     }
 
     #[allow(dead_code)]
-    fn verify(&self, f: u32, trues: Vec<u32>) -> bool {
+    fn verify(&self, f: NodeID, trues: Vec<u32>) -> bool {
         let mut values: Vec<bool> = vec![false; self.var2nodes.len() + 1];
 
         for x in trues {
@@ -358,30 +362,30 @@ impl DDManager {
 
         let mut node_id = f;
 
-        while node_id >= 2 {
+        while node_id.0 >= 2 {
             let node = &self.nodes.get(&node_id).unwrap();
 
-            if values[node.var as usize] {
+            if values[node.var.0 as usize] {
                 node_id = node.high;
             } else {
                 node_id = node.low;
             }
         }
 
-        node_id == 1
+        node_id.0 == 1
     }
 
-    pub fn sat_count(&self, f: u32) -> BigUint {
+    pub fn sat_count(&self, f: NodeID) -> BigUint {
         self.sat_count_rec(f, &mut HashMap::default())
     }
 
-    fn sat_count_rec(&self, f: u32, cache: &mut HashMap<u32, BigUint>) -> BigUint {
+    fn sat_count_rec(&self, f: NodeID, cache: &mut HashMap<NodeID, BigUint>) -> BigUint {
         let mut total: BigUint = Zero::zero();
         let node_id = f;
 
-        if node_id == 0 {
+        if node_id == NodeID(0) {
             return Zero::zero();
-        } else if node_id == 1 {
+        } else if node_id == NodeID(1) {
             return One::one();
         } else {
             let node = &self.nodes.get(&node_id).unwrap();
@@ -389,16 +393,16 @@ impl DDManager {
             let low = &self.nodes.get(&node.low).unwrap();
             let high = &self.nodes.get(&node.high).unwrap();
 
-            let low_jump = if low.var == 0 {
-                self.order.len() as u32 - self.order[node.var as usize] - 1
+            let low_jump = if low.var == VarID(0) {
+                self.order.len() as u32 - self.order[node.var.0 as usize].0 - 1
             } else {
-                self.order[low.var as usize] - self.order[node.var as usize] - 1
+                self.order[low.var.0 as usize].0 - self.order[node.var.0 as usize].0 - 1
             };
 
-            let high_jump = if high.var == 0 {
-                self.order.len() as u32 - self.order[node.var as usize] - 1
+            let high_jump = if high.var == VarID(0) {
+                self.order.len() as u32 - self.order[node.var.0 as usize].0 - 1
             } else {
-                self.order[high.var as usize] - self.order[node.var as usize] - 1
+                self.order[high.var.0 as usize].0 - self.order[node.var.0 as usize].0 - 1
             };
 
             let low_fac = BigUint::parse_bytes(b"2", 10).unwrap().pow(low_jump);
@@ -421,10 +425,10 @@ impl DDManager {
     }
 
     #[allow(dead_code)]
-    pub fn count_active(&self, f: u32) -> u32 {
-        let mut nodes: HashSet<u32> = HashSet::default();
+    pub fn count_active(&self, f: NodeID) -> u32 {
+        let mut nodes = HashSet::default();
 
-        let mut stack: Vec<u32> = vec![f];
+        let mut stack = vec![f];
 
         while !stack.is_empty() {
             let x = stack.pop().unwrap();
@@ -443,10 +447,10 @@ impl DDManager {
         nodes.len() as u32
     }
 
-    pub fn purge_retain(&mut self, f: u32) {
-        let mut keep: HashSet<u32> = HashSet::default();
+    pub fn purge_retain(&mut self, f: NodeID) {
+        let mut keep = HashSet::default();
 
-        let mut stack: Vec<u32> = vec![f];
+        let mut stack = vec![f];
 
         while !stack.is_empty() {
             let x = stack.pop().unwrap();
@@ -464,10 +468,10 @@ impl DDManager {
 
         let mut garbage = self.nodes.clone();
 
-        garbage.retain(|&x, _| !keep.contains(&x) && x > 1);
+        garbage.retain(|&x, _| !keep.contains(&x) && x.0 > 1);
 
         for x in &garbage {
-            self.var2nodes[x.1.var as usize].remove(x.1);
+            self.var2nodes[x.1.var.0 as usize].remove(x.1);
             self.nodes.remove(x.0);
         }
 
