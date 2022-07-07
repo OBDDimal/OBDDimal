@@ -1,19 +1,16 @@
-use obddimal::{bdd_manager::DDManager, dimacs::parse_dimacs, static_ordering::rand};
+use obddimal::{bdd_manager::DDManager, dimacs};
 
 fn main() {
     env_logger::init();
 
-    // let mut instance = parse_dimacs("examples/cerf.dimacs");
-    // let mut instance = parse_dimacs("examples/sandwich.dimacs");
-    let mut instance = parse_dimacs("examples/berkeleydb.dimacs");
-    // let instance = parse_dimacs("examples/busybox.dimacs");
+    // let mut instance = dimacs::parse_dimacs("examples/cerf.dimacs");
+    // let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
+    // let mut instance = dimacs::parse_dimacs("examples/berkeleydb.dimacs");
+    let mut instance = dimacs::parse_dimacs("examples/busybox.dimacs");
 
-    let order = rand(&instance);
-    // println!("{:?}", order);
+    // let order = static_ordering::rand(&instance);
 
-    // println!("{:?}", instance);
-
-    let (man, bdd) = DDManager::from_instance(&mut instance, Some(order));
+    let (man, bdd) = DDManager::from_instance(&mut instance, None);
 
     // println!("{:?}", man.nodes.len());
 
@@ -34,7 +31,7 @@ mod tests {
     fn build_verify_ssat(filepath: &str, target: &[u8]) {
         let expected = BigUint::parse_bytes(target, 10).unwrap();
 
-        let mut instance = parse_dimacs(filepath);
+        let mut instance = dimacs::parse_dimacs(filepath);
         let (man, bdd) = DDManager::from_instance(&mut instance, None);
 
         assert_eq!(man.sat_count(bdd), expected);
