@@ -4,8 +4,6 @@ use super::dimacs::Instance;
 use rustc_hash::FxHashMap as HashMap;
 use rustc_hash::FxHashSet as HashSet;
 
-use num_traits::{One, Zero};
-
 use rand::Rng;
 
 mod sat;
