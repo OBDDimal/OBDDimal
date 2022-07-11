@@ -51,7 +51,9 @@ fn normalize_ite_args(mut f: NodeID, mut g: NodeID, mut h: NodeID) -> (NodeID, N
 pub struct DDManager {
     /// Node List
     pub nodes: HashMap<NodeID, DDNode>,
-    order: Vec<VarID>,
+    /// Variable ordering: order[v.0] is the depth of variable v in the tree
+    /// See [check_order] for requirements
+    order: Vec<u32>,
     /// Unique Table for each variable
     var2nodes: Vec<HashSet<DDNode>>,
     /// Computed Table: ite(f,g,h) cache
@@ -72,14 +74,11 @@ impl Default for DDManager {
     }
 }
 
-pub fn align_clauses(clauses: &[Vec<i32>], _order: &[VarID]) -> Vec<usize> {
+/// Determine order in which clauses should be added to BDD
+fn align_clauses(clauses: &[Vec<i32>]) -> Vec<usize> {
     let mut shuffle: Vec<(usize, f32)> = Vec::default();
 
     for (i, clause) in clauses.iter().enumerate() {
-        for x in clause {
-            let _y = x.abs();
-        }
-
         let min = clause.iter().map(|x| x.abs()).min().unwrap();
         let max = clause.iter().map(|x| x.abs()).max().unwrap();
 
@@ -90,29 +89,76 @@ pub fn align_clauses(clauses: &[Vec<i32>], _order: &[VarID]) -> Vec<usize> {
     shuffle.iter().map(|(x, _)| *x).collect::<Vec<usize>>()
 }
 
+/// Checks if a specified variable ordering is valid for the CNF instance.
+/// Returns `OK(())` or `Err("error message")`.
+fn check_order(cnf: &Instance, order: &[u32]) -> Result<(), String> {
+    if order.len() != cnf.no_variables as usize + 1 {
+        return Err(format!(
+            "Invalid size of ordering: Size was {}, expected {} (nr of variables + 1)",
+            order.len(),
+            cnf.no_variables + 1
+        ));
+    }
+
+    if order[0] != cnf.no_variables + 1 {
+        return Err(format!(
+            "Depth of terminal nodes (index 0) is specified as {}, but should be {} (nr of variables + 1)",order[0], cnf.no_variables+1
+        ));
+    }
+
+    let max_depth = *order.iter().max().unwrap();
+    if order[0] != max_depth {
+        return Err(format!(
+            "A variable is specified to have depth of {} which is below depth \
+            of terminal nodes ({}, index 0)",
+            max_depth, order[0]
+        ));
+    }
+
+    let mut var_map = vec![0; cnf.no_variables as usize + 1];
+    for (var, depth) in order.iter().enumerate() {
+        if *depth < 1 {
+            return Err(format!(
+                "Variable {} specified at depth {} which is < 1",
+                var, depth
+            ));
+        }
+
+        if *depth > cnf.no_variables && var != 0 {
+            return Err(format!(
+                "Variable {} specified at depth {} which is greater than the number of variables",
+                var, depth
+            ));
+        }
+
+        var_map[*depth as usize - 1] = var;
+    }
+
+    for (depth, var) in var_map.iter().enumerate() {
+        if *var == 0 && depth != cnf.no_variables as usize {
+            return Err(format!("No variable at depth {}", depth + 1));
+        }
+    }
+
+    Ok(())
+}
+
 impl DDManager {
     pub fn from_instance(
         instance: &mut Instance,
-        order: Option<Vec<VarID>>,
-    ) -> (DDManager, NodeID) {
+        order: Option<Vec<u32>>,
+    ) -> Result<(DDManager, NodeID), String> {
         let mut man = DDManager::default();
+        let clause_order = align_clauses(&instance.clauses);
         if let Some(o) = order {
+            check_order(instance, &o)?;
             man.order = o;
-            instance.clause_order = Some(align_clauses(&instance.clauses, &man.order));
         }
 
         let mut bdd = man.one();
 
-        let index_giver = if instance.clause_order.is_some() {
-            align_clauses(&instance.clauses, &man.order)
-        } else {
-            (0..instance.clauses.len()).collect()
-        };
-
-        let iter = index_giver.iter();
-
         let mut n = 1;
-        for i in iter {
+        for i in clause_order.iter() {
             let clause = &instance.clauses[*i];
 
             log::info!("Integrating clause: {:?}", clause);
@@ -140,7 +186,7 @@ impl DDManager {
             );
             n += 1;
         }
-        (man, bdd)
+        Ok((man, bdd))
     }
 
     /// Initialize the BDD with zero and one constant nodes
@@ -149,24 +195,28 @@ impl DDManager {
         self.add_node(ONE);
     }
 
-    fn ensure_order(&mut self, target: usize) {
+    /// Ensure order vec is valid up to specified variable
+    fn ensure_order(&mut self, target: VarID) {
         let old_size = self.order.len();
 
-        if target < old_size {
+        if (target.0 as usize) < old_size {
+            // order[target] exists an contains tree depth of target
             return;
         }
 
-        self.order.resize(target + 1, VarID(0));
-        let mut y = old_size;
+        // Ensure there is space for order[target]
+        self.order.resize((target.0 + 1) as usize, 0);
 
+        // Fill newly created space:
+        let mut y = old_size;
         for x in old_size..self.order.len() {
-            self.order[x] = VarID(y as u32);
+            // order[x] = x
+            self.order[x] = y as u32;
             y += 1;
         }
 
-        self.order[0] = VarID(y as u32);
-
-        //log::info!("RESIZE: {:?}", self.order);
+        // VarID 0 (terminal nodes) at the very bottom of the tree
+        self.order[0] = y as u32;
     }
 
     /// Insert Node. ID is assigned for nonterminal nodes (var != 0).
@@ -200,7 +250,7 @@ impl DDManager {
             self.var2nodes.push(HashSet::default())
         }
 
-        self.ensure_order(var.0 as usize);
+        self.ensure_order(var);
 
         let was_inserted = self.var2nodes[var.0 as usize].insert(node);
         if !was_inserted {
@@ -306,17 +356,20 @@ impl DDManager {
     //------------------------------------------------------------------------//
     // N-ary Operations
 
-    /// Find top variable
+    /// Find top variable: Highest in tree according to order
     fn min_by_order(&self, fvar: VarID, gvar: VarID, hvar: VarID) -> VarID {
         let list = [fvar, gvar, hvar];
 
+        // Tree depths
         let tlist = [
             self.order[fvar.0 as usize],
             self.order[gvar.0 as usize],
             self.order[hvar.0 as usize],
         ];
 
+        // Minimum tree depth
         let min = *tlist.iter().min().unwrap();
+        // Index of Var with minimum tree depth
         let index = tlist.iter().position(|&x| x == min).unwrap();
 
         list[index]

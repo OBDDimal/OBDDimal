@@ -6,12 +6,18 @@ use std::{
 
 use regex::Regex;
 
+/// Logic formula in conjunctive normal form, parsed from a DIMACS file:
+/// A formula in conjunctive normal form is a conjunction (logical and) of a set of clauses.
+/// Each clause is a disjunction (logical or) of a set of literals.
+/// A literal is a variable or a negation of a variable.
+/// (<https://jix.github.io/varisat/manual/0.2.0/formats/dimacs.html#dimacs-cnf>)
 #[derive(Debug, Clone)]
 pub struct Instance {
+    /// Number of clauses as specified in the DIMACS header line
     pub no_clauses: u32,
+    /// Number of variables as specified in the DIMACS header line
     pub no_variables: u32,
     pub clauses: Vec<Vec<i32>>,
-    pub clause_order: Option<Vec<usize>>,
 }
 
 impl Instance {
@@ -20,7 +26,6 @@ impl Instance {
             no_clauses,
             no_variables,
             clauses,
-            clause_order: None,
         }
     }
 }

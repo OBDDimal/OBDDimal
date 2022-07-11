@@ -1,5 +1,3 @@
-use crate::bdd_node::VarID;
-
 use super::dimacs::Instance;
 
 use rand::seq::SliceRandom;
@@ -14,17 +12,17 @@ pub fn keep(instance: &Instance) -> Vec<u32> {
 }
 
 #[allow(dead_code)]
-pub fn rand(instance: &Instance) -> Vec<VarID> {
+pub fn rand(instance: &Instance) -> Vec<u32> {
     let mut order: Vec<u32> = (1..instance.no_variables + 1).collect();
 
     order.shuffle(&mut thread_rng());
 
     order.insert(0, (order.len() + 1) as u32);
-    order.into_iter().map(VarID).collect()
+    order
 }
 
 #[allow(dead_code)]
-pub fn force(instance: &Instance) -> Vec<VarID> {
+pub fn force(instance: &Instance) -> Vec<u32> {
     let mut order: Vec<u32> = (1..instance.no_variables + 1).collect();
 
     order.shuffle(&mut thread_rng());
@@ -76,7 +74,7 @@ pub fn force(instance: &Instance) -> Vec<VarID> {
         }
     }
 
-    order.into_iter().map(VarID).collect()
+    order
 }
 
 fn calc_center_of_gravity(clause: &Vec<i32>, order: &[u32]) -> f64 {

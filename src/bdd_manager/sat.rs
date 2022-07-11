@@ -32,15 +32,15 @@ impl DDManager {
             let high = &self.nodes.get(&node.high).unwrap();
 
             let low_jump = if low.var == VarID(0) {
-                self.order.len() as u32 - self.order[node.var.0 as usize].0 - 1
+                self.order.len() as u32 - self.order[node.var.0 as usize] - 1
             } else {
-                self.order[low.var.0 as usize].0 - self.order[node.var.0 as usize].0 - 1
+                self.order[low.var.0 as usize] - self.order[node.var.0 as usize] - 1
             };
 
             let high_jump = if high.var == VarID(0) {
-                self.order.len() as u32 - self.order[node.var.0 as usize].0 - 1
+                self.order.len() as u32 - self.order[node.var.0 as usize] - 1
             } else {
-                self.order[high.var.0 as usize].0 - self.order[node.var.0 as usize].0 - 1
+                self.order[high.var.0 as usize] - self.order[node.var.0 as usize] - 1
             };
 
             let low_fac = BigUint::parse_bytes(b"2", 10).unwrap().pow(low_jump);
