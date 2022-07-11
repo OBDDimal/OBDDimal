@@ -2,3 +2,5 @@
 flamegraph.svg
 perf.data*
 .vscode
+*.dot
+*.pdf

@@ -12,11 +12,7 @@ fn main() {
 
     let (man, bdd) = DDManager::from_instance(&mut instance, None);
 
-    // println!("{:?}", man.nodes.len());
-
-    // man.purge_retain(bdd);
-
-    // println!("{:?}", man.nodes.len());
+    log::debug!("{}", man.graphviz(bdd));
 
     println!("Starting #SAT");
     println!("{:?}", man.sat_count(bdd));
