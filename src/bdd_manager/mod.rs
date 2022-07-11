@@ -5,6 +5,7 @@ use rand::Rng;
 use rustc_hash::FxHashMap as HashMap;
 use rustc_hash::FxHashSet as HashSet;
 
+mod graphviz;
 mod sat;
 
 pub const ZERO: DDNode = DDNode {
@@ -114,7 +115,7 @@ impl DDManager {
         for i in iter {
             let clause = &instance.clauses[*i];
 
-            log::info!("{:?}", clause);
+            log::info!("Integrating clause: {:?}", clause);
 
             let mut cbdd = man.zero();
             for x in clause {
@@ -132,7 +133,7 @@ impl DDManager {
             man.purge_retain(bdd);
 
             log::info!(
-                "{:?} ({:?}/{:?})",
+                "Nr. Nodes: {:?} ({:?}/{:?} clauses integrated)",
                 &man.nodes.len(),
                 n,
                 &instance.clauses.len()
@@ -165,7 +166,7 @@ impl DDManager {
 
         self.order[0] = VarID(y as u32);
 
-        log::info!("RESIZE: {:?}", self.order);
+        //log::info!("RESIZE: {:?}", self.order);
     }
 
     /// Insert Node. ID is assigned for nonterminal nodes (var != 0).
