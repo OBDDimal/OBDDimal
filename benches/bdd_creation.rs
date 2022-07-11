@@ -1,14 +1,15 @@
 use concat_idents::concat_idents;
 use criterion::{criterion_group, criterion_main, Criterion};
-use obddimal::{bdd_manager::DDManager, dimacs};
+use obddimal::{bdd_manager::DDManager, dimacs, static_ordering};
 
 macro_rules! bdd_create_benchmark {
     ($name:ident) => {
         concat_idents!(fn_name = $name, _create_benchmark {
             pub fn fn_name(c: &mut Criterion) {
                 let cnf = dimacs::parse_dimacs(concat!("examples/", stringify!($name), ".dimacs"));
+                let order = Some(static_ordering::keep(&cnf));
                 c.bench_function(concat!(stringify!($name), ".dimacs bdd creation"), |b| {
-                    b.iter(|| DDManager::from_instance(&mut cnf.clone(), None))
+                    b.iter(|| DDManager::from_instance(&mut cnf.clone(), order.clone()))
                 });
             }
         });

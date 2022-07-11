@@ -25,7 +25,7 @@ impl PartialEq for DDNode {
 impl Eq for DDNode {}
 
 impl DDNode {
-    pub fn restrict(&self, top: VarID, order: &[VarID], val: bool) -> NodeID {
+    pub fn restrict(&self, top: VarID, order: &[u32], val: bool) -> NodeID {
         if self.var == VarID(0) {
             return self.id;
         }
