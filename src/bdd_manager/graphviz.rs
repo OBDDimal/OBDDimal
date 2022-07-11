@@ -33,8 +33,8 @@ impl DDManager {
 
         let mut by_var: HashMap<VarID, Vec<DDNode>> = HashMap::default();
         for id in nodes.iter() {
-            let node = self.nodes.get(&id).unwrap();
-            by_var.entry(node.var).or_default().push(node.clone());
+            let node = self.nodes.get(id).unwrap();
+            by_var.entry(node.var).or_default().push(*node);
         }
 
         let mut graph = String::new();

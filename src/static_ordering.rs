@@ -20,7 +20,7 @@ pub fn rand(instance: &Instance) -> Vec<VarID> {
     order.shuffle(&mut thread_rng());
 
     order.insert(0, (order.len() + 1) as u32);
-    order.into_iter().map(|e| VarID(e)).collect()
+    order.into_iter().map(VarID).collect()
 }
 
 #[allow(dead_code)]
@@ -76,7 +76,7 @@ pub fn force(instance: &Instance) -> Vec<VarID> {
         }
     }
 
-    order.into_iter().map(|e| VarID(e)).collect()
+    order.into_iter().map(VarID).collect()
 }
 
 fn calc_center_of_gravity(clause: &Vec<i32>, order: &[u32]) -> f64 {
