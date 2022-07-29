@@ -1,4 +1,5 @@
-use std::collections::{HashMap, HashSet};
+use rustc_hash::FxHashMap as HashMap;
+use rustc_hash::FxHashSet as HashSet;
 
 use crate::bdd_node::{NodeID, VarID};
 
