@@ -8,6 +8,7 @@ use rustc_hash::FxHashSet as HashSet;
 mod graphviz;
 mod reduce;
 mod sat;
+mod swap;
 
 pub const ZERO: DDNode = DDNode {
     id: NodeID(0),
@@ -49,6 +50,7 @@ fn normalize_ite_args(mut f: NodeID, mut g: NodeID, mut h: NodeID) -> (NodeID, N
     (f, g, h)
 }
 
+#[derive(Clone)]
 pub struct DDManager {
     /// Node List
     pub nodes: HashMap<NodeID, DDNode>,
