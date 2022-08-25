@@ -77,7 +77,7 @@ pub fn force(instance: &Instance) -> Vec<u32> {
     order
 }
 
-fn calc_center_of_gravity(clause: &Vec<i32>, order: &[u32]) -> f64 {
+fn calc_center_of_gravity(clause: &[i32], order: &[u32]) -> f64 {
     let mut out = 0;
     for x in clause {
         out += order[x.unsigned_abs() as usize];
@@ -86,7 +86,7 @@ fn calc_center_of_gravity(clause: &Vec<i32>, order: &[u32]) -> f64 {
     out as f64 / clause.len() as f64
 }
 
-fn calc_span(clauses: &Vec<Vec<i32>>, order: &[u32]) -> u32 {
+fn calc_span(clauses: &[Vec<i32>], order: &[u32]) -> u32 {
     let mut span = 0;
 
     for clause in clauses {

@@ -6,6 +6,7 @@ use rustc_hash::FxHashMap as HashMap;
 use rustc_hash::FxHashSet as HashSet;
 
 mod graphviz;
+mod reduce;
 mod sat;
 
 pub const ZERO: DDNode = DDNode {
@@ -141,6 +142,15 @@ fn check_order(cnf: &Instance, order: &[u32]) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// Returns the variable order as list of VarID top to bottom
+fn order_to_layernames(order: &[u32]) -> Vec<VarID> {
+    let mut res = vec![VarID(0); *order.iter().max().unwrap() as usize];
+    for (var_num, var_pos) in order.iter().enumerate() {
+        res[*var_pos as usize - 1] = VarID(var_num as u32);
+    }
+    res
 }
 
 impl DDManager {
@@ -495,5 +505,16 @@ impl DDManager {
         }
 
         self.c_table.retain(|_, x| keep.contains(x));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::bdd_node::VarID;
+
+    #[test]
+    fn order_to_layernames() {
+        let res = super::order_to_layernames(&[4, 1, 3, 2]);
+        assert_eq!(res, vec![VarID(1), VarID(3), VarID(2), VarID(0)])
     }
 }
