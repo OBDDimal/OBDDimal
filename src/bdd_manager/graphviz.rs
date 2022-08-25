@@ -52,8 +52,11 @@ impl DDManager {
             }
             graph += format!("subgraph cluster_{} {{\nrank=same;\n", var.0).as_str();
             for node in nodes {
-                graph +=
-                    format!("\"{}\" [label=\"Var:{}\\n{}\"];\n", node.id.0, var.0, node.id.0).as_str();
+                graph += format!(
+                    "\"{}\" [label=\"Var:{}\\n{}\"];\n",
+                    node.id.0, var.0, node.id.0
+                )
+                .as_str();
                 edges += format!(
                     "\"{}\" -> \"{}\" [style = \"dotted\"];\n",
                     node.id.0, node.low.0
