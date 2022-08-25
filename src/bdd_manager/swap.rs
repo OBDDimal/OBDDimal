@@ -9,7 +9,7 @@ impl DDManager {
     /// Swaps graph layers of variables a and b. Requires a to be directly above b.
     /// Performs reduction which may change NodeIDs. Returns new NodeID of f.
     #[allow(unused)]
-    fn swap(&mut self, a: VarID, b: VarID, f: NodeID) -> NodeID {
+    pub fn swap(&mut self, a: VarID, b: VarID, f: NodeID) -> NodeID {
         log::info!(
             "Swapping variables {:?} and {:?} (layers {} and {})",
             a,
@@ -59,8 +59,17 @@ impl DDManager {
                 continue;
             }
 
-            let (f_01_id, f_00_id) = (f_0_node.high, f_0_node.low);
-            let (f_11_id, f_10_id) = (f_1_node.high, f_1_node.low);
+            let (f_01_id, f_00_id) = if f_0_node.var == b {
+                (f_0_node.high, f_0_node.low)
+            } else {
+                (f_0_id, f_0_id)
+
+            };
+            let (f_11_id, f_10_id) = if f_1_node.var == b {
+                (f_1_node.high, f_1_node.low)
+            } else {
+                (f_1_id, f_1_id)
+            };
 
             let new_then_id = self.node_get_or_create(&DDNode {
                 id: NodeID(0),
@@ -180,5 +189,38 @@ mod tests {
         let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
         let (mut man, bdd) = DDManager::from_instance(&mut instance, None).unwrap();
         man.swap(VarID(1), VarID(3), bdd);
+    }
+
+    // Test that reverting a swap results in same node count as before
+    #[test]
+    fn swap_invert_nodecount() {
+        let _ = env_logger::builder().is_test(true).try_init();
+
+        let expected = BigUint::parse_bytes(b"5", 10).unwrap();
+        let mut instance = dimacs::parse_dimacs("examples/trivial.dimacs");
+        let (mut man, bdd) = DDManager::from_instance(&mut instance, None).unwrap();
+        assert_eq!(man.sat_count(bdd), expected);
+
+        let bdd = man.reduce(bdd);
+        let man = man;
+
+        for i in 1..instance.no_variables {
+            let mut man = man.clone();
+            let var_a = VarID(i);
+            let var_b = VarID(i + 1);
+
+            println!("Swapping variables {:?} and {:?}", var_a, var_b);
+
+            let count_before = man.count_active(bdd);
+
+            let bdd = man.swap(var_a, var_b, bdd);
+            assert_eq!(man.sat_count(bdd), expected);
+
+            let bdd = man.swap(var_b, var_a, bdd);
+            assert_eq!(man.sat_count(bdd), expected);
+            let count_after = man.count_active(bdd);
+
+            assert_eq!(count_before, count_after);
+        }
     }
 }
