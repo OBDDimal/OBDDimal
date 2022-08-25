@@ -18,7 +18,11 @@ impl DDManager {
             self.order[b.0 as usize]
         );
         assert!(a.0 != 0 && b.0 != 0);
-        assert!(self.order[b.0 as usize] == self.order[a.0 as usize] + 1);
+        assert_eq!(
+            self.order[b.0 as usize],
+            self.order[a.0 as usize] + 1,
+            "Variables not on adjacent layers!"
+        );
         let ids = self.var2nodes[a.0 as usize]
             .iter()
             .map(|n| n.id)
@@ -168,5 +172,13 @@ mod tests {
                 assert_eq!(man.sat_count(bdd), expected);
             }
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "Variables not on adjacent layers!")]
+    fn swap_failure_non_adjacent() {
+        let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
+        let (mut man, bdd) = DDManager::from_instance(&mut instance, None).unwrap();
+        man.swap(VarID(1), VarID(3), bdd);
     }
 }
