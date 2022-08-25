@@ -165,7 +165,7 @@ mod tests {
 
         for v in 1..instance.no_variables {
             let mut man = man.clone();
-            let mut bdd = bdd.clone();
+            let mut bdd = bdd;
             for i in v..instance.no_variables {
                 bdd = man.swap(VarID(v), VarID(i + 1), bdd);
                 // Use sat_count as sanity check that the BDD isnt completely broken
