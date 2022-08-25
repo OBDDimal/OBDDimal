@@ -8,23 +8,25 @@ use super::{DDManager, ZERO};
 impl DDManager {
     /// Collect all nodes that are part of the specified function
     fn collect_nodes(&self, f: NodeID) -> HashSet<NodeID> {
-        let mut h = HashSet::default();
+        let mut nodes = HashSet::<NodeID>::default();
 
-        fn collect_impl(man: &DDManager, f: NodeID, h: &mut HashSet<NodeID>) {
-            if h.contains(&f) {
-                return;
+        let mut stack = vec![f];
+
+        while !stack.is_empty() {
+            let x = stack.pop().unwrap();
+
+            if nodes.contains(&x) {
+                continue;
             }
 
-            let inserted = h.insert(f);
-            assert!(inserted);
+            let node = self.nodes.get(&x).unwrap();
 
-            let node = man.nodes.get(&f).unwrap();
-            collect_impl(man, node.low, h);
-            collect_impl(man, node.high, h);
+            stack.push(node.low);
+            stack.push(node.high);
+            nodes.insert(x);
         }
 
-        collect_impl(self, f, &mut h);
-        h
+        nodes
     }
 
     /// Generate graphviz for the provided function, not including any graph nodes not part of the function.
@@ -51,13 +53,13 @@ impl DDManager {
             graph += format!("subgraph cluster_{} {{\nrank=same;\n", var.0).as_str();
             for node in nodes {
                 graph +=
-                    format!("\"{}\" [label=\"{}\\n{}\"]\n", node.id.0, var.0, node.id.0).as_str();
+                    format!("\"{}\" [label=\"Var:{}\\n{}\"];\n", node.id.0, var.0, node.id.0).as_str();
                 edges += format!(
-                    "\"{}\" -> \"{}\" [style = \"dotted\"]\n",
+                    "\"{}\" -> \"{}\" [style = \"dotted\"];\n",
                     node.id.0, node.low.0
                 )
                 .as_str();
-                edges += format!("\"{}\" -> \"{}\"\n", node.id.0, node.high.0).as_str();
+                edges += format!("\"{}\" -> \"{}\";\n", node.id.0, node.high.0).as_str();
             }
             graph += "}\n\n";
         }
