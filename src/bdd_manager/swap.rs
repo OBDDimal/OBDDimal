@@ -63,7 +63,6 @@ impl DDManager {
                 (f_0_node.high, f_0_node.low)
             } else {
                 (f_0_id, f_0_id)
-
             };
             let (f_11_id, f_10_id) = if f_1_node.var == b {
                 (f_1_node.high, f_1_node.low)
