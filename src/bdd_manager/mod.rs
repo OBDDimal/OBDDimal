@@ -5,6 +5,7 @@ use rand::Rng;
 use rustc_hash::FxHashMap as HashMap;
 use rustc_hash::FxHashSet as HashSet;
 
+mod dvo;
 mod graphviz;
 mod reduce;
 mod sat;
