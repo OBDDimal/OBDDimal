@@ -46,20 +46,6 @@ impl DDManager {
             let f_0_node = self.nodes[&f_0_id];
             let f_1_node = self.nodes[&f_1_id];
 
-            if f_0_node.var != b && f_1_node.var != b {
-                // "If neither child of the node for f is labeled b, then the
-                // node is moved to the other subtable; otherwise swapping
-                // proceeds as described above"
-                let new_f_node = DDNode {
-                    id: f_id,
-                    var: b,
-                    low: f_0_id,
-                    high: f_1_id,
-                };
-                *self.nodes.get_mut(&f_id).unwrap() = new_f_node;
-                continue;
-            }
-
             let (f_01_id, f_00_id) = if f_0_node.var == b {
                 (f_0_node.high, f_0_node.low)
             } else {
