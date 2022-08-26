@@ -180,7 +180,7 @@ mod tests {
         {
             man.order = vec![4, 1, 2, 3];
         }
-        man.var2nodes.resize(5, HashSet::default());
+        man.var2nodes.resize(4, HashSet::default());
 
         // Node 2: Low:0, High: 1
         man.nodes.insert(
@@ -253,7 +253,7 @@ mod tests {
         {
             man.order = vec![4, 1, 2, 3];
         }
-        man.var2nodes.resize(5, HashSet::default());
+        man.var2nodes.resize(4, HashSet::default());
 
         // Node 2: Low=0, High=1
         man.nodes.insert(
@@ -415,7 +415,7 @@ mod tests {
         {
             man.order = vec![4, 1, 2, 3];
         }
-        man.var2nodes.resize(5, HashSet::default());
+        man.var2nodes.resize(4, HashSet::default());
 
         // Node 2: Low=0, High=1
         let node_2 = DDNode {
