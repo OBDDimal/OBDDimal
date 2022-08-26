@@ -9,6 +9,7 @@ impl DDManager {
     /// Swaps graph layers of variables a and b. Requires a to be directly above b.
     /// Performs reduction which may change NodeIDs. Returns new NodeID of f.
     #[allow(unused)]
+    #[must_use]
     pub fn swap(&mut self, a: VarID, b: VarID, f: NodeID) -> NodeID {
         log::info!(
             "Swapping variables {:?} and {:?} (layers {} and {})",
@@ -44,20 +45,6 @@ impl DDManager {
 
             let f_0_node = self.nodes[&f_0_id];
             let f_1_node = self.nodes[&f_1_id];
-
-            if f_0_node.var != b && f_1_node.var != b {
-                // "If neither child of the node for f is labeled b, then the
-                // node is moved to the other subtable; otherwise swapping
-                // proceeds as described above"
-                let new_f_node = DDNode {
-                    id: f_id,
-                    var: b,
-                    low: f_0_id,
-                    high: f_1_id,
-                };
-                *self.nodes.get_mut(&f_id).unwrap() = new_f_node;
-                continue;
-            }
 
             let (f_01_id, f_00_id) = if f_0_node.var == b {
                 (f_0_node.high, f_0_node.low)
@@ -137,25 +124,26 @@ impl DDManager {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use num_bigint::BigUint;
 
-    use crate::{bdd_manager::DDManager, bdd_node::VarID, dimacs};
+    use crate::{
+        bdd_manager::{order_to_layernames, test::tests::TestCase, DDManager},
+        bdd_node::VarID,
+        dimacs,
+    };
 
     /// Swap each variable pair from initial order
     #[test]
     fn swap_sandwich() {
-        let expected = BigUint::parse_bytes(b"2808", 10).unwrap();
+        let testcase = TestCase::test_trivial();
 
-        let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
-        let (man, bdd) = DDManager::from_instance(&mut instance, None).unwrap();
+        for i in 1..testcase.nr_variables {
+            let mut man = testcase.man.clone();
 
-        assert_eq!(man.sat_count(bdd), expected);
-
-        for i in 1..instance.no_variables {
-            let mut man = man.clone();
-
-            let bdd = man.swap(VarID(i), VarID(i + 1), bdd);
-            assert_eq!(man.sat_count(bdd), expected);
+            let bdd = man.swap(VarID(i), VarID(i + 1), testcase.f);
+            assert!(testcase.verify_against(&man, bdd));
         }
     }
 
@@ -187,7 +175,7 @@ mod tests {
     fn swap_failure_non_adjacent() {
         let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
         let (mut man, bdd) = DDManager::from_instance(&mut instance, None).unwrap();
-        man.swap(VarID(1), VarID(3), bdd);
+        let _ = man.swap(VarID(1), VarID(3), bdd);
     }
 
     // Test that reverting a swap results in same node count as before
@@ -195,31 +183,100 @@ mod tests {
     fn swap_invert_nodecount() {
         let _ = env_logger::builder().is_test(true).try_init();
 
-        let expected = BigUint::parse_bytes(b"5", 10).unwrap();
-        let mut instance = dimacs::parse_dimacs("examples/trivial.dimacs");
-        let (mut man, bdd) = DDManager::from_instance(&mut instance, None).unwrap();
-        assert_eq!(man.sat_count(bdd), expected);
+        let testcase = TestCase::test_trivial();
 
-        let bdd = man.reduce(bdd);
-        let man = man;
-
-        for i in 1..instance.no_variables {
-            let mut man = man.clone();
+        for i in 1..testcase.nr_variables {
+            let mut man = testcase.man.clone();
             let var_a = VarID(i);
             let var_b = VarID(i + 1);
 
             println!("Swapping variables {:?} and {:?}", var_a, var_b);
 
-            let count_before = man.count_active(bdd);
+            let count_before = man.count_active(testcase.f);
 
-            let bdd = man.swap(var_a, var_b, bdd);
-            assert_eq!(man.sat_count(bdd), expected);
+            let bdd = man.swap(var_a, var_b, testcase.f);
+            assert!(testcase.verify_against(&man, bdd));
 
             let bdd = man.swap(var_b, var_a, bdd);
-            assert_eq!(man.sat_count(bdd), expected);
+            assert!(testcase.verify_against(&man, bdd));
+
             let count_after = man.count_active(bdd);
 
             assert_eq!(count_before, count_after);
         }
+    }
+
+    #[test]
+    fn swap_last_vars() {
+        let _ = env_logger::builder().is_test(true).try_init();
+
+        let testcase = TestCase::test_trivial();
+        fs::write("before.dot", testcase.man.graphviz(testcase.f)).unwrap();
+
+        let mut man = testcase.man.clone();
+
+        let bdd = man.swap(VarID(2), VarID(3), testcase.f);
+        fs::write("after.dot", &man.graphviz(bdd)).unwrap();
+
+        assert!(testcase.verify_against(&man, bdd));
+    }
+
+    #[test]
+    fn swap_multiple_noop() {
+        let _ = env_logger::builder().is_test(true).try_init();
+
+        let testcase = TestCase::test_trivial();
+
+        fs::write("start.dot", testcase.man.graphviz(testcase.f)).unwrap();
+
+        let mut man = testcase.man.clone();
+        let mut bdd = testcase.f;
+
+        let mut counts = Vec::new();
+        counts.push(man.count_active(bdd));
+
+        let var = VarID(1);
+
+        // Sift down, record BDD sizes
+        for i in var.0 + 1..testcase.nr_variables + 1 {
+            bdd = man.swap(var, VarID(i), bdd);
+            man.purge_retain(bdd);
+
+            println!("Swapped, count is now {:?}", man.count_active(bdd));
+            println!("Order is now {:?}", order_to_layernames(&man.order));
+
+            assert!(testcase.verify_against(&man, bdd));
+
+            counts.push(man.count_active(bdd));
+        }
+
+        let mut counts_up = Vec::new();
+        counts_up.push(man.count_active(bdd));
+
+        fs::write(format!("{}.dot", testcase.nr_variables), man.graphviz(bdd)).unwrap();
+
+        // Works until here!
+
+        // Sift up, verify BDD sizes
+        // TODO: First swap up fails already
+        for i in (var.0 + 1..testcase.nr_variables + 1).rev() {
+            bdd = man.swap(VarID(i), var, bdd);
+            man.purge_retain(bdd);
+
+            fs::write(format!("{}.dot", i - 1), man.graphviz(bdd)).unwrap();
+
+            println!("Swapped, count is now {:?}", man.count_active(bdd));
+            println!("Order is now {:?}", order_to_layernames(&man.order));
+            assert!(testcase.verify_against(&man, bdd));
+
+            counts_up.push(man.count_active(bdd));
+        }
+        counts_up.reverse();
+
+        fs::write("after.dot", man.graphviz(bdd)).unwrap();
+
+        println!("{:?}\n{:?}", counts, counts_up);
+
+        assert_eq!(counts, counts_up);
     }
 }

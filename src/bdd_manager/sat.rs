@@ -63,7 +63,6 @@ impl DDManager {
         total
     }
 
-    #[allow(dead_code)]
     pub fn count_active(&self, f: NodeID) -> u32 {
         let mut nodes = HashSet::<NodeID>::default();
 

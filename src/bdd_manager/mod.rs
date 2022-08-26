@@ -9,6 +9,7 @@ mod graphviz;
 mod reduce;
 mod sat;
 mod swap;
+mod test;
 
 pub const ZERO: DDNode = DDNode {
     id: NodeID(0),
@@ -450,11 +451,11 @@ impl DDManager {
     }
 
     #[allow(dead_code)]
-    fn verify(&self, f: NodeID, trues: Vec<u32>) -> bool {
+    fn verify(&self, f: NodeID, trues: &[u32]) -> bool {
         let mut values: Vec<bool> = vec![false; self.var2nodes.len() + 1];
 
         for x in trues {
-            let x: usize = x as usize;
+            let x: usize = *x as usize;
 
             if x < values.len() {
                 values[x] = true;
