@@ -42,6 +42,7 @@ impl DDManager {
 
         let mut graph = String::new();
         graph += "digraph G {\n";
+        graph += "newrank=true;\n";
         graph += "\"1\" [shape = \"box\"];\n";
         graph += "\"0\" [shape = \"box\"];\n";
 
