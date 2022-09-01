@@ -1,5 +1,3 @@
-use num_bigint::BigUint;
-
 use crate::bdd_manager::order_to_layernames;
 use crate::bdd_manager::ZERO;
 use crate::bdd_node::NodeID;
@@ -20,8 +18,6 @@ impl DDManager {
     #[allow(unused)]
     fn sift_single_var(&mut self, var: VarID, mut f: NodeID) -> NodeID {
         let starting_pos = self.order[var.0 as usize];
-
-        let expected = BigUint::parse_bytes(b"2808", 10).unwrap();
 
         let mut best_position = starting_pos;
         let mut best_graphsize = self.count_active(f);
@@ -45,11 +41,9 @@ impl DDManager {
                 self.var_at_level(level).unwrap(),
                 f,
             );
-            f = self.reduce(f);
 
             let new_size = self.count_active(f);
             log::info!(" Size is {}", new_size);
-            assert_eq!(self.sat_count(f), expected);
 
             if new_size < best_graphsize {
                 log::info!(
@@ -72,11 +66,9 @@ impl DDManager {
                 self.var_at_level(level + 1).unwrap(),
                 f,
             );
-            f = self.reduce(f);
 
             let new_size = self.count_active(f);
             log::info!(" Size is {}", new_size);
-            assert_eq!(self.sat_count(f), expected);
 
             if new_size < best_graphsize {
                 log::info!(
@@ -103,8 +95,6 @@ impl DDManager {
                 self.var_at_level(level).unwrap(),
                 f,
             );
-            f = self.reduce(f);
-            assert_eq!(self.sat_count(f), expected);
         }
 
         log::info!("Size is now  {}", self.count_active(f));
@@ -112,8 +102,8 @@ impl DDManager {
         f
     }
 
-    #[allow(unused)]
-    fn sift_all_vars(&mut self, mut f: NodeID) -> NodeID {
+    #[must_use]
+    pub(crate) fn sift_all_vars(&mut self, mut f: NodeID) -> NodeID {
         for v in 1..self.var2nodes.len() {
             let var = VarID(v as u32);
             f = self.sift_single_var(var, f);
