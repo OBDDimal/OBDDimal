@@ -179,11 +179,8 @@ mod tests {
     }
 
     // Test that reverting a swap results in same node count as before
-    #[test]
-    fn swap_invert_nodecount() {
+    fn swap_invert_nodecount(testcase: TestCase) {
         let _ = env_logger::builder().is_test(true).try_init();
-
-        let testcase = TestCase::test_trivial();
 
         for i in 1..testcase.nr_variables {
             let mut man = testcase.man.clone();
@@ -207,6 +204,16 @@ mod tests {
     }
 
     #[test]
+    fn swap_invert_nodecount_trivial() {
+        swap_invert_nodecount(TestCase::test_trivial());
+    }
+
+    #[test]
+    fn swap_invert_nodecount_random1() {
+        swap_invert_nodecount(TestCase::random_1());
+    }
+
+    #[test]
     fn swap_last_vars() {
         let _ = env_logger::builder().is_test(true).try_init();
 
@@ -221,19 +228,15 @@ mod tests {
         assert!(testcase.verify_against(&man, bdd));
     }
 
-    #[test]
-    fn swap_multiple_noop() {
+    fn swap_multiple_noop(testcase: TestCase) {
         let _ = env_logger::builder().is_test(true).try_init();
 
-        let testcase = TestCase::test_trivial();
-
-        fs::write("start.dot", testcase.man.graphviz(testcase.f)).unwrap();
+        // fs::write("start.dot", testcase.man.graphviz(testcase.f)).unwrap();
 
         let mut man = testcase.man.clone();
         let mut bdd = testcase.f;
 
-        let mut counts = Vec::new();
-        counts.push(man.count_active(bdd));
+        let mut counts = vec![man.count_active(bdd)];
 
         let var = VarID(1);
 
@@ -250,15 +253,11 @@ mod tests {
             counts.push(man.count_active(bdd));
         }
 
-        let mut counts_up = Vec::new();
-        counts_up.push(man.count_active(bdd));
+        let mut counts_up = vec![man.count_active(bdd)];
 
-        fs::write(format!("{}.dot", testcase.nr_variables), man.graphviz(bdd)).unwrap();
+        // fs::write(format!("{}.dot", testcase.nr_variables), man.graphviz(bdd)).unwrap();
 
-        // Works until here!
-
-        // Sift up, verify BDD sizes
-        // TODO: First swap up fails already
+        // Sift up
         for i in (var.0 + 1..testcase.nr_variables + 1).rev() {
             bdd = man.swap(VarID(i), var, bdd);
             man.purge_retain(bdd);
@@ -273,10 +272,20 @@ mod tests {
         }
         counts_up.reverse();
 
-        fs::write("after.dot", man.graphviz(bdd)).unwrap();
+        // fs::write("after.dot", man.graphviz(bdd)).unwrap();
 
         println!("{:?}\n{:?}", counts, counts_up);
 
         assert_eq!(counts, counts_up);
+    }
+
+    #[test]
+    fn swap_multiple_noop_trivial() {
+        swap_multiple_noop(TestCase::test_trivial());
+    }
+
+    #[test]
+    fn swap_multiple_noop_random1() {
+        swap_multiple_noop(TestCase::random_1());
     }
 }
