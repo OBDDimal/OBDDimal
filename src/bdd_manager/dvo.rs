@@ -1,16 +1,13 @@
 use std::io::stdout;
 
-use crate::bdd_manager::order::order_to_layernames;
-use crate::bdd_manager::ZERO;
-use crate::bdd_node::NodeID;
-use crate::bdd_node::VarID;
-use crate::if_some;
-
-use super::DDManager;
-
-use crossterm::cursor;
-use crossterm::execute;
+use crossterm::{cursor, execute};
 use indicatif::ProgressBar;
+
+use crate::{
+    bdd_manager::{order::order_to_layernames, DDManager, ZERO},
+    bdd_node::{NodeID, VarID},
+    if_some,
+};
 
 impl DDManager {
     /// Find the variable at specified level
@@ -124,13 +121,17 @@ impl DDManager {
             if self.var2nodes[v].is_empty() {
                 continue;
             }
+
             let var = VarID(v as u32);
             f = self.sift_single_var(var, f);
             self.purge_retain(f);
         }
         if_some!(bar, finish_and_clear());
 
-        execute!(stdout(), cursor::MoveToPreviousLine(1));
+        if bar.is_some() {
+            // Move cursor up to continue updating the top-level progress bar
+            execute!(stdout(), cursor::MoveToPreviousLine(1));
+        }
         f
     }
 }

@@ -1,8 +1,6 @@
-use rustc_hash::FxHashMap as HashMap;
-
 use bitvec::prelude::*;
-
 use rand::Rng;
+use rustc_hash::FxHashMap as HashMap;
 
 /// This prints the one-columns of a random truth table with 8 variables,
 /// for testcase generation. The result is to be used in src/bdd_manager/test.rs.

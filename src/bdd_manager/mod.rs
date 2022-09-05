@@ -1,11 +1,10 @@
-use super::bdd_node::{DDNode, NodeID, VarID};
 use std::fmt;
 
-use self::options::Options;
-
 use rand::Rng;
-use rustc_hash::FxHashMap as HashMap;
-use rustc_hash::FxHashSet as HashSet;
+use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
+
+use self::options::Options;
+use super::bdd_node::{DDNode, NodeID, VarID};
 
 mod dvo;
 mod from_dimacs;

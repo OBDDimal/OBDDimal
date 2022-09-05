@@ -1,9 +1,7 @@
-use rustc_hash::FxHashMap as HashMap;
-use rustc_hash::FxHashSet as HashSet;
-
-use crate::bdd_node::{DDNode, NodeID, VarID};
+use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
 use super::{DDManager, ZERO};
+use crate::bdd_node::{DDNode, NodeID, VarID};
 
 impl DDManager {
     /// Collect all nodes that are part of the specified function

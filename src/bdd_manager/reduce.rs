@@ -1,11 +1,10 @@
+use rustc_hash::FxHashMap as HashMap;
+
+use super::DDManager;
 use crate::{
     bdd_manager::{order::order_to_layernames, ZERO},
     bdd_node::{DDNode, NodeID, VarID},
 };
-
-use super::DDManager;
-
-use rustc_hash::FxHashMap as HashMap;
 
 impl DDManager {
     /// Reduces the BDD. This changes Node IDs, the new Node ID of the function passed to the function is returned.
@@ -161,10 +160,11 @@ impl DDManager {
 mod tests {
     use rustc_hash::FxHashSet as HashSet;
 
-    use crate::bdd_node::{DDNode, NodeID, VarID};
-    use crate::dimacs;
-
     use super::DDManager;
+    use crate::{
+        bdd_node::{DDNode, NodeID, VarID},
+        dimacs,
+    };
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();

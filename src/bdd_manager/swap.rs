@@ -1,9 +1,8 @@
+use super::DDManager;
 use crate::{
     bdd_manager::order::order_to_layernames,
     bdd_node::{DDNode, NodeID, VarID},
 };
-
-use super::DDManager;
 
 impl DDManager {
     /// Swaps graph layers of variables a and b. Requires a to be directly above b.

@@ -1,13 +1,12 @@
+use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
+
+use super::{options::Options, DDManager};
 use crate::{
     bdd_manager::{align_clauses, order::check_order},
     bdd_node::{NodeID, VarID},
     dimacs::Instance,
     if_some,
 };
-
-use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
-
-use super::{options::Options, DDManager};
 
 impl DDManager {
     pub fn from_instance(

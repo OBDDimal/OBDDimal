@@ -1,4 +1,7 @@
-use obddimal::{bdd_manager::options::Options, bdd_manager::DDManager, dimacs, static_ordering};
+use obddimal::{
+    bdd_manager::{options::Options, DDManager},
+    dimacs, static_ordering,
+};
 
 fn main() {
     env_logger::init();
@@ -27,8 +30,9 @@ fn main() {
 #[cfg(test)]
 mod tests {
 
-    use super::*;
     use num_bigint::BigUint;
+
+    use super::*;
 
     fn build_verify_ssat(filepath: &str, target: &[u8]) {
         let expected = BigUint::parse_bytes(target, 10).unwrap();

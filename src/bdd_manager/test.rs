@@ -2,13 +2,13 @@
 pub mod tests {
     use std::fs;
 
+    use num_bigint::BigUint;
+    use rustc_hash::FxHashSet as HashSet;
+
     use crate::{
         bdd_manager::{ONE, ZERO},
         bdd_node::{NodeID, VarID},
     };
-
-    use num_bigint::BigUint;
-    use rustc_hash::FxHashSet as HashSet;
 
     /// A manually constructed BDD plus truth table, allowing verification of
     /// any other BDD agains it for testing if it represents the same function.
