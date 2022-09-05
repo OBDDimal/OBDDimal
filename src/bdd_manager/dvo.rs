@@ -1,9 +1,13 @@
-use crate::bdd_manager::order::order_to_layernames;
-use crate::bdd_manager::ZERO;
-use crate::bdd_node::NodeID;
-use crate::bdd_node::VarID;
+use std::io::stdout;
 
-use super::DDManager;
+use crossterm::{cursor, execute};
+use indicatif::ProgressBar;
+
+use crate::{
+    bdd_manager::{order::order_to_layernames, DDManager, ZERO},
+    bdd_node::{NodeID, VarID},
+    if_some,
+};
 
 impl DDManager {
     /// Find the variable at specified level
@@ -105,7 +109,15 @@ impl DDManager {
     #[must_use]
     #[allow(unused)]
     pub fn sift_all_vars(&mut self, mut f: NodeID) -> NodeID {
-        for v in 1..self.var2nodes.len() {
+        let bar = if self.options.progressbars {
+            Some(ProgressBar::new(self.var2nodes.len() as u64 - 1))
+        } else {
+            None
+        };
+
+        for v in (1..self.var2nodes.len()) {
+            if_some!(bar, inc(1));
+
             if self.var2nodes[v].is_empty() {
                 continue;
             }
@@ -113,6 +125,12 @@ impl DDManager {
             let var = VarID(v as u32);
             f = self.sift_single_var(var, f);
             self.purge_retain(f);
+        }
+        if_some!(bar, finish_and_clear());
+
+        if bar.is_some() {
+            // Move cursor up to continue updating the top-level progress bar
+            execute!(stdout(), cursor::MoveToPreviousLine(1));
         }
         f
     }
@@ -138,7 +156,8 @@ mod tests {
 
         // Build BDD
         let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
-        let (mut man, bdd) = DDManager::from_instance(&mut instance, None, false).unwrap();
+        let (mut man, bdd) =
+            DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
         assert_eq!(man.sat_count(bdd), expected);
 
         let size_before = man.count_active(bdd);
@@ -160,7 +179,8 @@ mod tests {
 
         // Build BDD
         let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
-        let (mut man, bdd) = DDManager::from_instance(&mut instance, None, false).unwrap();
+        let (mut man, bdd) =
+            DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
         assert_eq!(man.sat_count(bdd), expected);
 
         let size_before = man.count_active(bdd);

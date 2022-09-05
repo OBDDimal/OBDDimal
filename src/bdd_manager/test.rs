@@ -2,13 +2,13 @@
 pub mod tests {
     use std::fs;
 
+    use num_bigint::BigUint;
+    use rustc_hash::FxHashSet as HashSet;
+
     use crate::{
         bdd_manager::{ONE, ZERO},
         bdd_node::{NodeID, VarID},
     };
-
-    use num_bigint::BigUint;
-    use rustc_hash::FxHashSet as HashSet;
 
     /// A manually constructed BDD plus truth table, allowing verification of
     /// any other BDD agains it for testing if it represents the same function.
@@ -276,7 +276,7 @@ pub mod tests {
 
         let mut instance = dimacs::parse_dimacs("examples/trivial.dimacs");
         let (man_dimacs, bdd_dimacs) =
-            DDManager::from_instance(&mut instance, None, false).unwrap();
+            DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
         assert!(testcase.verify_against(&man_dimacs, bdd_dimacs));
     }
 

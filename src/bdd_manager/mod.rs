@@ -1,18 +1,21 @@
-use super::bdd_node::{DDNode, NodeID, VarID};
 use std::fmt;
 
 use rand::Rng;
-use rustc_hash::FxHashMap as HashMap;
-use rustc_hash::FxHashSet as HashSet;
+use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
+
+use self::options::Options;
+use super::bdd_node::{DDNode, NodeID, VarID};
 
 mod dvo;
 mod from_dimacs;
 mod graphviz;
+pub mod options;
 mod order;
 mod reduce;
 mod sat;
 mod swap;
 mod test;
+mod util;
 
 pub const ZERO: DDNode = DDNode {
     id: NodeID(0),
@@ -65,6 +68,7 @@ pub struct DDManager {
     var2nodes: Vec<HashSet<DDNode>>,
     /// Computed Table: ite(f,g,h) cache
     c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
+    options: Options,
 }
 
 impl fmt::Debug for DDManager {
@@ -86,6 +90,7 @@ impl Default for DDManager {
             order: Vec::new(),
             var2nodes: Vec::new(),
             c_table: HashMap::default(),
+            options: Default::default(),
         };
 
         man.bootstrap();
@@ -151,6 +156,8 @@ impl DDManager {
         }
 
         if node.var != VarID(0) {
+            assert_ne!(node.high, node.low);
+
             // Assign new node ID
             let mut id = NodeID(rand::thread_rng().gen::<u32>());
 
@@ -182,6 +189,8 @@ impl DDManager {
 
     /// Search for Node, create if it doesnt exist
     fn node_get_or_create(&mut self, node: &DDNode) -> NodeID {
+        assert_ne!(node.low, node.high, "Creating a node with the same low and high edge creates a non-reduced BDD, which we don't want to do.");
+
         if self.var2nodes.len() <= (node.var.0 as usize) {
             // Unique table does not contain any entries for this variable. Create new Node.
             return self.add_node(*node);

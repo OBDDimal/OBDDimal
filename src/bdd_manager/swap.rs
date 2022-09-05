@@ -1,9 +1,8 @@
+use super::DDManager;
 use crate::{
     bdd_manager::order::order_to_layernames,
     bdd_node::{DDNode, NodeID, VarID},
 };
-
-use super::DDManager;
 
 impl DDManager {
     /// Swaps graph layers of variables a and b. Requires a to be directly above b.
@@ -173,7 +172,7 @@ mod tests {
         let expected = BigUint::parse_bytes(b"2808", 10).unwrap();
 
         let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
-        let (man, bdd) = DDManager::from_instance(&mut instance, None, false).unwrap();
+        let (man, bdd) = DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
 
         assert_eq!(man.sat_count(bdd), expected);
 
@@ -192,7 +191,8 @@ mod tests {
     #[should_panic(expected = "Variables not on adjacent layers!")]
     fn swap_failure_non_adjacent() {
         let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
-        let (mut man, bdd) = DDManager::from_instance(&mut instance, None, false).unwrap();
+        let (mut man, bdd) =
+            DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
         let _ = man.swap(VarID(1), VarID(3), bdd);
     }
 
@@ -249,8 +249,6 @@ mod tests {
     fn swap_multiple_noop(testcase: TestCase) {
         let _ = env_logger::builder().is_test(true).try_init();
 
-        // fs::write("start.dot", testcase.man.graphviz(testcase.f)).unwrap();
-
         let mut man = testcase.man.clone();
         let mut bdd = testcase.f;
 
@@ -273,14 +271,10 @@ mod tests {
 
         let mut counts_up = vec![man.count_active(bdd)];
 
-        // fs::write(format!("{}.dot", testcase.nr_variables), man.graphviz(bdd)).unwrap();
-
         // Sift up
         for i in (var.0 + 1..testcase.nr_variables + 1).rev() {
             bdd = man.swap(VarID(i), var, bdd);
             man.purge_retain(bdd);
-
-            fs::write(format!("{}.dot", i - 1), man.graphviz(bdd)).unwrap();
 
             println!("Swapped, count is now {:?}", man.count_active(bdd));
             println!("Order is now {:?}", order_to_layernames(&man.order));
@@ -289,8 +283,6 @@ mod tests {
             counts_up.push(man.count_active(bdd));
         }
         counts_up.reverse();
-
-        // fs::write("after.dot", man.graphviz(bdd)).unwrap();
 
         println!("{:?}\n{:?}", counts, counts_up);
 

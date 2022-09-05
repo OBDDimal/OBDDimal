@@ -1,7 +1,6 @@
-use super::dimacs::Instance;
+use rand::{seq::SliceRandom, thread_rng};
 
-use rand::seq::SliceRandom;
-use rand::thread_rng;
+use super::dimacs::Instance;
 
 #[allow(dead_code)]
 pub fn keep(instance: &Instance) -> Vec<u32> {

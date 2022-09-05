@@ -1,11 +1,10 @@
+use rustc_hash::FxHashMap as HashMap;
+
+use super::DDManager;
 use crate::{
     bdd_manager::{order::order_to_layernames, ZERO},
     bdd_node::{DDNode, NodeID, VarID},
 };
-
-use super::DDManager;
-
-use rustc_hash::FxHashMap as HashMap;
 
 impl DDManager {
     /// Reduces the BDD. This changes Node IDs, the new Node ID of the function passed to the function is returned.
@@ -161,10 +160,11 @@ impl DDManager {
 mod tests {
     use rustc_hash::FxHashSet as HashSet;
 
-    use crate::bdd_node::{DDNode, NodeID, VarID};
-    use crate::dimacs;
-
     use super::DDManager;
+    use crate::{
+        bdd_node::{DDNode, NodeID, VarID},
+        dimacs,
+    };
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -455,7 +455,8 @@ mod tests {
         let expected = BigUint::parse_bytes(b"2808", 10).unwrap();
 
         let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
-        let (mut man, bdd) = DDManager::from_instance(&mut instance, None, false).unwrap();
+        let (mut man, bdd) =
+            DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
 
         assert_eq!(man.sat_count(bdd), expected);
 

@@ -1,4 +1,7 @@
-use obddimal::{bdd_manager::DDManager, dimacs, static_ordering};
+use obddimal::{
+    bdd_manager::{options::Options, DDManager},
+    dimacs, static_ordering,
+};
 
 fn main() {
     env_logger::init();
@@ -9,9 +12,16 @@ fn main() {
     // let mut instance = dimacs::parse_dimacs("examples/berkeleydb.dimacs");
     // let mut instance = dimacs::parse_dimacs("examples/busybox.dimacs");
 
-    let order = Some(static_ordering::rand(&instance));
+    let order = Some(static_ordering::force(&instance));
 
-    let (man, bdd) = DDManager::from_instance(&mut instance, order, true).unwrap();
+    let (man, bdd) = DDManager::from_instance(
+        &mut instance,
+        order,
+        Options::default().with_progressbars().with_dvo(),
+    )
+    .unwrap();
+
+    println!("Done! BDD has {} nodes.", man.count_active(bdd));
 
     println!("Starting #SAT");
     println!("{:?}", man.sat_count(bdd));
@@ -20,14 +30,15 @@ fn main() {
 #[cfg(test)]
 mod tests {
 
-    use super::*;
     use num_bigint::BigUint;
+
+    use super::*;
 
     fn build_verify_ssat(filepath: &str, target: &[u8]) {
         let expected = BigUint::parse_bytes(target, 10).unwrap();
 
         let mut instance = dimacs::parse_dimacs(filepath);
-        let (man, bdd) = DDManager::from_instance(&mut instance, None, false).unwrap();
+        let (man, bdd) = DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
 
         assert_eq!(man.sat_count(bdd), expected);
     }

@@ -1,12 +1,9 @@
-use rustc_hash::FxHashMap as HashMap;
-use rustc_hash::FxHashSet as HashSet;
-
-use crate::bdd_node::{NodeID, VarID};
-
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
+use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
 use super::DDManager;
+use crate::bdd_node::{NodeID, VarID};
 
 impl DDManager {
     #[allow(dead_code)]
