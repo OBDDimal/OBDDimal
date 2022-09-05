@@ -11,7 +11,7 @@ fn main() {
 
     let order = Some(static_ordering::rand(&instance));
 
-    let (man, bdd) = DDManager::from_instance(&mut instance, order).unwrap();
+    let (man, bdd) = DDManager::from_instance(&mut instance, order, true).unwrap();
 
     println!("Starting #SAT");
     println!("{:?}", man.sat_count(bdd));
@@ -27,7 +27,7 @@ mod tests {
         let expected = BigUint::parse_bytes(target, 10).unwrap();
 
         let mut instance = dimacs::parse_dimacs(filepath);
-        let (man, bdd) = DDManager::from_instance(&mut instance, None).unwrap();
+        let (man, bdd) = DDManager::from_instance(&mut instance, None, false).unwrap();
 
         assert_eq!(man.sat_count(bdd), expected);
     }

@@ -1,5 +1,7 @@
 use super::bdd_node::{DDNode, NodeID, VarID};
 use super::dimacs::Instance;
+use std::io::Write;
+use std::{fmt, io};
 
 use rand::Rng;
 use rustc_hash::FxHashMap as HashMap;
@@ -63,6 +65,18 @@ pub struct DDManager {
     var2nodes: Vec<HashSet<DDNode>>,
     /// Computed Table: ite(f,g,h) cache
     c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
+}
+
+impl fmt::Debug for DDManager {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "DDManager [{} nodes, unique table size {}, cache size {}]",
+            self.nodes.len(),
+            self.var2nodes.iter().map(|s| s.len()).sum::<usize>(),
+            self.c_table.len()
+        )
+    }
 }
 
 impl Default for DDManager {
@@ -161,6 +175,7 @@ impl DDManager {
     pub fn from_instance(
         instance: &mut Instance,
         order: Option<Vec<u32>>,
+        enable_dvo: bool,
     ) -> Result<(DDManager, NodeID), String> {
         let mut man = DDManager::default();
         let clause_order = align_clauses(&instance.clauses);
@@ -190,14 +205,34 @@ impl DDManager {
 
             bdd = man.and(cbdd, bdd);
 
-            man.purge_retain(bdd);
-
             log::info!(
                 "Nr. Nodes: {:?} ({:?}/{:?} clauses integrated)",
                 &man.nodes.len(),
                 n,
                 &instance.clauses.len()
             );
+
+            if enable_dvo {
+                print!("DVO... ");
+                io::stdout().flush().unwrap();
+
+                let mut last_size = man.count_active(bdd);
+                loop {
+                    bdd = man.sift_all_vars(bdd);
+                    let new_size = man.count_active(bdd);
+                    if new_size == last_size {
+                        break;
+                    }
+                    last_size = new_size;
+                }
+            }
+
+            print!("Purge retain... ");
+            io::stdout().flush().unwrap();
+            man.purge_retain(bdd);
+            println!("{} nodes remain", man.nodes.len());
+            println!("{:?}", man);
+
             n += 1;
         }
         Ok((man, bdd))
