@@ -65,8 +65,10 @@ impl DDManager {
 
     pub fn count_active(&self, f: NodeID) -> u32 {
         let mut nodes = HashSet::<NodeID>::default();
+        nodes.reserve(self.nodes.len());
 
         let mut stack = vec![f];
+        stack.reserve(self.nodes.len());
 
         while !stack.is_empty() {
             let x = stack.pop().unwrap();
