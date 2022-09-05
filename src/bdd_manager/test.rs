@@ -1,3 +1,38 @@
+use crate::bdd_node::NodeID;
+
+use super::DDManager;
+
+impl DDManager {
+    #[allow(dead_code)]
+    fn verify(&self, f: NodeID, trues: &[u32]) -> bool {
+        let mut values: Vec<bool> = vec![false; self.var2nodes.len() + 1];
+
+        for x in trues {
+            let x: usize = *x as usize;
+
+            if x < values.len() {
+                values[x] = true;
+            } else {
+                values[x] = false;
+            }
+        }
+
+        let mut node_id = f;
+
+        while node_id.0 >= 2 {
+            let node = &self.nodes.get(&node_id).unwrap();
+
+            if values[node.var.0 as usize] {
+                node_id = node.high;
+            } else {
+                node_id = node.low;
+            }
+        }
+
+        node_id.0 == 1
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use std::fs;

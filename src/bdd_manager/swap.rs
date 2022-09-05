@@ -1,5 +1,5 @@
 use crate::{
-    bdd_manager::order_to_layernames,
+    bdd_manager::order::order_to_layernames,
     bdd_node::{DDNode, NodeID, VarID},
 };
 
@@ -124,6 +124,8 @@ impl DDManager {
             });
             assert!(removed);
 
+            let inserted = self.var2nodes[new_f_node.var.0 as usize].insert(new_f_node);
+
             log::debug!("Replaced node {:?} with {:?}", f_id, self.nodes[&f_id]);
         }
 
@@ -147,7 +149,7 @@ mod tests {
     use num_bigint::BigUint;
 
     use crate::{
-        bdd_manager::{order_to_layernames, test::tests::TestCase, DDManager},
+        bdd_manager::{order::order_to_layernames, test::tests::TestCase, DDManager},
         bdd_node::VarID,
         dimacs,
     };
@@ -258,6 +260,11 @@ mod tests {
 
         let var = VarID(1);
 
+        let mut n = 0;
+
+        fs::write(format!("{}.dot", n), man.graphviz(bdd)).unwrap();
+        n += 1;
+
         // Sift down, record BDD sizes
         for i in var.0 + 1..testcase.nr_variables + 1 {
             bdd = man.swap(var, VarID(i), bdd);
@@ -266,6 +273,8 @@ mod tests {
             println!("Swapped, count is now {:?}", man.count_active(bdd));
             println!("Order is now {:?}", order_to_layernames(&man.order));
 
+            fs::write(format!("{}.dot", n), man.graphviz(bdd)).unwrap();
+            n += 1;
             assert!(testcase.verify_against(&man, bdd));
 
             counts.push(man.count_active(bdd));
@@ -280,7 +289,8 @@ mod tests {
             bdd = man.swap(VarID(i), var, bdd);
             man.purge_retain(bdd);
 
-            fs::write(format!("{}.dot", i - 1), man.graphviz(bdd)).unwrap();
+            fs::write(format!("{}.dot", n), man.graphviz(bdd)).unwrap();
+            n += 1;
 
             println!("Swapped, count is now {:?}", man.count_active(bdd));
             println!("Order is now {:?}", order_to_layernames(&man.order));

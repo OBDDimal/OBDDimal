@@ -1,17 +1,25 @@
-use obddimal::{bdd_manager::DDManager, dimacs, static_ordering};
+use obddimal::{bdd_manager::options::Options, bdd_manager::DDManager, dimacs, static_ordering};
 
 fn main() {
     env_logger::init();
 
-    // let mut instance = dimacs::parse_dimacs("examples/cerf.dimacs");
-    let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
+     let mut instance = dimacs::parse_dimacs("examples/cerf.dimacs");
+    // let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
     // let mut instance = dimacs::parse_dimacs("examples/trivial.dimacs");
     // let mut instance = dimacs::parse_dimacs("examples/berkeleydb.dimacs");
-    // let mut instance = dimacs::parse_dimacs("examples/busybox.dimacs");
+    //let mut instance = dimacs::parse_dimacs("examples/busybox.dimacs");
 
-    let order = Some(static_ordering::rand(&instance));
+    let order = Some(static_ordering::force(&instance));
+    //let order = None;
 
-    let (man, bdd) = DDManager::from_instance(&mut instance, order, true).unwrap();
+    let (man, bdd) = DDManager::from_instance(
+        &mut instance,
+        order,
+        Options::default().with_progressbars().with_dvo(),
+    )
+    .unwrap();
+
+    println!("Done! BDD has {} nodes.", man.count_active(bdd));
 
     println!("Starting #SAT");
     println!("{:?}", man.sat_count(bdd));

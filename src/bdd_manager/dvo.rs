@@ -1,9 +1,16 @@
-use crate::bdd_manager::order_to_layernames;
+use std::io::stdout;
+
+use crate::bdd_manager::order::order_to_layernames;
 use crate::bdd_manager::ZERO;
 use crate::bdd_node::NodeID;
 use crate::bdd_node::VarID;
+use crate::if_some;
 
 use super::DDManager;
+
+use crossterm::cursor;
+use crossterm::execute;
+use indicatif::ProgressBar;
 
 impl DDManager {
     /// Find the variable at specified level
@@ -104,16 +111,28 @@ impl DDManager {
 
     #[must_use]
     #[allow(unused)]
-    pub fn sift_all_vars(&mut self, mut f: NodeID) -> NodeID {
-        for v in 1..self.var2nodes.len() {
+
+    pub(crate) fn sift_all_vars(&mut self, mut f: NodeID) -> NodeID {
+        let bar = if self.options.progressbars {
+            Some(ProgressBar::new(self.var2nodes.len() as u64 - 1))
+        } else {
+            None
+        };
+
+        for v in (1..self.var2nodes.len()) {
+            if_some!(bar, inc(1));
+
             if self.var2nodes[v].is_empty() {
                 continue;
             }
-
             let var = VarID(v as u32);
             f = self.sift_single_var(var, f);
             self.purge_retain(f);
         }
+        if_some!(bar, finish_and_clear());
+
+        //     bar.finish_and_clear();
+        execute!(stdout(), cursor::MoveToPreviousLine(1));
         f
     }
 }
@@ -125,7 +144,7 @@ mod tests {
     use num_bigint::BigUint;
 
     use crate::{
-        bdd_manager::{order_to_layernames, DDManager},
+        bdd_manager::{order::order_to_layernames, DDManager},
         bdd_node::VarID,
         dimacs,
     };
