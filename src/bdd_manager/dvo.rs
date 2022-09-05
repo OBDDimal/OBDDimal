@@ -1,4 +1,4 @@
-use crate::bdd_manager::order_to_layernames;
+use crate::bdd_manager::order::order_to_layernames;
 use crate::bdd_manager::ZERO;
 use crate::bdd_node::NodeID;
 use crate::bdd_node::VarID;
@@ -125,7 +125,7 @@ mod tests {
     use num_bigint::BigUint;
 
     use crate::{
-        bdd_manager::{order_to_layernames, DDManager},
+        bdd_manager::{order::order_to_layernames, DDManager},
         bdd_node::VarID,
         dimacs,
     };

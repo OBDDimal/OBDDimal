@@ -1,5 +1,5 @@
 use crate::{
-    bdd_manager::{order_to_layernames, ZERO},
+    bdd_manager::{order::order_to_layernames, ZERO},
     bdd_node::{DDNode, NodeID, VarID},
 };
 
