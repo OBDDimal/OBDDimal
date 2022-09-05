@@ -4,7 +4,7 @@ use obddimal::{bdd_manager::DDManager, dimacs, static_ordering};
 pub fn berkeleydb_sift_all(c: &mut Criterion) {
     let mut cnf = dimacs::parse_dimacs(concat!("examples/berkeleydb.dimacs"));
     let order = Some(static_ordering::keep(&cnf));
-    let (man, bdd) = DDManager::from_instance(&mut cnf, order).unwrap();
+    let (man, bdd) = DDManager::from_instance(&mut cnf, order, false).unwrap();
 
     let mut group = c.benchmark_group("sifting");
     group.sample_size(10);

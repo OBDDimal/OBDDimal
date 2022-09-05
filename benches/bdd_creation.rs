@@ -9,7 +9,7 @@ macro_rules! bdd_create_benchmark {
                 let cnf = dimacs::parse_dimacs(concat!("examples/", stringify!($name), ".dimacs"));
                 let order = Some(static_ordering::keep(&cnf));
                 c.bench_function(concat!(stringify!($name), ".dimacs bdd creation"), |b| {
-                    b.iter(|| DDManager::from_instance(&mut cnf.clone(), order.clone()))
+                    b.iter(|| DDManager::from_instance(&mut cnf.clone(), order.clone(), false))
                 });
             }
         });
