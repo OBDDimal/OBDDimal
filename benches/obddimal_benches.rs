@@ -1,7 +1,7 @@
-use criterion::{criterion_main};
+use criterion::criterion_main;
 
 mod bdd_creation;
-mod sat;
 mod dvo;
+mod sat;
 
 criterion_main!(bdd_creation::bdd_creation, sat::sat, dvo::dvo);
