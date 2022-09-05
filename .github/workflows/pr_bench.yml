@@ -39,7 +39,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: bench
-          args: -- --baseline bl --color always
+          args: --bench obddimal_benches -- --baseline bl --color always
 
       - name: Publish benchmark using gh-pages
         uses: peaceiris/actions-gh-pages@v3

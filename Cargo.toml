@@ -26,7 +26,7 @@ path = "src/testcase_generation.rs"
 bench = false
 
 [[bench]]
-name = "bdd_creation"
+name = "obddimal_benches"
 harness = false
 
 [dependencies]

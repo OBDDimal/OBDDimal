@@ -1,5 +1,5 @@
 use concat_idents::concat_idents;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, Criterion};
 use obddimal::{bdd_manager::DDManager, dimacs, static_ordering};
 
 macro_rules! bdd_create_benchmark {
@@ -18,12 +18,11 @@ macro_rules! bdd_create_benchmark {
 
 bdd_create_benchmark!(sandwich);
 bdd_create_benchmark!(berkeleydb);
-bdd_create_benchmark!(busybox);
+// bdd_create_benchmark!(busybox);
 
 criterion_group!(
-    benches,
+    bdd_creation,
     sandwich_create_benchmark,
     berkeleydb_create_benchmark,
     // busybox_create_benchmark,
 );
-criterion_main!(benches);
