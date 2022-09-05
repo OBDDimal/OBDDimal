@@ -13,10 +13,12 @@ impl DDManager {
     pub fn from_instance(
         instance: &mut Instance,
         order: Option<Vec<u32>>,
+
         options: Options,
     ) -> Result<(DDManager, NodeID), String> {
         let mut man = DDManager::default();
         man.options = options;
+
         let clause_order = align_clauses(&instance.clauses);
         if let Some(o) = order {
             check_order(instance, &o)?;
@@ -66,7 +68,9 @@ impl DDManager {
                 loop {
                     bdd = man.sift_all_vars(bdd);
                     let new_size = man.count_active(bdd);
+
                     if_some!(bar, set_message(format!("{} nodes", new_size)));
+
                     if new_size == last_size {
                         break;
                     }
@@ -81,6 +85,7 @@ impl DDManager {
             if_some!(bar, inc(1));
         }
         if_some!(bar, finish());
+
         Ok((man, bdd))
     }
 }
