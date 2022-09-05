@@ -173,7 +173,7 @@ mod tests {
         let expected = BigUint::parse_bytes(b"2808", 10).unwrap();
 
         let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
-        let (man, bdd) = DDManager::from_instance(&mut instance, None).unwrap();
+        let (man, bdd) = DDManager::from_instance(&mut instance, None, false).unwrap();
 
         assert_eq!(man.sat_count(bdd), expected);
 
@@ -192,7 +192,7 @@ mod tests {
     #[should_panic(expected = "Variables not on adjacent layers!")]
     fn swap_failure_non_adjacent() {
         let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
-        let (mut man, bdd) = DDManager::from_instance(&mut instance, None).unwrap();
+        let (mut man, bdd) = DDManager::from_instance(&mut instance, None, false).unwrap();
         let _ = man.swap(VarID(1), VarID(3), bdd);
     }
 
