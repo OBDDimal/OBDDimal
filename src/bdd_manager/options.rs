@@ -1,16 +1,7 @@
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Options {
     pub progressbars: bool,
     pub enable_dvo: bool,
-}
-
-impl Default for Options {
-    fn default() -> Self {
-        Self {
-            progressbars: false,
-            enable_dvo: false,
-        }
-    }
 }
 
 impl Options {

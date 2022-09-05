@@ -111,8 +111,7 @@ impl DDManager {
 
     #[must_use]
     #[allow(unused)]
-
-    pub(crate) fn sift_all_vars(&mut self, mut f: NodeID) -> NodeID {
+    pub fn sift_all_vars(&mut self, mut f: NodeID) -> NodeID {
         let bar = if self.options.progressbars {
             Some(ProgressBar::new(self.var2nodes.len() as u64 - 1))
         } else {
@@ -157,7 +156,8 @@ mod tests {
 
         // Build BDD
         let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
-        let (mut man, bdd) = DDManager::from_instance(&mut instance, None, false).unwrap();
+        let (mut man, bdd) =
+            DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
         assert_eq!(man.sat_count(bdd), expected);
 
         let size_before = man.count_active(bdd);
@@ -179,7 +179,8 @@ mod tests {
 
         // Build BDD
         let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
-        let (mut man, bdd) = DDManager::from_instance(&mut instance, None, false).unwrap();
+        let (mut man, bdd) =
+            DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
         assert_eq!(man.sat_count(bdd), expected);
 
         let size_before = man.count_active(bdd);

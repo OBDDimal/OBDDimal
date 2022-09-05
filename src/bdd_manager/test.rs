@@ -311,7 +311,7 @@ pub mod tests {
 
         let mut instance = dimacs::parse_dimacs("examples/trivial.dimacs");
         let (man_dimacs, bdd_dimacs) =
-            DDManager::from_instance(&mut instance, None, false).unwrap();
+            DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
         assert!(testcase.verify_against(&man_dimacs, bdd_dimacs));
     }
 

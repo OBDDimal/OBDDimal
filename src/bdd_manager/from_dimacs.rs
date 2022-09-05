@@ -16,8 +16,10 @@ impl DDManager {
 
         options: Options,
     ) -> Result<(DDManager, NodeID), String> {
-        let mut man = DDManager::default();
-        man.options = options;
+        let mut man = DDManager {
+            options,
+            ..Default::default()
+        };
 
         let clause_order = align_clauses(&instance.clauses);
         if let Some(o) = order {
@@ -26,8 +28,6 @@ impl DDManager {
         }
 
         let mut bdd = man.one();
-
-        let mut dvo_threshold: u64 = 1000;
 
         let bar = if man.options.progressbars {
             let bar = ProgressBar::new(clause_order.len() as u64);
@@ -44,7 +44,6 @@ impl DDManager {
             None
         };
 
-        let mut n = 1;
         for i in clause_order.iter() {
             let clause = &instance.clauses[*i];
 
@@ -81,7 +80,6 @@ impl DDManager {
             man.purge_retain(bdd);
 
             if_some!(bar, set_message(format!("{} nodes", man.nodes.len())));
-            n += 1;
             if_some!(bar, inc(1));
         }
         if_some!(bar, finish());

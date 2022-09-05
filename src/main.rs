@@ -3,7 +3,7 @@ use obddimal::{bdd_manager::options::Options, bdd_manager::DDManager, dimacs, st
 fn main() {
     env_logger::init();
 
-     let mut instance = dimacs::parse_dimacs("examples/cerf.dimacs");
+    let mut instance = dimacs::parse_dimacs("examples/cerf.dimacs");
     // let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
     // let mut instance = dimacs::parse_dimacs("examples/trivial.dimacs");
     // let mut instance = dimacs::parse_dimacs("examples/berkeleydb.dimacs");
@@ -35,7 +35,7 @@ mod tests {
         let expected = BigUint::parse_bytes(target, 10).unwrap();
 
         let mut instance = dimacs::parse_dimacs(filepath);
-        let (man, bdd) = DDManager::from_instance(&mut instance, None, false).unwrap();
+        let (man, bdd) = DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
 
         assert_eq!(man.sat_count(bdd), expected);
     }
