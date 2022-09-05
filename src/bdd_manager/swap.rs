@@ -25,7 +25,6 @@ impl DDManager {
             "Variables not on adjacent layers!"
         );
 
-
         while self.var2nodes.len() <= a.0 as usize {
             self.var2nodes.push(Default::default());
         }

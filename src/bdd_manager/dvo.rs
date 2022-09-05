@@ -106,8 +106,7 @@ impl DDManager {
     #[allow(unused)]
     pub fn sift_all_vars(&mut self, mut f: NodeID) -> NodeID {
         for v in 1..self.var2nodes.len() {
-
-            if self.var2nodes[v].is_empty(){
+            if self.var2nodes[v].is_empty() {
                 continue;
             }
 
