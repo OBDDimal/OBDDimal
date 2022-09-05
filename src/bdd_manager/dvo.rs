@@ -130,7 +130,6 @@ impl DDManager {
         }
         if_some!(bar, finish_and_clear());
 
-        //     bar.finish_and_clear();
         execute!(stdout(), cursor::MoveToPreviousLine(1));
         f
     }

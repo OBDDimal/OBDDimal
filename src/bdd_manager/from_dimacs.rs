@@ -31,6 +31,9 @@ impl DDManager {
 
         let bar = if man.options.progressbars {
             let bar = ProgressBar::new(clause_order.len() as u64);
+            // Explicitly set stdout draw target to avoid the frame-rate limit, which
+            // unfortunately sometimes prevents a message update when we want it, such
+            // as before starting DVO which is rather long-runnning.
             bar.set_draw_target(ProgressDrawTarget::term_like(Box::new(
                 console::Term::stdout(),
             )));
@@ -44,8 +47,8 @@ impl DDManager {
             None
         };
 
-        for i in clause_order.iter() {
-            let clause = &instance.clauses[*i];
+        for (n, clause_nr) in clause_order.iter().enumerate() {
+            let clause = &instance.clauses[*clause_nr];
 
             log::info!("Integrating clause: {:?}", clause);
 
@@ -62,7 +65,15 @@ impl DDManager {
 
             bdd = man.and(cbdd, bdd);
 
+            log::info!(
+                "Nr. Nodes: {:?} ({:?}/{:?} clauses integrated)",
+                &man.nodes.len(),
+                n,
+                &instance.clauses.len()
+            );
+
             if man.options.enable_dvo {
+                log::info!("DVO... ");
                 let mut last_size = man.count_active(bdd);
                 loop {
                     bdd = man.sift_all_vars(bdd);
@@ -77,7 +88,11 @@ impl DDManager {
                 }
             }
 
+            log::info!("Purge retain... ");
             man.purge_retain(bdd);
+
+            log::info!("{} nodes remain", man.nodes.len());
+            log::info!("{:?}", man);
 
             if_some!(bar, set_message(format!("{} nodes", man.nodes.len())));
             if_some!(bar, inc(1));

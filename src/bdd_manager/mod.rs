@@ -1,8 +1,7 @@
+use super::bdd_node::{DDNode, NodeID, VarID};
 use std::fmt;
 
 use self::options::Options;
-
-use super::bdd_node::{DDNode, NodeID, VarID};
 
 use rand::Rng;
 use rustc_hash::FxHashMap as HashMap;
@@ -190,9 +189,8 @@ impl DDManager {
     }
 
     /// Search for Node, create if it doesnt exist
-    /// TODO: It is wrongly assumed at least in reduce, that this optimizes away requests to creare redundant nodes.
     fn node_get_or_create(&mut self, node: &DDNode) -> NodeID {
-        assert_ne!(node.low, node.high);
+        assert_ne!(node.low, node.high, "Creating a node with the same low and high edge creates a non-reduced BDD, which we don't want to do.");
 
         if self.var2nodes.len() <= (node.var.0 as usize) {
             // Unique table does not contain any entries for this variable. Create new Node.
@@ -367,6 +365,35 @@ impl DDManager {
     #[allow(dead_code)]
     fn xor_prim(&mut self, _vars: Vec<u32>) -> u32 {
         todo!();
+    }
+
+    #[allow(dead_code)]
+    fn verify(&self, f: NodeID, trues: &[u32]) -> bool {
+        let mut values: Vec<bool> = vec![false; self.var2nodes.len() + 1];
+
+        for x in trues {
+            let x: usize = *x as usize;
+
+            if x < values.len() {
+                values[x] = true;
+            } else {
+                values[x] = false;
+            }
+        }
+
+        let mut node_id = f;
+
+        while node_id.0 >= 2 {
+            let node = &self.nodes.get(&node_id).unwrap();
+
+            if values[node.var.0 as usize] {
+                node_id = node.high;
+            } else {
+                node_id = node.low;
+            }
+        }
+
+        node_id.0 == 1
     }
 
     pub fn purge_retain(&mut self, f: NodeID) {

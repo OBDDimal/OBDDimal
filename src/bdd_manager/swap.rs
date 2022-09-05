@@ -124,8 +124,6 @@ impl DDManager {
             });
             assert!(removed);
 
-            let inserted = self.var2nodes[new_f_node.var.0 as usize].insert(new_f_node);
-
             log::debug!("Replaced node {:?} with {:?}", f_id, self.nodes[&f_id]);
         }
 
@@ -252,19 +250,12 @@ mod tests {
     fn swap_multiple_noop(testcase: TestCase) {
         let _ = env_logger::builder().is_test(true).try_init();
 
-        // fs::write("start.dot", testcase.man.graphviz(testcase.f)).unwrap();
-
         let mut man = testcase.man.clone();
         let mut bdd = testcase.f;
 
         let mut counts = vec![man.count_active(bdd)];
 
         let var = VarID(1);
-
-        let mut n = 0;
-
-        fs::write(format!("{}.dot", n), man.graphviz(bdd)).unwrap();
-        n += 1;
 
         // Sift down, record BDD sizes
         for i in var.0 + 1..testcase.nr_variables + 1 {
@@ -274,8 +265,6 @@ mod tests {
             println!("Swapped, count is now {:?}", man.count_active(bdd));
             println!("Order is now {:?}", order_to_layernames(&man.order));
 
-            fs::write(format!("{}.dot", n), man.graphviz(bdd)).unwrap();
-            n += 1;
             assert!(testcase.verify_against(&man, bdd));
 
             counts.push(man.count_active(bdd));
@@ -283,15 +272,10 @@ mod tests {
 
         let mut counts_up = vec![man.count_active(bdd)];
 
-        // fs::write(format!("{}.dot", testcase.nr_variables), man.graphviz(bdd)).unwrap();
-
         // Sift up
         for i in (var.0 + 1..testcase.nr_variables + 1).rev() {
             bdd = man.swap(VarID(i), var, bdd);
             man.purge_retain(bdd);
-
-            fs::write(format!("{}.dot", n), man.graphviz(bdd)).unwrap();
-            n += 1;
 
             println!("Swapped, count is now {:?}", man.count_active(bdd));
             println!("Order is now {:?}", order_to_layernames(&man.order));
@@ -300,8 +284,6 @@ mod tests {
             counts_up.push(man.count_active(bdd));
         }
         counts_up.reverse();
-
-        // fs::write("after.dot", man.graphviz(bdd)).unwrap();
 
         println!("{:?}\n{:?}", counts, counts_up);
 
