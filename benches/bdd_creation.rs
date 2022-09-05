@@ -1,5 +1,5 @@
 use concat_idents::concat_idents;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, Criterion};
 use obddimal::{bdd_manager::DDManager, dimacs, static_ordering};
 
 macro_rules! bdd_create_benchmark {
