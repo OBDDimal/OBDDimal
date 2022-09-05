@@ -1,5 +1,3 @@
-use std::fs;
-
 use obddimal::{bdd_manager::DDManager, dimacs, static_ordering};
 
 fn main() {
@@ -14,10 +12,6 @@ fn main() {
     let order = Some(static_ordering::rand(&instance));
 
     let (man, bdd) = DDManager::from_instance(&mut instance, order).unwrap();
-
-    let graphviz = man.graphviz(bdd);
-    fs::write("t.dot", &graphviz).unwrap();
-    log::debug!("{}", graphviz);
 
     println!("Starting #SAT");
     println!("{:?}", man.sat_count(bdd));

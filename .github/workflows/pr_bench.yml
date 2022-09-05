@@ -27,7 +27,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: bench
-          args: -- --save-baseline bl
+          args: --bench obddimal_benches -- --save-baseline bl
 
       - name: Checkout merge commit
         uses: actions/checkout@v3

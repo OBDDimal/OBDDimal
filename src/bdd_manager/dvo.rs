@@ -106,6 +106,10 @@ impl DDManager {
     #[allow(unused)]
     pub fn sift_all_vars(&mut self, mut f: NodeID) -> NodeID {
         for v in 1..self.var2nodes.len() {
+            if self.var2nodes[v].is_empty() {
+                continue;
+            }
+
             let var = VarID(v as u32);
             f = self.sift_single_var(var, f);
             self.purge_retain(f);

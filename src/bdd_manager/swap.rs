@@ -24,27 +24,39 @@ impl DDManager {
             self.order[a.0 as usize] + 1,
             "Variables not on adjacent layers!"
         );
+
+        while self.var2nodes.len() <= a.0 as usize {
+            self.var2nodes.push(Default::default());
+        }
+
         let ids = self.var2nodes[a.0 as usize]
             .iter()
             .map(|n| n.id)
             .collect::<Vec<NodeID>>();
 
-        self.var2nodes[a.0 as usize].clear();
-        // Unique Table: Will not be valid. Directly modified node might be
-        // degenerate. Reduction after swap will restore canonical form.
+        self.order.swap(a.0 as usize, b.0 as usize);
 
         for id in ids {
             let f_id = id;
 
             let old_f_node = self.nodes[&f_id];
 
-            log::debug!("Replacing node {:?} old_f_node={:?}", f_id, old_f_node);
-
             let f_1_id = old_f_node.high;
             let f_0_id = old_f_node.low;
 
             let f_0_node = self.nodes[&f_0_id];
             let f_1_node = self.nodes[&f_1_id];
+
+            if f_0_node.var != b && f_1_node.var != b {
+                // f does not have connections to level directly below, we leave it as it is.
+                log::debug!(
+                    "Children of node {:?} more than one level below, leaving as is.",
+                    f_id
+                );
+                continue;
+            }
+
+            log::debug!("Replacing node {:?} old_f_node={:?}", f_id, old_f_node);
 
             let (f_01_id, f_00_id) = if f_0_node.var == b {
                 (f_0_node.high, f_0_node.low)
@@ -57,26 +69,28 @@ impl DDManager {
                 (f_1_id, f_1_id)
             };
 
-            let new_then_id = self.node_get_or_create(&DDNode {
-                id: NodeID(0),
-                var: a,
-                low: f_01_id,
-                high: f_11_id,
-            });
-            let new_else_id = self.node_get_or_create(&DDNode {
-                id: NodeID(0),
-                var: a,
-                low: f_00_id,
-                high: f_10_id,
-            });
+            let new_then_id = if f_01_id == f_11_id {
+                f_01_id
+            } else {
+                self.node_get_or_create(&DDNode {
+                    id: NodeID(0),
+                    var: a,
+                    low: f_01_id,
+                    high: f_11_id,
+                })
+            };
+            let new_else_id = if f_00_id == f_10_id {
+                f_00_id
+            } else {
+                self.node_get_or_create(&DDNode {
+                    id: NodeID(0),
+                    var: a,
+                    low: f_00_id,
+                    high: f_10_id,
+                })
+            };
 
-            /*
-            log::debug!(
-                "New children: high {} low {}",
-                self.format_node(new_then_id),
-                self.format_node(new_else_id)
-            );
-            */
+            assert_ne!(new_then_id, new_else_id);
 
             // Replace F node
             let new_f_node = DDNode {
@@ -88,37 +102,41 @@ impl DDManager {
 
             log::debug!("new_f_node={:?}", new_f_node);
 
+            // Replace node in nodes list
             *self.nodes.get_mut(&f_id).unwrap() = new_f_node;
 
+            // Insert node in new unique-table
             let inserted = self.var2nodes[b.0 as usize].insert(DDNode {
                 var: b,
                 low: new_else_id,
                 high: new_then_id,
                 id: f_id,
             });
+            assert!(inserted);
 
-            if !inserted {
-                log::warn!(
-                    "The unique table for {:?} seems to already contain a node ({:?} {:?} {:?})",
-                    b,
-                    b,
-                    new_else_id,
-                    new_then_id
-                )
-            }
+            // Remove node from old unique-table
+
+            let removed = self.var2nodes[a.0 as usize].remove(&DDNode {
+                var: a,
+                low: f_0_id,
+                high: f_1_id,
+                id: f_id,
+            });
+            assert!(removed);
 
             log::debug!("Replaced node {:?} with {:?}", f_id, self.nodes[&f_id]);
         }
-        self.order.swap(a.0 as usize, b.0 as usize);
+
+        // Clear ITE cache
         self.c_table.clear();
+
         log::debug!(
             "Order is now: {:?} (layers: {:?})",
             self.order,
             order_to_layernames(&self.order)
         );
 
-        // TODO: Use information which nodes have changed to avoid full reduce
-        self.reduce(f)
+        f
     }
 }
 
