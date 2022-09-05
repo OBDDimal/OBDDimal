@@ -18,12 +18,11 @@ macro_rules! bdd_create_benchmark {
 
 bdd_create_benchmark!(sandwich);
 bdd_create_benchmark!(berkeleydb);
-bdd_create_benchmark!(busybox);
+// bdd_create_benchmark!(busybox);
 
 criterion_group!(
-    benches,
+    bdd_creation,
     sandwich_create_benchmark,
     berkeleydb_create_benchmark,
     // busybox_create_benchmark,
 );
-criterion_main!(benches);
