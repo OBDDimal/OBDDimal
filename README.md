@@ -31,7 +31,7 @@ This requires the flamegraph tool as well as `perf` to be installed on the
 system.
 To create a flamegraph for a benchmark, run:
 ```console
-cargo flamegraph --bench bdd_creation -- --bench --profile-time 30
+cargo flamegraph --bench obddimal_benches -- --bench --profile-time 30
 ```
 The first `--bench <name>` argument selects the benchmark, the second `--bench`
 is needed to switch criterion from test into benchmark mode.

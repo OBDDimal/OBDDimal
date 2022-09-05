@@ -27,7 +27,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: bench
-          args: -- --save-baseline bl
+          args: --bench obddimal_benches -- --save-baseline bl
 
       - name: Checkout merge commit
         uses: actions/checkout@v3
@@ -39,7 +39,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: bench
-          args: -- --baseline bl --color always
+          args: --bench obddimal_benches -- --baseline bl --color always
 
       - name: Publish benchmark using gh-pages
         uses: peaceiris/actions-gh-pages@v3
