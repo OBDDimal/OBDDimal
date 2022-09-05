@@ -1,5 +1,5 @@
 use crate::{
-    bdd_manager::order_to_layernames,
+    bdd_manager::order::order_to_layernames,
     bdd_node::{DDNode, NodeID, VarID},
 };
 
@@ -147,7 +147,7 @@ mod tests {
     use num_bigint::BigUint;
 
     use crate::{
-        bdd_manager::{order_to_layernames, test::tests::TestCase, DDManager},
+        bdd_manager::{order::order_to_layernames, test::tests::TestCase, DDManager},
         bdd_node::VarID,
         dimacs,
     };
