@@ -1,5 +1,5 @@
 use obddimal::{
-    bdd_manager::{options::Options, DDManager},
+    bdd_manager::{dvo_schedules::AlwaysUntilConvergence, options::Options, DDManager},
     dimacs, static_ordering,
 };
 
@@ -7,17 +7,19 @@ fn main() {
     env_logger::init();
 
     // let mut instance = dimacs::parse_dimacs("examples/cerf.dimacs");
-    let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
+    // let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
     // let mut instance = dimacs::parse_dimacs("examples/trivial.dimacs");
     // let mut instance = dimacs::parse_dimacs("examples/berkeleydb.dimacs");
-    // let mut instance = dimacs::parse_dimacs("examples/busybox.dimacs");
+    let mut instance = dimacs::parse_dimacs("examples/busybox.dimacs");
 
     let order = Some(static_ordering::force(&instance));
 
     let (man, bdd) = DDManager::from_instance(
         &mut instance,
         order,
-        Options::default().with_progressbars().with_dvo(),
+        Options::default()
+            .with_progressbars()
+            .with_dvo(AlwaysUntilConvergence::default().into()),
     )
     .unwrap();
 

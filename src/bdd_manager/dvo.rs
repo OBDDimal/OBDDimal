@@ -108,8 +108,8 @@ impl DDManager {
 
     #[must_use]
     #[allow(unused)]
-    pub fn sift_all_vars(&mut self, mut f: NodeID) -> NodeID {
-        let bar = if self.options.progressbars {
+    pub fn sift_all_vars(&mut self, mut f: NodeID, progressbar: bool) -> NodeID {
+        let bar = if progressbar {
             Some(ProgressBar::new(self.var2nodes.len() as u64 - 1))
         } else {
             None
@@ -185,7 +185,7 @@ mod tests {
 
         let size_before = man.count_active(bdd);
         println!("Size before sifting: {}", size_before);
-        let bdd = man.sift_all_vars(bdd);
+        let bdd = man.sift_all_vars(bdd, false);
         let size_after = man.count_active(bdd);
         println!("Size after sifting: {}", size_after);
         println!("Order after sifting: {:?}", order_to_layernames(&man.order));

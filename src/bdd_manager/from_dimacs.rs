@@ -2,21 +2,18 @@ use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 
 use super::{options::Options, DDManager};
 use crate::{
-    bdd_manager::{align_clauses, order::check_order},
+    bdd_manager::{align_clauses, dvo_schedules::DVOSchedule, order::check_order},
     bdd_node::{NodeID, VarID},
     dimacs::Instance,
     if_some,
 };
-
 impl DDManager {
     pub fn from_instance(
         instance: &mut Instance,
         order: Option<Vec<u32>>,
-
-        options: Options,
+        mut options: Options,
     ) -> Result<(DDManager, NodeID), String> {
         let mut man = DDManager {
-            options,
             ..Default::default()
         };
 
@@ -28,7 +25,7 @@ impl DDManager {
 
         let mut bdd = man.one();
 
-        let bar = if man.options.progressbars {
+        let bar = if options.progressbars {
             let bar = ProgressBar::new(clause_order.len() as u64);
             // Explicitly set stdout draw target to avoid the frame-rate limit, which
             // unfortunately sometimes prevents a message update when we want it, such
@@ -71,21 +68,7 @@ impl DDManager {
                 &instance.clauses.len()
             );
 
-            if man.options.enable_dvo {
-                log::info!("DVO... ");
-                let mut last_size = man.count_active(bdd);
-                loop {
-                    bdd = man.sift_all_vars(bdd);
-                    let new_size = man.count_active(bdd);
-
-                    if_some!(bar, set_message(format!("{} nodes", new_size)));
-
-                    if new_size == last_size {
-                        break;
-                    }
-                    last_size = new_size;
-                }
-            }
+            bdd = options.dvo.run_dvo(n, &mut man, bdd, &bar);
 
             log::info!("Purge retain... ");
             man.purge_retain(bdd);

@@ -3,10 +3,10 @@ use std::fmt;
 use rand::Rng;
 use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
-use self::options::Options;
 use super::bdd_node::{DDNode, NodeID, VarID};
 
 mod dvo;
+pub mod dvo_schedules;
 mod from_dimacs;
 mod graphviz;
 pub mod options;
@@ -68,7 +68,7 @@ pub struct DDManager {
     var2nodes: Vec<HashSet<DDNode>>,
     /// Computed Table: ite(f,g,h) cache
     c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
-    options: Options,
+    //options: Options,
 }
 
 impl fmt::Debug for DDManager {
@@ -90,7 +90,6 @@ impl Default for DDManager {
             order: Vec::new(),
             var2nodes: Vec::new(),
             c_table: HashMap::default(),
-            options: Default::default(),
         };
 
         man.bootstrap();
