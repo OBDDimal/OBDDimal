@@ -7,15 +7,14 @@ use crate::{
     dimacs::Instance,
     if_some,
 };
+
 impl DDManager {
     pub fn from_instance(
         instance: &mut Instance,
         order: Option<Vec<u32>>,
         mut options: Options,
     ) -> Result<(DDManager, NodeID), String> {
-        let mut man = DDManager {
-            ..Default::default()
-        };
+        let mut man = DDManager::default();
 
         let clause_order = align_clauses(&instance.clauses);
         if let Some(o) = order {

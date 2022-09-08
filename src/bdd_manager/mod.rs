@@ -68,7 +68,6 @@ pub struct DDManager {
     var2nodes: Vec<HashSet<DDNode>>,
     /// Computed Table: ite(f,g,h) cache
     c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
-    //options: Options,
 }
 
 impl fmt::Debug for DDManager {
