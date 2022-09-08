@@ -14,12 +14,15 @@ fn main() {
 
     let order = Some(static_ordering::force(&instance));
 
+    // let dvo = SiftingAtThreshold {
+    //     active_nodes_threshold: 1000,
+    // };
+    let dvo = AlwaysUntilConvergence::default();
+
     let (man, bdd) = DDManager::from_instance(
         &mut instance,
         order,
-        Options::default()
-            .with_progressbars()
-            .with_dvo(AlwaysUntilConvergence::default().into()),
+        Options::default().with_progressbars().with_dvo(dvo.into()),
     )
     .unwrap();
 
