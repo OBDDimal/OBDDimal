@@ -1,5 +1,5 @@
 use obddimal::{
-    bdd_manager::{options::Options, DDManager},
+    bdd_manager::{dvo_schedules::AlwaysUntilConvergence, options::Options, DDManager},
     dimacs, static_ordering,
 };
 
@@ -17,7 +17,9 @@ fn main() {
     let (man, bdd) = DDManager::from_instance(
         &mut instance,
         order,
-        Options::default().with_progressbars().with_dvo(),
+        Options::default()
+            .with_progressbars()
+            .with_dvo(AlwaysUntilConvergence::default().into()),
     )
     .unwrap();
 

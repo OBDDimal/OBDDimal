@@ -1,7 +1,9 @@
-#[derive(Clone, Default)]
+use super::dvo_schedules::DVOScheduleEnum;
+
+#[derive(Default)]
 pub struct Options {
     pub progressbars: bool,
-    pub enable_dvo: bool,
+    pub dvo: DVOScheduleEnum,
 }
 
 impl Options {
@@ -10,8 +12,8 @@ impl Options {
         self
     }
 
-    pub fn with_dvo(mut self) -> Options {
-        self.enable_dvo = true;
+    pub fn with_dvo(mut self, schedule: DVOScheduleEnum) -> Options {
+        self.dvo = schedule;
         self
     }
 }
