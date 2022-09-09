@@ -57,12 +57,14 @@ pub fn parse_dimacs(filename: impl AsRef<Path>) -> Instance {
     let re_clause_split = Regex::new(r"\s+").unwrap();
 
     for line in lines {
+        let line = line.trim();
+
         if line.starts_with('c') {
             // Lines starting with C are comments.
             // The following additionally tries to parse a comment as a variable name.
             // Note that this currently does not match all variable names found in DIMACS
             // files, which may for example contain special characters or escape sequences.
-            let m = re_c.captures(&line);
+            let m = re_c.captures(line);
             if let Some(cap) = m {
                 let var_id = &cap["var_id"].parse::<u32>().unwrap();
                 let var_name = String::from(&cap["var_name"]).clone();
@@ -73,7 +75,7 @@ pub fn parse_dimacs(filename: impl AsRef<Path>) -> Instance {
         }
 
         if !header_parsed {
-            let m = re_p.captures(&line);
+            let m = re_p.captures(line);
             if let Some(cap) = m {
                 no_variables = cap["no_variables"].parse::<u32>().unwrap();
                 no_clauses = cap["no_clauses"].parse::<u32>().unwrap();
@@ -82,10 +84,10 @@ pub fn parse_dimacs(filename: impl AsRef<Path>) -> Instance {
             }
         }
 
-        let m = re_clause.captures(&line);
+        let m = re_clause.captures(line);
 
         if m.is_some() {
-            let mut vars_raw: Vec<&str> = re_clause_split.split(&line).collect();
+            let mut vars_raw: Vec<&str> = re_clause_split.split(line).collect();
 
             if vars_raw.pop() != Some("0") {
                 panic!("Last element of clause was not 0");
@@ -116,6 +118,11 @@ pub fn parse_dimacs(filename: impl AsRef<Path>) -> Instance {
 mod tests {
     #[test]
     fn parse_comments() {
-        let _ = super::parse_dimacs("examples/test_comments.dimacs");
+        let _: super::Instance = super::parse_dimacs("examples/test_comments.dimacs");
+    }
+
+    #[test]
+    fn trailing_whitespace() {
+        let _: super::Instance = super::parse_dimacs("examples/test_trailing_whitespace");
     }
 }
