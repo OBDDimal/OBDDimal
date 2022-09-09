@@ -123,6 +123,6 @@ mod tests {
 
     #[test]
     fn trailing_whitespace() {
-        let _: super::Instance = super::parse_dimacs("examples/test_trailing_whitespace");
+        let _: super::Instance = super::parse_dimacs("examples/test_trailing_whitespace.dimacs");
     }
 }
