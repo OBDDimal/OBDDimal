@@ -334,6 +334,7 @@ impl DDManager {
                 let low = self.ite(fxf, gxf, hxf);
 
                 if low == high {
+                    self.c_table.insert((f, g, h), low);
                     return low;
                 }
 
