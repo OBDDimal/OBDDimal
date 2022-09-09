@@ -57,18 +57,23 @@ pub fn parse_dimacs(filename: impl AsRef<Path>) -> Instance {
     let re_clause_split = Regex::new(r"\s+").unwrap();
 
     for line in lines {
-        let mut m = re_c.captures(&line);
+        if line.starts_with('c') {
+            // Lines starting with C are comments.
+            // The following additionally tries to parse a comment as a variable name.
+            // Note that this currently does not match all variable names found in DIMACS
+            // files, which may for example contain special characters or escape sequences.
+            let m = re_c.captures(&line);
+            if let Some(cap) = m {
+                let var_id = &cap["var_id"].parse::<u32>().unwrap();
+                let var_name = String::from(&cap["var_name"]).clone();
 
-        if let Some(cap) = m {
-            let var_id = &cap["var_id"].parse::<u32>().unwrap();
-            let var_name = String::from(&cap["var_name"]).clone();
-
-            variables.push((*var_id, var_name));
+                variables.push((*var_id, var_name));
+            }
             continue;
         }
 
         if !header_parsed {
-            m = re_p.captures(&line);
+            let m = re_p.captures(&line);
             if let Some(cap) = m {
                 no_variables = cap["no_variables"].parse::<u32>().unwrap();
                 no_clauses = cap["no_clauses"].parse::<u32>().unwrap();
@@ -77,7 +82,7 @@ pub fn parse_dimacs(filename: impl AsRef<Path>) -> Instance {
             }
         }
 
-        m = re_clause.captures(&line);
+        let m = re_clause.captures(&line);
 
         if m.is_some() {
             let mut vars_raw: Vec<&str> = re_clause_split.split(&line).collect();
@@ -105,4 +110,12 @@ pub fn parse_dimacs(filename: impl AsRef<Path>) -> Instance {
     // println!("{:?}", clauses);
 
     Instance::new(no_clauses, no_variables, clauses)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn parse_comments() {
+        let _ = super::parse_dimacs("examples/test_comments.dimacs");
+    }
 }
