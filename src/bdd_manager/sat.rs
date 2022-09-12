@@ -1,6 +1,8 @@
+use std::collections::hash_map::Entry::{Occupied, Vacant};
+
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
-use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
+use rustc_hash::FxHashMap as HashMap;
 
 use super::DDManager;
 use crate::bdd_node::{NodeID, VarID};
@@ -61,7 +63,10 @@ impl DDManager {
     }
 
     pub fn count_active(&self, f: NodeID) -> u32 {
-        let mut nodes = HashSet::<NodeID>::default();
+        // We use HashMap<NodeID, ()> instead of HashSet<NodeID> to be able to use the .entry()
+        // API below. This turns out to be faster, since it avoids the double lookup if the
+        // ID is not yet known (!contains -> insert).
+        let mut nodes = HashMap::<NodeID, ()>::default();
         nodes.reserve(self.nodes.len());
 
         let mut stack = vec![f];
@@ -69,16 +74,18 @@ impl DDManager {
 
         while !stack.is_empty() {
             let x = stack.pop().unwrap();
+            let entry = nodes.entry(x);
 
-            if nodes.contains(&x) {
-                continue;
+            match entry {
+                Occupied(_) => continue, // Node already counted
+                Vacant(vacant_entry) => {
+                    // Store node, add children to stack
+                    let node = self.nodes.get(&x).unwrap();
+                    stack.push(node.low);
+                    stack.push(node.high);
+                    vacant_entry.insert(());
+                }
             }
-
-            let node = self.nodes.get(&x).unwrap();
-
-            stack.push(node.low);
-            stack.push(node.high);
-            nodes.insert(x);
         }
 
         nodes.len() as u32
