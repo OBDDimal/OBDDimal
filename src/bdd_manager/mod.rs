@@ -1,14 +1,17 @@
 use std::fmt;
 
 use rand::Rng;
-use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
-use super::bdd_node::{DDNode, NodeID, VarID};
+use super::{
+    bdd_manager::hash_select::{HashMap, HashSet},
+    bdd_node::{DDNode, NodeID, VarID},
+};
 
 mod dvo;
 pub mod dvo_schedules;
 mod from_dimacs;
 mod graphviz;
+pub mod hash_select;
 pub mod options;
 mod order;
 mod reduce;

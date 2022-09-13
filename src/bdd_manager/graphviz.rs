@@ -1,6 +1,7 @@
-use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
-
-use super::{DDManager, ZERO};
+use super::{
+    hash_select::{HashMap, HashSet},
+    DDManager, ZERO,
+};
 use crate::bdd_node::{DDNode, NodeID, VarID};
 
 impl DDManager {
