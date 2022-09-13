@@ -59,10 +59,20 @@ impl DDManager {
             }
         }
 
-        // Level is now bottom (terminal-1). Move variable to the top
+        // Level is now bottom (terminal-1).
         log::info!("Moving up...");
 
-        for level in (1..terminal_node_level - 1).rev() {
+        // Swap back to initial position, without calculating size
+        for level in (starting_pos..terminal_node_level - 1).rev() {
+            f = self.swap(
+                self.var_at_level(level).unwrap(),
+                self.var_at_level(level + 1).unwrap(),
+                f,
+            );
+        }
+
+        // Move variable to the top
+        for level in (1..starting_pos).rev() {
             log::info!("Trying level {}", level);
             // Swap var at level+1 (our variable) with var at level
             f = self.swap(
