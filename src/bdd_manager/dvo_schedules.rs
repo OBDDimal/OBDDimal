@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use enum_dispatch::enum_dispatch;
 use indicatif::ProgressBar;
 
@@ -79,11 +81,54 @@ impl DVOSchedule for SiftingAtThreshold {
     }
 }
 
+/// Calls the underlying DVO mode if the specified duration has passed since the last
+/// invocation, or the nodes table exceeds the size specified in `limit`.
+pub struct TimeSizeLimit {
+    pub interval: Duration,
+    pub limit: usize,
+    last_dvo: Instant,
+    pub underlying_schedule: Box<DVOScheduleEnum>,
+}
+
+impl TimeSizeLimit {
+    pub fn new(
+        interval: Duration,
+        limit: usize,
+        underlying_schedule: Box<DVOScheduleEnum>,
+    ) -> TimeSizeLimit {
+        TimeSizeLimit {
+            interval,
+            limit,
+            last_dvo: Instant::now(),
+            underlying_schedule,
+        }
+    }
+}
+
+impl DVOSchedule for TimeSizeLimit {
+    fn run_dvo(
+        &mut self,
+        num_clause: usize,
+        man: &mut DDManager,
+        f: NodeID,
+        bar: &Option<ProgressBar>,
+    ) -> NodeID {
+        if (Instant::now() - self.last_dvo) > self.interval || man.nodes.len() > self.limit {
+            let r = self.underlying_schedule.run_dvo(num_clause, man, f, bar);
+            self.last_dvo = Instant::now();
+            r
+        } else {
+            f
+        }
+    }
+}
+
 #[enum_dispatch]
 pub enum DVOScheduleEnum {
     NoDVOSchedule,
     AlwaysUntilConvergence,
     SiftingAtThreshold,
+    TimeSizeLimit,
 }
 
 impl Default for DVOScheduleEnum {
