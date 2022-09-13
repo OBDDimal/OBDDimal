@@ -45,6 +45,7 @@ indicatif = "0.17.0"
 console = "0.15.1"
 crossterm = "0.25.0"
 enum_dispatch = "0.3.8"
+fnv = "1.0.3"
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }

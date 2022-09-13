@@ -3,10 +3,9 @@ pub mod tests {
     use std::fs;
 
     use num_bigint::BigUint;
-    use rustc_hash::FxHashSet as HashSet;
 
     use crate::{
-        bdd_manager::{ONE, ZERO},
+        bdd_manager::{hash_select::HashSet, ONE, ZERO},
         bdd_node::{NodeID, VarID},
     };
 

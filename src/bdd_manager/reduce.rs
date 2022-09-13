@@ -1,8 +1,5 @@
-use rustc_hash::FxHashMap as HashMap;
-
-use super::DDManager;
 use crate::{
-    bdd_manager::{order::order_to_layernames, ZERO},
+    bdd_manager::{hash_select::HashMap, order::order_to_layernames, DDManager, ZERO},
     bdd_node::{DDNode, NodeID, VarID},
 };
 
@@ -158,10 +155,9 @@ impl DDManager {
 
 #[cfg(test)]
 mod tests {
-    use rustc_hash::FxHashSet as HashSet;
-
     use super::DDManager;
     use crate::{
+        bdd_manager::hash_select::HashSet,
         bdd_node::{DDNode, NodeID, VarID},
         dimacs,
     };

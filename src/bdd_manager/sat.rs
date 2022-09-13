@@ -2,7 +2,7 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
-use rustc_hash::FxHashMap as HashMap;
+use super::hash_select::HashMap;
 
 use super::DDManager;
 use crate::bdd_node::{NodeID, VarID};
