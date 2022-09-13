@@ -2,9 +2,8 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
-use super::hash_select::HashMap;
 
-use super::DDManager;
+use super::{hash_select::HashMap, DDManager};
 use crate::bdd_node::{NodeID, VarID};
 
 impl DDManager {

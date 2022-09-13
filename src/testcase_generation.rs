@@ -1,6 +1,6 @@
 use bitvec::prelude::*;
-use rand::Rng;
 use obddimal::bdd_manager::hash_select::HashMap;
+use rand::Rng;
 
 /// This prints the one-columns of a random truth table with 8 variables,
 /// for testcase generation. The result is to be used in src/bdd_manager/test.rs.
