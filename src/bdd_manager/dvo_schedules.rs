@@ -6,6 +6,7 @@ use indicatif::ProgressBar;
 use super::DDManager;
 use crate::{bdd_node::NodeID, if_some};
 
+/// Dummy DVO implementation that does nothing
 #[derive(Default)]
 pub struct NoDVOSchedule {}
 
@@ -21,6 +22,8 @@ impl DVOSchedule for NoDVOSchedule {
     }
 }
 
+/// DVO strategy which always performs sifting of all variables until the number of
+/// nodes does not change anymore.
 #[derive(Default)]
 pub struct AlwaysUntilConvergence {}
 
@@ -49,6 +52,27 @@ impl DVOSchedule for AlwaysUntilConvergence {
     }
 }
 
+#[derive(Default)]
+pub struct AlwaysOnce {}
+
+impl DVOSchedule for AlwaysOnce {
+    fn run_dvo(
+        &mut self,
+        _num_clause: usize,
+        man: &mut DDManager,
+        mut f: NodeID,
+        bar: &Option<ProgressBar>,
+    ) -> NodeID {
+        log::info!("DVO... ");
+        f = man.sift_all_vars(f, bar.is_some());
+        let new_size = man.count_active(f);
+        if_some!(bar, set_message(format!("{} nodes", new_size)));
+        f
+    }
+}
+
+/// DVO strategy which performs sifting until the number of nodes does not change anymore,
+/// but only if the initial number of nodes exceeds a configurable threshold.
 pub struct SiftingAtThreshold {
     pub active_nodes_threshold: u32,
 }
@@ -123,12 +147,14 @@ impl DVOSchedule for TimeSizeLimit {
     }
 }
 
+/// This contains all available DVO implementations
 #[enum_dispatch]
 pub enum DVOScheduleEnum {
     NoDVOSchedule,
     AlwaysUntilConvergence,
     SiftingAtThreshold,
     TimeSizeLimit,
+    AlwaysOnce,
 }
 
 impl Default for DVOScheduleEnum {
@@ -139,6 +165,11 @@ impl Default for DVOScheduleEnum {
 
 #[enum_dispatch(DVOScheduleEnum)]
 pub(crate) trait DVOSchedule {
+    /// This gets called after a CNF clause has been integrated.
+    /// The current root node is f, the implementation must return the
+    /// new root node ID, even if it does not change.
+    /// * `num_clause`: The index of the current clause, in integration order
+    ///   (which may differ from the order defined in the input CNF).
     fn run_dvo(
         &mut self,
         num_clause: usize,
