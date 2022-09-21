@@ -88,10 +88,10 @@ impl fmt::Debug for DDManager {
 impl Default for DDManager {
     fn default() -> Self {
         let mut man = DDManager {
-            nodes: HashMap::default(),
+            nodes: Default::default(),
             order: Vec::new(),
             var2nodes: Vec::new(),
-            c_table: HashMap::default(),
+            c_table: Default::default(),
         };
 
         man.bootstrap();

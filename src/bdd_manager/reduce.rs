@@ -32,7 +32,7 @@ impl DDManager {
 
         // This will be modified, such that old_nodes[id].id != id may be true, if a node is redundant.
         let mut old_nodes = self.nodes.clone();
-        let mut new_nodes: HashMap<NodeID, DDNode> = HashMap::default();
+        let mut new_nodes: HashMap<NodeID, DDNode> = Default::default();
 
         // Graph layers, bottom to top
         for i in order_to_layernames(&self.order).iter().rev() {

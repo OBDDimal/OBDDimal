@@ -20,7 +20,7 @@ impl DDManager {
     }
 
     #[allow(unused)]
-    fn sift_single_var(&mut self, var: VarID, mut f: NodeID) -> NodeID {
+    fn sift_single_var(&mut self, var: VarID, max_increase: Option<u32>, mut f: NodeID) -> NodeID {
         let starting_pos = self.order[var.0 as usize];
 
         let mut best_position = starting_pos;
@@ -36,7 +36,10 @@ impl DDManager {
         // Move variable to the bottom
         let terminal_node_level = self.order[ZERO.var.0 as usize];
 
+        let mut current_level = starting_pos;
+
         log::info!("Moving down...");
+
         for level in starting_pos + 1..terminal_node_level {
             log::info!("Trying level {}", level);
             // Swap var at level-1 (our variable) with var at level
@@ -45,6 +48,7 @@ impl DDManager {
                 self.var_at_level(level).unwrap(),
                 f,
             );
+            current_level += 1;
 
             let new_size = self.count_active(f);
             log::info!(" Size is {}", new_size);
@@ -54,8 +58,14 @@ impl DDManager {
                     " New optimum found with order {:?}",
                     order_to_layernames(&self.order)
                 );
+                self.purge_retain(f);
                 best_graphsize = new_size;
                 best_position = level;
+            } else if let Some(max) = max_increase {
+                if new_size > best_graphsize + max {
+                    // Do not continue moving downwards, because the graph has grown too much
+                    break;
+                }
             }
         }
 
@@ -63,13 +73,16 @@ impl DDManager {
         log::info!("Moving up...");
 
         // Swap back to initial position, without calculating size
-        for level in (starting_pos..terminal_node_level - 1).rev() {
+        for level in (starting_pos..current_level).rev() {
             f = self.swap(
                 self.var_at_level(level).unwrap(),
                 self.var_at_level(level + 1).unwrap(),
                 f,
             );
+            current_level -= 1;
         }
+
+        assert_eq!(current_level, starting_pos);
 
         // Move variable to the top
         for level in (1..starting_pos).rev() {
@@ -80,6 +93,7 @@ impl DDManager {
                 self.var_at_level(level + 1).unwrap(),
                 f,
             );
+            current_level -= 1;
 
             let new_size = self.count_active(f);
             log::info!(" Size is {}", new_size);
@@ -89,8 +103,14 @@ impl DDManager {
                     " New optimum found with order {:?}",
                     order_to_layernames(&self.order)
                 );
+                self.purge_retain(f);
                 best_graphsize = new_size;
                 best_position = level;
+            } else if let Some(max) = max_increase {
+                if new_size > best_graphsize + max {
+                    // Do not continue moving upwards, because the graph has grown too much
+                    break;
+                }
             }
         }
 
@@ -102,14 +122,17 @@ impl DDManager {
             best_position
         );
 
-        for level in 2..best_position + 1 {
+        for level in current_level + 1..best_position + 1 {
             // Swap var at level-1 (our variable) with var at level
             f = self.swap(
                 self.var_at_level(level - 1).unwrap(),
                 self.var_at_level(level).unwrap(),
                 f,
             );
+            current_level += 1;
         }
+
+        assert_eq!(current_level, best_position);
 
         log::info!("Size is now  {}", self.count_active(f));
 
@@ -133,7 +156,7 @@ impl DDManager {
             }
 
             let var = VarID(v as u32);
-            f = self.sift_single_var(var, f);
+            f = self.sift_single_var(var, None, f);
             self.purge_retain(f);
         }
         if_some!(bar, finish_and_clear());
@@ -172,7 +195,7 @@ mod tests {
 
         let size_before = man.count_active(bdd);
         println!("Size before sifting: {}", size_before);
-        let bdd = man.sift_single_var(VarID(2), bdd);
+        let bdd = man.sift_single_var(VarID(2), None, bdd);
         let size_after = man.count_active(bdd);
         println!("Size after sifting: {}", size_after);
         println!("Order after sifting: {:?}", order_to_layernames(&man.order));
