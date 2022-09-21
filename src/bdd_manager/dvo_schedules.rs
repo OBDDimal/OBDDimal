@@ -71,37 +71,54 @@ impl DVOSchedule for AlwaysOnce {
     }
 }
 
+/// DVO strategy which calls the underlying strategy if the node count exceeds a limit
+pub struct AtThreshold {
+    pub active_nodes_threshold: u32,
+    pub underlying_schedule: Box<DVOScheduleEnum>,
+}
+
+impl DVOSchedule for AtThreshold {
+    fn run_dvo(
+        &mut self,
+        num_clause: usize,
+        man: &mut DDManager,
+        f: NodeID,
+        bar: &Option<ProgressBar>,
+    ) -> NodeID {
+        if man.count_active(f) <= self.active_nodes_threshold {
+            f
+        } else {
+            self.underlying_schedule.run_dvo(num_clause, man, f, bar)
+        }
+    }
+}
+
 /// DVO strategy which performs sifting until the number of nodes does not change anymore,
 /// but only if the initial number of nodes exceeds a configurable threshold.
 pub struct SiftingAtThreshold {
-    pub active_nodes_threshold: u32,
+    underlying: AtThreshold,
 }
 
 impl DVOSchedule for SiftingAtThreshold {
     fn run_dvo(
         &mut self,
-        _num_clause: usize,
+        num_clause: usize,
         man: &mut DDManager,
-        mut f: NodeID,
+        f: NodeID,
         bar: &Option<ProgressBar>,
     ) -> NodeID {
-        if man.count_active(f) < self.active_nodes_threshold {
-            return f;
+        self.underlying.run_dvo(num_clause, man, f, bar)
+    }
+}
+
+impl SiftingAtThreshold {
+    pub fn new(active_nodes_threshold: u32) -> SiftingAtThreshold {
+        SiftingAtThreshold {
+            underlying: AtThreshold {
+                active_nodes_threshold,
+                underlying_schedule: Box::new(AlwaysUntilConvergence::default().into()),
+            },
         }
-
-        let mut last_size = man.count_active(f);
-        loop {
-            f = man.sift_all_vars(f, bar.is_some());
-            let new_size = man.count_active(f);
-
-            if_some!(bar, set_message(format!("{} nodes", new_size)));
-
-            if new_size == last_size {
-                break;
-            }
-            last_size = new_size;
-        }
-        f
     }
 }
 
@@ -152,6 +169,7 @@ impl DVOSchedule for TimeSizeLimit {
 pub enum DVOScheduleEnum {
     NoDVOSchedule,
     AlwaysUntilConvergence,
+    AtThreshold,
     SiftingAtThreshold,
     TimeSizeLimit,
     AlwaysOnce,
