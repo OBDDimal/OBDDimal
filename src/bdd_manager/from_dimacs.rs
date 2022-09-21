@@ -1,3 +1,5 @@
+//! BDD building from CNF
+
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 
 use super::{options::Options, DDManager};
@@ -9,6 +11,26 @@ use crate::{
 };
 
 impl DDManager {
+    /// Builds a BDD from a CNF read from DIMACS.
+    ///
+    /// * `instance` - Input CNF
+    /// * `order` - Optional initial variable ordering, see [crate::static_ordering] for implementations
+    /// * `options` - DVO and progress bar settings
+    ///
+    /// ```
+    /// # use obddimal::{
+    /// #     bdd_manager::{dvo_schedules, options::Options, DDManager},
+    /// #     dimacs, static_ordering,
+    /// # };
+    /// let mut instance = dimacs::parse_dimacs("examples/trivial.dimacs");
+    /// let order = Some(static_ordering::force(&instance));
+    /// let dvo = dvo_schedules::SiftingAtThreshold::new(5);
+    /// let (man, bdd) = DDManager::from_instance(
+    ///     &mut instance,
+    ///     order,
+    ///     Options::default().with_progressbars().with_dvo(dvo.into()),
+    /// ).unwrap();
+    /// ```
     pub fn from_instance(
         instance: &mut Instance,
         order: Option<Vec<u32>>,
@@ -66,6 +88,9 @@ impl DDManager {
                 n,
                 &instance.clauses.len()
             );
+
+            man.purge_retain(bdd);
+            if_some!(bar, set_message(format!("{} nodes", man.nodes.len())));
 
             bdd = options.dvo.run_dvo(n, &mut man, bdd, &bar);
 

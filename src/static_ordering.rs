@@ -1,3 +1,4 @@
+//! Implementations of different static variable ordering strategies
 use rand::{seq::SliceRandom, thread_rng};
 
 use super::dimacs::Instance;

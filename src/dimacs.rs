@@ -1,3 +1,4 @@
+//! Parsing of DIMACS input file format
 use std::{
     fs::File,
     io::{BufRead, BufReader},

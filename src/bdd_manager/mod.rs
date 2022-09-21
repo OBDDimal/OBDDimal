@@ -1,3 +1,5 @@
+//! All BDD building and manipulation functionality
+
 use std::fmt;
 
 use rand::Rng;
@@ -20,6 +22,7 @@ mod swap;
 mod test;
 mod util;
 
+/// Terminal node "zero"
 pub const ZERO: DDNode = DDNode {
     id: NodeID(0),
     var: VarID(0),
@@ -27,6 +30,7 @@ pub const ZERO: DDNode = DDNode {
     high: NodeID(0),
 };
 
+/// Terminal node "one"
 pub const ONE: DDNode = DDNode {
     id: NodeID(1),
     var: VarID(0),
@@ -34,6 +38,10 @@ pub const ONE: DDNode = DDNode {
     high: NodeID(1),
 };
 
+/// Bring ITE calls of the form
+/// ite(f,f,h) = ite(f,1,h) = ite(h,1,f)
+/// ite(f,g,f) = ite(f,g,0) = ite(g,f,0)
+/// into canonical form
 fn normalize_ite_args(mut f: NodeID, mut g: NodeID, mut h: NodeID) -> (NodeID, NodeID, NodeID) {
     if f == g {
         g = ONE.id;
@@ -60,16 +68,19 @@ fn normalize_ite_args(mut f: NodeID, mut g: NodeID, mut h: NodeID) -> (NodeID, N
     (f, g, h)
 }
 
+/// Container combining the nodes list, unique tables, information about current
+/// variable ordering and computed table.
 #[derive(Clone)]
 pub struct DDManager {
     /// Node List
     pub nodes: HashMap<NodeID, DDNode>,
     /// Variable ordering: order[v.0] is the depth of variable v in the tree
-    /// See [check_order] for requirements
     order: Vec<u32>,
-    /// Unique Table for each variable
+    /// Unique Table for each variable. Note that the order (depth) in the BDD
+    /// may be different than the order of this vec, and is only determined by
+    /// [order](`DDManager::order`)!
     var2nodes: Vec<HashSet<DDNode>>,
-    /// Computed Table: ite(f,g,h) cache
+    /// Computed Table: maps (f,g,h) to ite(f,g,h)
     c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
 }
 

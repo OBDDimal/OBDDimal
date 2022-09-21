@@ -1,3 +1,5 @@
+//! Strategies for when and how to run DVO during BDD generation
+
 use std::time::{Duration, Instant};
 
 use enum_dispatch::enum_dispatch;
@@ -22,7 +24,7 @@ impl DVOSchedule for NoDVOSchedule {
     }
 }
 
-/// DVO strategy which always performs sifting of all variables until the number of
+/// Always perform sifting of all variables until the number of
 /// nodes does not change anymore.
 #[derive(Default)]
 pub struct AlwaysUntilConvergence {}
@@ -52,6 +54,7 @@ impl DVOSchedule for AlwaysUntilConvergence {
     }
 }
 
+/// Run one iteration of sifting for all variables, every time it's called
 #[derive(Default)]
 pub struct AlwaysOnce {}
 
@@ -71,7 +74,7 @@ impl DVOSchedule for AlwaysOnce {
     }
 }
 
-/// DVO strategy which calls the underlying strategy if the node count exceeds a limit
+/// Call the underlying strategy if the node count exceeds the specified limit
 pub struct AtThreshold {
     pub active_nodes_threshold: u32,
     pub underlying_schedule: Box<DVOScheduleEnum>,
@@ -93,7 +96,7 @@ impl DVOSchedule for AtThreshold {
     }
 }
 
-/// DVO strategy which performs sifting until the number of nodes does not change anymore,
+/// Performs sifting until the number of nodes does not change anymore,
 /// but only if the initial number of nodes exceeds a configurable threshold.
 pub struct SiftingAtThreshold {
     underlying: AtThreshold,
@@ -181,6 +184,7 @@ impl Default for DVOScheduleEnum {
     }
 }
 
+/// Implements run_dvo()
 #[enum_dispatch(DVOScheduleEnum)]
 pub(crate) trait DVOSchedule {
     /// This gets called after a CNF clause has been integrated.

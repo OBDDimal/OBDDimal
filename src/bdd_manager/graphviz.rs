@@ -1,3 +1,5 @@
+//! Utilities for saving the current BDD as a graphviz file for visualization
+
 use super::{
     hash_select::{HashMap, HashSet},
     DDManager, ZERO,
