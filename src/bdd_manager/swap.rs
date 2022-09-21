@@ -1,3 +1,5 @@
+//! Implementation of BDD layer swap
+
 use super::DDManager;
 use crate::{
     bdd_manager::order::order_to_layernames,

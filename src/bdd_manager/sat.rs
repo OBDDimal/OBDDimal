@@ -1,3 +1,5 @@
+//! Satisfyability count, active nodes count
+
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 
 use num_bigint::BigUint;

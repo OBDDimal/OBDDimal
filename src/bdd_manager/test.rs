@@ -1,3 +1,5 @@
+//! Utilities for BDD testing
+
 #[cfg(test)]
 pub mod tests {
     use std::fs;

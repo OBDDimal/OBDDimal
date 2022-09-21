@@ -1,3 +1,5 @@
+//! Implementation of dynamic variable ordering techniques
+
 use std::io::stdout;
 
 use crossterm::{cursor, execute};
@@ -19,6 +21,10 @@ impl DDManager {
             .map(|(v, _)| VarID(v as u32))
     }
 
+    /// Swap layer containing specified variable first to the bottom of the BDD, then to the top,
+    /// and then to the position which resulted in smallest BDD size.
+    /// Optional parameter `max_increase` stops swapping in either direction once the difference
+    /// between BDD size and current optimum exceeds threshold.
     #[allow(unused)]
     fn sift_single_var(&mut self, var: VarID, max_increase: Option<u32>, mut f: NodeID) -> NodeID {
         let starting_pos = self.order[var.0 as usize];
@@ -139,6 +145,9 @@ impl DDManager {
         f
     }
 
+    /// Perform sifting for every layer containing at least one variable.
+    /// If `progressbar` is `true`, display a progress bar in the terminal
+    /// which shows the number of layers already processed.
     #[must_use]
     #[allow(unused)]
     pub fn sift_all_vars(&mut self, mut f: NodeID, progressbar: bool) -> NodeID {

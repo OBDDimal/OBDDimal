@@ -1,3 +1,5 @@
+//! BDD reduction
+
 use crate::{
     bdd_manager::{hash_select::HashMap, order::order_to_layernames, DDManager, ZERO},
     bdd_node::{DDNode, NodeID, VarID},
