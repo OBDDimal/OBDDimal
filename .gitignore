@@ -1,5 +1,6 @@
 /target
-flamegraph.svg
+examples2
+flamegraph*.svg
 perf.data*
 .vscode
 *.dot
