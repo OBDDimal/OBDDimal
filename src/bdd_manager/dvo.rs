@@ -1,5 +1,7 @@
 //! Implementation of dynamic variable ordering techniques
 
+#![allow(rustdoc::private_intra_doc_links)]
+
 use std::io::stdout;
 
 use crossterm::{cursor, execute};
@@ -148,9 +150,15 @@ impl DDManager {
     /// Perform sifting for every layer containing at least one variable.
     /// If `progressbar` is `true`, display a progress bar in the terminal
     /// which shows the number of layers already processed.
+    /// See [Self::sift_single_var()] for `max_increase` parameter.
     #[must_use]
     #[allow(unused)]
-    pub fn sift_all_vars(&mut self, mut f: NodeID, progressbar: bool) -> NodeID {
+    pub fn sift_all_vars(
+        &mut self,
+        mut f: NodeID,
+        progressbar: bool,
+        max_increase: Option<u32>,
+    ) -> NodeID {
         let bar = if progressbar {
             Some(ProgressBar::new(self.var2nodes.len() as u64 - 1))
         } else {
@@ -165,7 +173,7 @@ impl DDManager {
             }
 
             let var = VarID(v as u32);
-            f = self.sift_single_var(var, None, f);
+            f = self.sift_single_var(var, max_increase, f);
             self.purge_retain(f);
         }
         if_some!(bar, finish_and_clear());
@@ -227,7 +235,7 @@ mod tests {
 
         let size_before = man.count_active(bdd);
         println!("Size before sifting: {}", size_before);
-        let bdd = man.sift_all_vars(bdd, false);
+        let bdd = man.sift_all_vars(bdd, false, None);
         let size_after = man.count_active(bdd);
         println!("Size after sifting: {}", size_after);
         println!("Order after sifting: {:?}", order_to_layernames(&man.order));

@@ -13,7 +13,7 @@ pub fn berkeleydb_sift_all(c: &mut Criterion) {
         let mut man = man.clone();
         let mut bdd = bdd;
         b.iter(|| {
-            bdd = man.sift_all_vars(bdd, false);
+            bdd = man.sift_all_vars(bdd, false, None);
         })
     });
 

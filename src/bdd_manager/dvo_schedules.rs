@@ -1,5 +1,7 @@
 //! Strategies for when and how to run DVO during BDD generation
 
+#![allow(rustdoc::private_intra_doc_links)]
+
 use std::time::{Duration, Instant};
 
 use enum_dispatch::enum_dispatch;
@@ -40,7 +42,7 @@ impl DVOSchedule for AlwaysUntilConvergence {
         log::info!("DVO... ");
         let mut last_size = man.count_active(f);
         loop {
-            f = man.sift_all_vars(f, bar.is_some());
+            f = man.sift_all_vars(f, bar.is_some(), None);
             let new_size = man.count_active(f);
 
             if_some!(bar, set_message(format!("{} nodes", new_size)));
@@ -54,9 +56,12 @@ impl DVOSchedule for AlwaysUntilConvergence {
     }
 }
 
-/// Run one iteration of sifting for all variables, every time it's called
+/// Run one iteration of sifting for all variables, every time it's called.
+/// See [DDManager::sift_single_var()] for `max_increase` parameter.
 #[derive(Default)]
-pub struct AlwaysOnce {}
+pub struct AlwaysOnce {
+    pub max_increase: Option<u32>,
+}
 
 impl DVOSchedule for AlwaysOnce {
     fn run_dvo(
@@ -67,7 +72,7 @@ impl DVOSchedule for AlwaysOnce {
         bar: &Option<ProgressBar>,
     ) -> NodeID {
         log::info!("DVO... ");
-        f = man.sift_all_vars(f, bar.is_some());
+        f = man.sift_all_vars(f, bar.is_some(), self.max_increase);
         let new_size = man.count_active(f);
         if_some!(bar, set_message(format!("{} nodes", new_size)));
         f
