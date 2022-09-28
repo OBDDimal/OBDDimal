@@ -61,7 +61,11 @@ pub fn force(instance: &Instance) -> Vec<u32> {
 
         // println!("{:?}", order);
 
-        order.sort_by(|x, y| tpos[*x as usize].partial_cmp(&tpos[*y as usize]).unwrap());
+        order.sort_by(|x, y| {
+            tpos[*x as usize]
+                .partial_cmp(&tpos[*y as usize])
+                .unwrap_or(std::cmp::Ordering::Less)
+        });
         // println!("{:?}", order);
         order.insert(0, (order.len() + 1) as u32);
 
