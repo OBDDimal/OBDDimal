@@ -15,10 +15,10 @@ fn main() {
     let order = Some(static_ordering::force(&instance));
 
     let dvo = dvo_schedules::AtThreshold {
-        active_nodes_threshold: 10000,
+        active_nodes_threshold: 50000,
         underlying_schedule: Box::new(
             dvo_schedules::AlwaysOnce {
-                max_increase: Some(500),
+                max_increase: Some(1000),
             }
             .into(),
         ),
@@ -71,6 +71,6 @@ mod tests {
     #[test]
     #[ignore]
     fn busybox_ssat() {
-        build_verify_ssat("examples/busybox.dimacs", b"FAIL")
+        build_verify_ssat("examples/busybox.dimacs", b"2061138519356781760670618805653750167349287991336595876373542198990734653489713239449032049664199494301454199336000050382457451123894821886472278234849758979132037884598159833615564800000000000000000000")
     }
 }
