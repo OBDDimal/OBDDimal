@@ -1,0 +1,5 @@
+c This comment is not a variable name.
+c This comment  [contains !special! "characters"] \n and a newline!
+c 1 [variable-name!]
+p cnf 1 1
+1 0

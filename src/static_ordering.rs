@@ -1,7 +1,7 @@
-use super::dimacs::Instance;
+//! Implementations of different static variable ordering strategies
+use rand::{seq::SliceRandom, thread_rng};
 
-use rand::seq::SliceRandom;
-use rand::thread_rng;
+use super::dimacs::Instance;
 
 #[allow(dead_code)]
 pub fn keep(instance: &Instance) -> Vec<u32> {
@@ -61,7 +61,11 @@ pub fn force(instance: &Instance) -> Vec<u32> {
 
         // println!("{:?}", order);
 
-        order.sort_by(|x, y| tpos[*x as usize].partial_cmp(&tpos[*y as usize]).unwrap());
+        order.sort_by(|x, y| {
+            tpos[*x as usize]
+                .partial_cmp(&tpos[*y as usize])
+                .unwrap_or(std::cmp::Ordering::Less)
+        });
         // println!("{:?}", order);
         order.insert(0, (order.len() + 1) as u32);
 
@@ -72,14 +76,12 @@ pub fn force(instance: &Instance) -> Vec<u32> {
         } else {
             converged = true;
         }
-
-        println!("{:?}", span);
     }
 
     order
 }
 
-fn calc_center_of_gravity(clause: &Vec<i32>, order: &[u32]) -> f64 {
+fn calc_center_of_gravity(clause: &[i32], order: &[u32]) -> f64 {
     let mut out = 0;
     for x in clause {
         out += order[x.unsigned_abs() as usize];
@@ -88,7 +90,7 @@ fn calc_center_of_gravity(clause: &Vec<i32>, order: &[u32]) -> f64 {
     out as f64 / clause.len() as f64
 }
 
-fn calc_span(clauses: &Vec<Vec<i32>>, order: &[u32]) -> u32 {
+fn calc_span(clauses: &[Vec<i32>], order: &[u32]) -> u32 {
     let mut span = 0;
 
     for clause in clauses {

@@ -1,0 +1,53 @@
+name: Benchmark
+on: pull_request
+
+jobs:
+  bench:
+    name: Benchmark
+    runs-on: [self-hosted, benchmark]
+    container: ubuntu:22.04
+    steps:
+      - name: Install dependencies
+        run: |
+          apt update
+          apt install -y curl git build-essential
+      - name: Install and select latest stable rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Checkout PR base
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.base_ref }}
+          submodules: true
+      - name: Benchmark PR base
+        uses: actions-rs/cargo@v1
+        with:
+          command: bench
+          args: --bench obddimal_benches -- --save-baseline bl
+
+      - name: Checkout merge commit
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref }}
+          clean: false
+          submodules: true
+      - name: Benchmark merge commit
+        uses: actions-rs/cargo@v1
+        with:
+          command: bench
+          args: --bench obddimal_benches -- --baseline bl --color always
+
+      - name: Publish benchmark using gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./target/criterion
+          destination_dir: ${{ github.ref_name }}
+          exclude_assets: "**/*.json,**/*.csv"
+      - name: Advertise published benchmark results
+        run: |
+          echo "View benchmark results [here](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ github.ref_name }}/report/)!" >> $GITHUB_STEP_SUMMARY

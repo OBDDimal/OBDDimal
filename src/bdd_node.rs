@@ -1,15 +1,28 @@
+//! Module containing type definitions for the elements of the BDD:
+//! Nodes ([DDNode], [NodeID]) and Variables ([VarID])
+
 use std::hash::{Hash, Hasher};
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct NodeID(pub u32);
+
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct VarID(pub u32);
+
+/// Element of a BDD.
+/// Note that the Node contains its own ID. This may be set to zero until it has been assigned,
+/// and most importantly is not considered in hashing and equality testing.
 #[derive(Debug, Copy, Clone)]
 pub struct DDNode {
     /// Node ID. Special values: 0 and 1 for terminal nodes
-    pub id: u32,
+    pub id: NodeID,
     /// Variable number. Special variable 0 == terminal nodes
-    pub var: u32,
-    pub low: u32,
-    pub high: u32,
+    pub var: VarID,
+    pub low: NodeID,
+    pub high: NodeID,
 }
 
+/// Test equality of two nodes, not considering the ID!
 impl PartialEq for DDNode {
     fn eq(&self, that: &Self) -> bool {
         self.var == that.var && self.low == that.low && self.high == that.high
@@ -19,12 +32,16 @@ impl PartialEq for DDNode {
 impl Eq for DDNode {}
 
 impl DDNode {
-    pub fn restrict(&self, top: u32, order: &[u32], val: bool) -> u32 {
-        if self.var == 0 {
+    /// Returns the function resulting when setting the specified variable to the specified value.
+    /// Note that this only implements the case of the node being at the exact level of the specified
+    /// variable.
+    pub fn restrict(&self, top: VarID, order: &[u32], val: bool) -> NodeID {
+        if self.var == VarID(0) {
             return self.id;
         }
 
-        if order[top as usize] < order[self.var as usize] {
+        if order[top.0 as usize] < order[self.var.0 as usize] {
+            // Variable does not occur in current function
             return self.id;
         }
 
@@ -36,10 +53,12 @@ impl DDNode {
             }
         }
 
-        panic!("Should not be possible");
+        // Variable occurs further down in the function. This is not supported in this restrict().
+        panic!("Restrict called with variable below current node");
     }
 }
 
+/// Hash a node, not considering the ID!
 impl Hash for DDNode {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.var.hash(state);
