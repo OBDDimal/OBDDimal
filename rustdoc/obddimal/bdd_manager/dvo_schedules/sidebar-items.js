@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DVOScheduleEnum"],"struct":["AlwaysOnce","AlwaysUntilConvergence","AtThreshold","NoDVOSchedule","SiftingAtThreshold","TimeSizeLimit"],"trait":["DVOSchedule"]};
