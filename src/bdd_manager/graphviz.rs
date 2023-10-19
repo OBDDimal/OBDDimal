@@ -13,9 +13,7 @@ impl DDManager {
 
         let mut stack = vec![f];
 
-        while !stack.is_empty() {
-            let x = stack.pop().unwrap();
-
+        while let Some(x) = stack.pop() {
             if nodes.contains(&x) {
                 continue;
             }

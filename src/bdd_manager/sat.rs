@@ -73,8 +73,7 @@ impl DDManager {
         let mut stack = vec![f];
         stack.reserve(self.nodes.len());
 
-        while !stack.is_empty() {
-            let x = stack.pop().unwrap();
+        while let Some(x) = stack.pop() {
             let entry = nodes.entry(x);
 
             match entry {

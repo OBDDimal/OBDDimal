@@ -386,11 +386,7 @@ impl DDManager {
         for x in trues {
             let x: usize = *x as usize;
 
-            if x < values.len() {
-                values[x] = true;
-            } else {
-                values[x] = false;
-            }
+            values[x] = x < values.len();
         }
 
         let mut node_id = f;
@@ -413,9 +409,7 @@ impl DDManager {
 
         let mut stack = vec![f];
 
-        while !stack.is_empty() {
-            let x = stack.pop().unwrap();
-
+        while let Some(x) = stack.pop() {
             if keep.contains(&x) {
                 continue;
             }

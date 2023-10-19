@@ -96,7 +96,7 @@ fn calc_span(clauses: &[Vec<i32>], order: &[u32]) -> u32 {
     for clause in clauses {
         let pos = clause
             .iter()
-            .map(|x| order[x.unsigned_abs() as usize] as u32)
+            .map(|x| order[x.unsigned_abs() as usize])
             .collect::<Vec<u32>>();
         let min = pos.iter().min().unwrap();
         let max = pos.iter().max().unwrap();
