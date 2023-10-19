@@ -546,7 +546,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>man = testcase.man.clone();
 
         <span class="kw">let </span>bdd = man.swap(VarID(<span class="number">2</span>), VarID(<span class="number">3</span>), testcase.f);
-        fs::write(<span class="string">&quot;after.dot&quot;</span>, <span class="kw-2">&amp;</span>man.graphviz(bdd)).unwrap();
+        fs::write(<span class="string">&quot;after.dot&quot;</span>, man.graphviz(bdd)).unwrap();
 
         <span class="macro">assert!</span>(testcase.verify_against(<span class="kw-2">&amp;</span>man, bdd));
     }
