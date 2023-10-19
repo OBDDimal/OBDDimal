@@ -243,7 +243,7 @@ mod tests {
         let mut man = testcase.man.clone();
 
         let bdd = man.swap(VarID(2), VarID(3), testcase.f);
-        fs::write("after.dot", &man.graphviz(bdd)).unwrap();
+        fs::write("after.dot", man.graphviz(bdd)).unwrap();
 
         assert!(testcase.verify_against(&man, bdd));
     }
