@@ -20,13 +20,17 @@
 <a href="#20" id="20">20</a>
 <a href="#21" id="21">21</a>
 <a href="#22" id="22">22</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>obddimal::bdd_manager::hash_select::HashMap;
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! Utilities for BDD testing
+</span><span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>obddimal::misc::hash_select::HashMap;
 <span class="kw">use </span>rand::Rng;
 
 <span class="doccomment">/// This prints the one-columns of a random truth table with 8 variables,
-/// for testcase generation. The result is to be used in src/bdd_manager/test.rs.
-</span><span class="kw">fn </span>main() {
+/// for testcase generation. The result is to be used in src/core/test.rs.
+</span><span class="attr">#[allow(unused)]
+</span><span class="kw">pub fn </span>main() {
     <span class="kw">let </span><span class="kw-2">mut </span>truthtable: HashMap&lt;u8, bool&gt; = Default::default();
 
     <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();

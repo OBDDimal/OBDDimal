@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["if_some"],"mod":["bdd_manager","bdd_node","dimacs","static_ordering"]};
+window.SIDEBAR_ITEMS = {"macro":["if_some"],"mod":["build","core","misc","util"]};
