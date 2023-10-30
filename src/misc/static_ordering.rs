@@ -1,7 +1,7 @@
 //! Implementations of different static variable ordering strategies
 use rand::{seq::SliceRandom, thread_rng};
 
-use super::dimacs::Instance;
+use crate::build::from_dimacs::dimacs::Instance;
 
 #[allow(dead_code)]
 pub fn keep(instance: &Instance) -> Vec<u32> {

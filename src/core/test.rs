@@ -1,5 +1,3 @@
-//! Utilities for BDD testing
-
 #[cfg(test)]
 pub mod tests {
     use std::fs;
@@ -7,8 +5,9 @@ pub mod tests {
     use num_bigint::BigUint;
 
     use crate::{
-        bdd_manager::{hash_select::HashSet, ONE, ZERO},
-        bdd_node::{NodeID, VarID},
+        core::bdd_manager::{ONE, ZERO},
+        core::bdd_node::{NodeID, VarID},
+        misc::hash_select::HashSet,
     };
 
     /// A manually constructed BDD plus truth table, allowing verification of
@@ -253,7 +252,7 @@ pub mod tests {
         }
     }
 
-    use crate::{bdd_manager::DDManager, dimacs};
+    use crate::{build::from_dimacs::dimacs, core::bdd_manager::DDManager};
 
     // Test that a testcase matches itself
     #[test]

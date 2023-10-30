@@ -4,23 +4,10 @@ use std::fmt;
 
 use rand::Rng;
 
-use super::{
-    bdd_manager::hash_select::{HashMap, HashSet},
-    bdd_node::{DDNode, NodeID, VarID},
+use crate::{
+    core::bdd_node::{DDNode, NodeID, VarID},
+    misc::hash_select::{HashMap, HashSet},
 };
-
-mod dvo;
-pub mod dvo_schedules;
-mod from_dimacs;
-mod graphviz;
-pub mod hash_select;
-pub mod options;
-mod order;
-mod reduce;
-mod sat;
-mod swap;
-mod test;
-mod util;
 
 /// Terminal node "zero"
 pub const ZERO: DDNode = DDNode {
@@ -75,13 +62,13 @@ pub struct DDManager {
     /// Node List
     pub nodes: HashMap<NodeID, DDNode>,
     /// Variable ordering: order[v.0] is the depth of variable v in the tree
-    order: Vec<u32>,
+    pub(crate) order: Vec<u32>,
     /// Unique Table for each variable. Note that the order (depth) in the BDD
     /// may be different than the order of this vec, and is only determined by
     /// [order](`DDManager::order`)!
-    var2nodes: Vec<HashSet<DDNode>>,
+    pub(super) var2nodes: Vec<HashSet<DDNode>>,
     /// Computed Table: maps (f,g,h) to ite(f,g,h)
-    c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
+    pub(super) c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
 }
 
 impl fmt::Debug for DDManager {
@@ -111,7 +98,7 @@ impl Default for DDManager {
 }
 
 /// Determine order in which clauses should be added to BDD
-fn align_clauses(clauses: &[Vec<i32>]) -> Vec<usize> {
+pub(crate) fn align_clauses(clauses: &[Vec<i32>]) -> Vec<usize> {
     let mut shuffle: Vec<(usize, f32)> = Vec::default();
 
     for (i, clause) in clauses.iter().enumerate() {
@@ -200,7 +187,7 @@ impl DDManager {
     }
 
     /// Search for Node, create if it doesnt exist
-    fn node_get_or_create(&mut self, node: &DDNode) -> NodeID {
+    pub(crate) fn node_get_or_create(&mut self, node: &DDNode) -> NodeID {
         assert_ne!(node.low, node.high, "Creating a node with the same low and high edge creates a non-reduced BDD, which we don't want to do.");
 
         if self.var2nodes.len() <= (node.var.0 as usize) {
@@ -220,11 +207,11 @@ impl DDManager {
     //------------------------------------------------------------------------//
     // Constants
 
-    fn zero(&self) -> NodeID {
+    pub(crate) fn zero(&self) -> NodeID {
         NodeID(0)
     }
 
-    fn one(&self) -> NodeID {
+    pub(crate) fn one(&self) -> NodeID {
         NodeID(1)
     }
 
@@ -380,7 +367,7 @@ impl DDManager {
     }
 
     #[allow(dead_code)]
-    fn verify(&self, f: NodeID, trues: &[u32]) -> bool {
+    pub fn verify(&self, f: NodeID, trues: &[u32]) -> bool {
         let mut values: Vec<bool> = vec![false; self.var2nodes.len() + 1];
 
         for x in trues {

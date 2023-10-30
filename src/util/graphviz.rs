@@ -1,10 +1,12 @@
 //! Utilities for saving the current BDD as a graphviz file for visualization
 
-use super::{
-    hash_select::{HashMap, HashSet},
-    DDManager, ZERO,
+use crate::{
+    core::{
+        bdd_manager::{DDManager, ZERO},
+        bdd_node::{DDNode, NodeID, VarID},
+    },
+    misc::hash_select::{HashMap, HashSet},
 };
-use crate::bdd_node::{DDNode, NodeID, VarID};
 
 impl DDManager {
     /// Collect all nodes that are part of the specified function

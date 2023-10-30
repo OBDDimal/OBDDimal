@@ -1,17 +1,19 @@
 //! Implementation of dynamic variable ordering techniques
-
 #![allow(rustdoc::private_intra_doc_links)]
+
+pub mod dvo_schedules;
 
 use std::io::stdout;
 
 use crossterm::{cursor, execute};
 use indicatif::ProgressBar;
 
-use crate::{
-    bdd_manager::{order::order_to_layernames, DDManager, ZERO},
+use super::{
+    bdd_manager::{DDManager, ZERO},
     bdd_node::{NodeID, VarID},
-    if_some,
+    order::order_to_layernames,
 };
+use crate::if_some;
 
 impl DDManager {
     /// Find the variable at specified level
@@ -193,9 +195,8 @@ mod tests {
     use num_bigint::BigUint;
 
     use crate::{
-        bdd_manager::{order::order_to_layernames, DDManager},
-        bdd_node::VarID,
-        dimacs,
+        build::from_dimacs::dimacs, core::bdd_manager::DDManager, core::bdd_node::VarID,
+        core::order::order_to_layernames,
     };
 
     #[test]

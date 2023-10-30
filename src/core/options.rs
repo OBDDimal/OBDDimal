@@ -1,6 +1,6 @@
 //! Options for BDD building
 
-use super::dvo_schedules::DVOScheduleEnum;
+use super::dvo::dvo_schedules::DVOScheduleEnum;
 
 #[derive(Default)]
 pub struct Options {

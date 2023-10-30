@@ -7,8 +7,10 @@ use std::time::{Duration, Instant};
 use enum_dispatch::enum_dispatch;
 use indicatif::ProgressBar;
 
-use super::DDManager;
-use crate::{bdd_node::NodeID, if_some};
+use crate::{
+    core::{bdd_manager::DDManager, bdd_node::NodeID},
+    if_some,
+};
 
 /// Dummy DVO implementation that does nothing
 #[derive(Default)]

@@ -1,8 +1,12 @@
 //! BDD reduction
 
 use crate::{
-    bdd_manager::{hash_select::HashMap, order::order_to_layernames, DDManager, ZERO},
-    bdd_node::{DDNode, NodeID, VarID},
+    core::{
+        bdd_manager::{DDManager, ZERO},
+        bdd_node::{DDNode, NodeID, VarID},
+        order::order_to_layernames,
+    },
+    misc::hash_select::HashMap,
 };
 
 impl DDManager {
@@ -159,9 +163,9 @@ impl DDManager {
 mod tests {
     use super::DDManager;
     use crate::{
-        bdd_manager::hash_select::HashSet,
-        bdd_node::{DDNode, NodeID, VarID},
-        dimacs,
+        build::from_dimacs::dimacs,
+        core::bdd_node::{DDNode, NodeID, VarID},
+        misc::hash_select::HashSet,
     };
 
     fn init() {

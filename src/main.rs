@@ -1,6 +1,7 @@
 use obddimal::{
-    bdd_manager::{dvo_schedules, options::Options, DDManager},
-    dimacs, static_ordering,
+    build::from_dimacs::dimacs,
+    core::{bdd_manager::DDManager, dvo::dvo_schedules, options::Options},
+    misc::static_ordering,
 };
 
 fn main() {

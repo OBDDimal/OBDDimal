@@ -1,26 +1,35 @@
 //! BDD building from CNF
 
+pub mod dimacs;
+
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 
-use super::{options::Options, DDManager};
 use crate::{
-    bdd_manager::{align_clauses, dvo_schedules::DVOSchedule, order::check_order},
-    bdd_node::{NodeID, VarID},
-    dimacs::Instance,
+    core::bdd_manager::{align_clauses, DDManager},
+    core::bdd_node::{NodeID, VarID},
+    core::dvo::dvo_schedules::DVOSchedule,
+    core::options::Options,
+    core::order::check_order,
     if_some,
 };
+use dimacs::Instance;
 
 impl DDManager {
     /// Builds a BDD from a CNF read from DIMACS.
     ///
     /// * `instance` - Input CNF
-    /// * `order` - Optional initial variable ordering, see [crate::static_ordering] for implementations
+    /// * `order` - Optional initial variable ordering, see [crate::misc::static_ordering] for implementations
     /// * `options` - DVO and progress bar settings
     ///
     /// ```
     /// # use obddimal::{
-    /// #     bdd_manager::{dvo_schedules, options::Options, DDManager},
-    /// #     dimacs, static_ordering,
+    /// #           core::{
+    /// #               dvo::dvo_schedules,
+    /// #               options::Options,
+    /// #               bdd_manager::DDManager
+    /// #           },
+    /// #           build::from_dimacs::dimacs,
+    /// #           misc::static_ordering,
     /// # };
     /// let mut instance = dimacs::parse_dimacs("examples/trivial.dimacs");
     /// let order = Some(static_ordering::force(&instance));

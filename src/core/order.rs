@@ -1,6 +1,6 @@
 //! Utility functions related to variable order
 
-use crate::{bdd_node::VarID, dimacs::Instance};
+use crate::{build::from_dimacs::dimacs::Instance, core::bdd_node::VarID};
 
 /// Checks if a specified variable ordering is valid for the CNF instance.
 /// Returns `OK(())` or `Err("error message")`.
@@ -67,7 +67,7 @@ pub(crate) fn order_to_layernames(order: &[u32]) -> Vec<VarID> {
 
 #[cfg(test)]
 mod tests {
-    use crate::bdd_node::VarID;
+    use crate::core::bdd_node::VarID;
 
     #[test]
     fn order_to_layernames() {

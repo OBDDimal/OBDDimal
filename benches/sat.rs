@@ -1,5 +1,5 @@
 use criterion::{criterion_group, Criterion};
-use obddimal::{bdd_manager::DDManager, dimacs, static_ordering};
+use obddimal::{build::from_dimacs::dimacs, core::bdd_manager::DDManager, misc::static_ordering};
 
 pub fn berkeleydb_count_active(c: &mut Criterion) {
     let mut cnf = dimacs::parse_dimacs(concat!("examples/berkeleydb.dimacs"));

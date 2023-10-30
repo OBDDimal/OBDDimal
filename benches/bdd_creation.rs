@@ -1,6 +1,6 @@
 use concat_idents::concat_idents;
 use criterion::{criterion_group, Criterion};
-use obddimal::{bdd_manager::DDManager, dimacs, static_ordering};
+use obddimal::{build::from_dimacs::dimacs, core::bdd_manager::DDManager, misc::static_ordering};
 
 macro_rules! bdd_create_benchmark {
     ($name:ident) => {

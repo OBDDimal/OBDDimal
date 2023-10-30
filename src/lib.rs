@@ -1,4 +1,4 @@
-pub mod bdd_manager;
-pub mod bdd_node;
-pub mod dimacs;
-pub mod static_ordering;
+pub mod build;
+pub mod core;
+pub mod misc;
+mod util;

@@ -1,9 +1,9 @@
 //! Implementation of BDD layer swap
 
-use super::DDManager;
 use crate::{
-    bdd_manager::order::order_to_layernames,
-    bdd_node::{DDNode, NodeID, VarID},
+    core::bdd_manager::DDManager,
+    core::bdd_node::{DDNode, NodeID, VarID},
+    core::order::order_to_layernames,
 };
 
 impl DDManager {
@@ -148,9 +148,8 @@ mod tests {
     use num_bigint::BigUint;
 
     use crate::{
-        bdd_manager::{order::order_to_layernames, test::tests::TestCase, DDManager},
-        bdd_node::VarID,
-        dimacs,
+        build::from_dimacs::dimacs, core::bdd_manager::DDManager, core::bdd_node::VarID,
+        core::order::order_to_layernames, core::test::tests::TestCase,
     };
 
     /// Swap each variable pair from initial order
