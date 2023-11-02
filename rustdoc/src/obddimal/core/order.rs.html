@@ -92,7 +92,7 @@
         Instance::Cnf { num_vars, .. } =&gt; <span class="kw-2">*</span>num_vars <span class="kw">as </span>usize,
         <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unsupported dimacs format!&quot;</span>),
     };
-    <span class="kw">if </span>order.len() != num_vars <span class="kw">as </span>usize + <span class="number">1 </span>{
+    <span class="kw">if </span>order.len() != num_vars + <span class="number">1 </span>{
         <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
             <span class="string">&quot;Invalid size of ordering: Size was {}, expected {} (nr of variables + 1)&quot;</span>,
             order.len(),
@@ -115,7 +115,7 @@
         ));
     }
 
-    <span class="kw">let </span><span class="kw-2">mut </span>var_map = <span class="macro">vec!</span>[<span class="number">0</span>; num_vars <span class="kw">as </span>usize + <span class="number">1</span>];
+    <span class="kw">let </span><span class="kw-2">mut </span>var_map = <span class="macro">vec!</span>[<span class="number">0</span>; num_vars + <span class="number">1</span>];
     <span class="kw">for </span>(var, depth) <span class="kw">in </span>order.iter().enumerate() {
         <span class="kw">if </span><span class="kw-2">*</span>depth &lt; <span class="number">1 </span>{
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
@@ -135,7 +135,7 @@
     }
 
     <span class="kw">for </span>(depth, var) <span class="kw">in </span>var_map.iter().enumerate() {
-        <span class="kw">if </span><span class="kw-2">*</span>var == <span class="number">0 </span>&amp;&amp; depth != num_vars <span class="kw">as </span>usize {
+        <span class="kw">if </span><span class="kw-2">*</span>var == <span class="number">0 </span>&amp;&amp; depth != num_vars {
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;No variable at depth {}&quot;</span>, depth + <span class="number">1</span>));
         }
     }
