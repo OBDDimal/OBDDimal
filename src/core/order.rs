@@ -10,7 +10,7 @@ pub(crate) fn check_order(cnf: &Instance, order: &[u32]) -> Result<(), String> {
         Instance::Cnf { num_vars, .. } => *num_vars as usize,
         _ => panic!("Unsupported dimacs format!"),
     };
-    if order.len() != num_vars as usize + 1 {
+    if order.len() != num_vars + 1 {
         return Err(format!(
             "Invalid size of ordering: Size was {}, expected {} (nr of variables + 1)",
             order.len(),
@@ -33,7 +33,7 @@ pub(crate) fn check_order(cnf: &Instance, order: &[u32]) -> Result<(), String> {
         ));
     }
 
-    let mut var_map = vec![0; num_vars as usize + 1];
+    let mut var_map = vec![0; num_vars + 1];
     for (var, depth) in order.iter().enumerate() {
         if *depth < 1 {
             return Err(format!(
@@ -53,7 +53,7 @@ pub(crate) fn check_order(cnf: &Instance, order: &[u32]) -> Result<(), String> {
     }
 
     for (depth, var) in var_map.iter().enumerate() {
-        if *var == 0 && depth != num_vars as usize {
+        if *var == 0 && depth != num_vars {
             return Err(format!("No variable at depth {}", depth + 1));
         }
     }
