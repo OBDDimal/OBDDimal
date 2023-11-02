@@ -286,6 +286,9 @@
 <a href="#286" id="286">286</a>
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(test)]
 </span><span class="kw">pub mod </span>tests {
     <span class="kw">use </span>std::fs;
@@ -540,7 +543,7 @@
         </span>}
     }
 
-    <span class="kw">use crate</span>::{build::from_dimacs::dimacs, core::bdd_manager::DDManager};
+    <span class="kw">use </span><span class="kw">crate</span>::core::bdd_manager::DDManager;
 
     <span class="comment">// Test that a testcase matches itself
     </span><span class="attr">#[test]
@@ -562,7 +565,10 @@
     </span><span class="kw">fn </span>trivial_same_as_dimacs() {
         <span class="kw">let </span>testcase = TestCase::test_trivial();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>instance = dimacs::parse_dimacs(<span class="string">&quot;examples/trivial.dimacs&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>instance = dimacs::parse_dimacs(
+            <span class="kw-2">&amp;</span>fs::read_to_string(<span class="string">&quot;examples/trivial.dimacs&quot;</span>).expect(<span class="string">&quot;Failed to read dimacs file.&quot;</span>),
+        )
+        .expect(<span class="string">&quot;Failed to parse dimacs file.&quot;</span>);
         <span class="kw">let </span>(man_dimacs, bdd_dimacs) =
             DDManager::from_instance(<span class="kw-2">&amp;mut </span>instance, <span class="prelude-val">None</span>, Default::default()).unwrap();
         <span class="macro">assert!</span>(testcase.verify_against(<span class="kw-2">&amp;</span>man_dimacs, bdd_dimacs));

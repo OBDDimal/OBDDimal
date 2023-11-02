@@ -138,14 +138,35 @@
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations of different static variable ordering strategies
 </span><span class="kw">use </span>rand::{seq::SliceRandom, thread_rng};
 
-<span class="kw">use </span><span class="kw">crate</span>::build::from_dimacs::dimacs::Instance;
+<span class="kw">use </span>dimacs::{Clause, Instance};
 
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub fn </span>keep(instance: <span class="kw-2">&amp;</span>Instance) -&gt; Vec&lt;u32&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>order: Vec&lt;u32&gt; = (<span class="number">1</span>..instance.no_variables + <span class="number">1</span>).collect();
+    <span class="kw">let </span>num_vars = <span class="kw">match </span>instance {
+        Instance::Cnf { num_vars, .. } =&gt; <span class="kw-2">*</span>num_vars <span class="kw">as </span>u32,
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unsupported dimacs format!&quot;</span>),
+    };
+    <span class="kw">let </span><span class="kw-2">mut </span>order: Vec&lt;u32&gt; = (<span class="number">1</span>..num_vars + <span class="number">1</span>).collect();
 
     order.insert(<span class="number">0</span>, (order.len() + <span class="number">1</span>) <span class="kw">as </span>u32);
     order
@@ -153,7 +174,11 @@
 
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub fn </span>rand(instance: <span class="kw-2">&amp;</span>Instance) -&gt; Vec&lt;u32&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>order: Vec&lt;u32&gt; = (<span class="number">1</span>..instance.no_variables + <span class="number">1</span>).collect();
+    <span class="kw">let </span>num_vars = <span class="kw">match </span>instance {
+        Instance::Cnf { num_vars, .. } =&gt; <span class="kw-2">*</span>num_vars <span class="kw">as </span>u32,
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unsupported dimacs format!&quot;</span>),
+    };
+    <span class="kw">let </span><span class="kw-2">mut </span>order: Vec&lt;u32&gt; = (<span class="number">1</span>..num_vars + <span class="number">1</span>).collect();
 
     order.shuffle(<span class="kw-2">&amp;mut </span>thread_rng());
 
@@ -163,7 +188,11 @@
 
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub fn </span>force(instance: <span class="kw-2">&amp;</span>Instance) -&gt; Vec&lt;u32&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>order: Vec&lt;u32&gt; = (<span class="number">1</span>..instance.no_variables + <span class="number">1</span>).collect();
+    <span class="kw">let </span>(num_vars, clauses) = <span class="kw">match </span>instance {
+        Instance::Cnf { num_vars, clauses } =&gt; (<span class="kw-2">*</span>num_vars <span class="kw">as </span>u32, clauses),
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unsupported dimacs format!&quot;</span>),
+    };
+    <span class="kw">let </span><span class="kw-2">mut </span>order: Vec&lt;u32&gt; = (<span class="number">1</span>..num_vars + <span class="number">1</span>).collect();
 
     order.shuffle(<span class="kw-2">&amp;mut </span>thread_rng());
     order.insert(<span class="number">0</span>, (order.len() + <span class="number">1</span>) <span class="kw">as </span>u32);
@@ -177,27 +206,27 @@
     <span class="kw">while </span>!converged &amp;&amp; n &lt; <span class="number">1000 </span>{
         n += <span class="number">1</span>;
 
-        <span class="kw">let </span><span class="kw-2">mut </span>tpos: Vec&lt;f64&gt; = <span class="macro">vec!</span>[<span class="number">0.0</span>; (instance.no_variables + <span class="number">1</span>) <span class="kw">as </span>usize];
-        <span class="kw">let </span><span class="kw-2">mut </span>degree: Vec&lt;u32&gt; = <span class="macro">vec!</span>[<span class="number">0</span>; (instance.no_variables + <span class="number">1</span>) <span class="kw">as </span>usize];
+        <span class="kw">let </span><span class="kw-2">mut </span>tpos: Vec&lt;f64&gt; = <span class="macro">vec!</span>[<span class="number">0.0</span>; (num_vars + <span class="number">1</span>) <span class="kw">as </span>usize];
+        <span class="kw">let </span><span class="kw-2">mut </span>degree: Vec&lt;u32&gt; = <span class="macro">vec!</span>[<span class="number">0</span>; (num_vars + <span class="number">1</span>) <span class="kw">as </span>usize];
 
-        <span class="kw">for </span>clause <span class="kw">in </span><span class="kw-2">&amp;</span>instance.clauses {
+        <span class="kw">for </span>clause <span class="kw">in </span>clauses.iter() {
             <span class="kw">let </span>cog: f64 = calc_center_of_gravity(clause, <span class="kw-2">&amp;</span>order);
 
-            <span class="kw">for </span>x <span class="kw">in </span>clause {
-                <span class="kw">let </span>y = x.unsigned_abs() <span class="kw">as </span>usize;
+            <span class="kw">for </span>x <span class="kw">in </span>clause.lits().iter() {
+                <span class="kw">let </span>y = x.var().to_u64() <span class="kw">as </span>usize;
                 tpos[y] += cog;
                 degree[y] += <span class="number">1</span>;
             }
         }
 
-        <span class="kw">for </span>x <span class="kw">in </span><span class="number">1</span>..instance.no_variables + <span class="number">1 </span>{
+        <span class="kw">for </span>x <span class="kw">in </span><span class="number">1</span>..num_vars + <span class="number">1 </span>{
             <span class="kw">let </span>y = x <span class="kw">as </span>usize;
             tpos[y] /= degree[y] <span class="kw">as </span>f64;
         }
 
         <span class="comment">// println!(&quot;{:?}&quot;, tpos);
 
-        </span>order = (<span class="number">1</span>..instance.no_variables + <span class="number">1</span>).collect::&lt;Vec&lt;u32&gt;&gt;();
+        </span>order = (<span class="number">1</span>..num_vars + <span class="number">1</span>).collect::&lt;Vec&lt;u32&gt;&gt;();
 
         <span class="comment">// println!(&quot;{:?}&quot;, order);
 
@@ -209,7 +238,7 @@
         <span class="comment">// println!(&quot;{:?}&quot;, order);
         </span>order.insert(<span class="number">0</span>, (order.len() + <span class="number">1</span>) <span class="kw">as </span>u32);
 
-        <span class="kw">let </span>span_new = calc_span(<span class="kw-2">&amp;</span>instance.clauses, <span class="kw-2">&amp;</span>order);
+        <span class="kw">let </span>span_new = calc_span(clauses, <span class="kw-2">&amp;</span>order);
 
         <span class="kw">if </span>span.is_none() || span_new != span.unwrap() {
             span = <span class="prelude-val">Some</span>(span_new);
@@ -221,22 +250,23 @@
     order
 }
 
-<span class="kw">fn </span>calc_center_of_gravity(clause: <span class="kw-2">&amp;</span>[i32], order: <span class="kw-2">&amp;</span>[u32]) -&gt; f64 {
+<span class="kw">fn </span>calc_center_of_gravity(clause: <span class="kw-2">&amp;</span>Clause, order: <span class="kw-2">&amp;</span>[u32]) -&gt; f64 {
     <span class="kw">let </span><span class="kw-2">mut </span>out = <span class="number">0</span>;
-    <span class="kw">for </span>x <span class="kw">in </span>clause {
-        out += order[x.unsigned_abs() <span class="kw">as </span>usize];
+    <span class="kw">for </span>x <span class="kw">in </span>clause.lits().iter() {
+        out += order[x.var().to_u64() <span class="kw">as </span>usize];
     }
 
     out <span class="kw">as </span>f64 / clause.len() <span class="kw">as </span>f64
 }
 
-<span class="kw">fn </span>calc_span(clauses: <span class="kw-2">&amp;</span>[Vec&lt;i32&gt;], order: <span class="kw-2">&amp;</span>[u32]) -&gt; u32 {
+<span class="kw">fn </span>calc_span(clauses: <span class="kw-2">&amp;</span>[Clause], order: <span class="kw-2">&amp;</span>[u32]) -&gt; u32 {
     <span class="kw">let </span><span class="kw-2">mut </span>span = <span class="number">0</span>;
 
-    <span class="kw">for </span>clause <span class="kw">in </span>clauses {
+    <span class="kw">for </span>clause <span class="kw">in </span>clauses.iter() {
         <span class="kw">let </span>pos = clause
+            .lits()
             .iter()
-            .map(|x| order[x.unsigned_abs() <span class="kw">as </span>usize])
+            .map(|x| order[x.var().to_u64() <span class="kw">as </span>usize])
             .collect::&lt;Vec&lt;u32&gt;&gt;();
         <span class="kw">let </span>min = pos.iter().min().unwrap();
         <span class="kw">let </span>max = pos.iter().max().unwrap();
@@ -248,14 +278,18 @@
 
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">fn </span>order_dist(instance: <span class="kw-2">&amp;</span>Instance) -&gt; Vec&lt;u32&gt; {
-    <span class="kw">let </span>n = (instance.no_variables + <span class="number">1</span>) <span class="kw">as </span>usize;
+    <span class="kw">let </span>(num_vars, clauses) = <span class="kw">match </span>instance {
+        Instance::Cnf { num_vars, clauses } =&gt; (<span class="kw-2">*</span>num_vars <span class="kw">as </span>usize, clauses),
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unsupported dimacs format!&quot;</span>),
+    };
+    <span class="kw">let </span>n = num_vars + <span class="number">1</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>dists: Vec&lt;Vec&lt;u32&gt;&gt; = <span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">0</span>; n]; n];
-    <span class="kw">for </span>clause <span class="kw">in </span><span class="kw-2">&amp;</span>instance.clauses {
-        <span class="kw">for </span>x_ <span class="kw">in </span>clause {
-            <span class="kw">let </span>x = x_.unsigned_abs() <span class="kw">as </span>usize;
+    <span class="kw">for </span>clause <span class="kw">in </span>clauses.iter() {
+        <span class="kw">for </span>x_ <span class="kw">in </span>clause.lits().iter() {
+            <span class="kw">let </span>x = x_.var().to_u64() <span class="kw">as </span>usize;
 
-            <span class="kw">for </span>y_ <span class="kw">in </span>clause {
-                <span class="kw">let </span>y = y_.unsigned_abs() <span class="kw">as </span>usize;
+            <span class="kw">for </span>y_ <span class="kw">in </span>clause.lits().iter() {
+                <span class="kw">let </span>y = y_.var().to_u64() <span class="kw">as </span>usize;
                 <span class="kw">if </span>x &gt;= y {
                     <span class="kw">break</span>;
                 }

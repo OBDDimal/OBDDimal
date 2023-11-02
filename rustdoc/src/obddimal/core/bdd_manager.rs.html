@@ -420,6 +420,18 @@
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
 <a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! All BDD building and manipulation functionality
 
 </span><span class="kw">use </span>std::fmt;
@@ -430,6 +442,8 @@
     core::bdd_node::{DDNode, NodeID, VarID},
     misc::hash_select::{HashMap, HashSet},
 };
+
+<span class="kw">use </span>dimacs::Clause;
 
 <span class="doccomment">/// Terminal node &quot;zero&quot;
 </span><span class="kw">pub const </span>ZERO: DDNode = DDNode {
@@ -520,12 +534,22 @@
 }
 
 <span class="doccomment">/// Determine order in which clauses should be added to BDD
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>align_clauses(clauses: <span class="kw-2">&amp;</span>[Vec&lt;i32&gt;]) -&gt; Vec&lt;usize&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>align_clauses(clauses: <span class="kw-2">&amp;</span>[Clause]) -&gt; Vec&lt;usize&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>shuffle: Vec&lt;(usize, f32)&gt; = Vec::default();
 
     <span class="kw">for </span>(i, clause) <span class="kw">in </span>clauses.iter().enumerate() {
-        <span class="kw">let </span>min = clause.iter().map(|x| x.abs()).min().unwrap();
-        <span class="kw">let </span>max = clause.iter().map(|x| x.abs()).max().unwrap();
+        <span class="kw">let </span>min = clause
+            .lits()
+            .iter()
+            .map(|x| x.var().to_u64())
+            .min()
+            .unwrap();
+        <span class="kw">let </span>max = clause
+            .lits()
+            .iter()
+            .map(|x| x.var().to_u64())
+            .max()
+            .unwrap();
 
         shuffle.push((i, (clause.len() <span class="kw">as </span>f32 * (max - min) <span class="kw">as </span>f32)));
     }

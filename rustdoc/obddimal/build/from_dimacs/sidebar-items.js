@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["dimacs"]};
+window.SIDEBAR_ITEMS = {};

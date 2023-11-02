@@ -300,6 +300,20 @@
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
 <a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementation of BDD layer swap
 
 </span><span class="kw">use crate</span>::{
@@ -450,8 +464,8 @@
     <span class="kw">use </span>num_bigint::BigUint;
 
     <span class="kw">use crate</span>::{
-        build::from_dimacs::dimacs, core::bdd_manager::DDManager, core::bdd_node::VarID,
-        core::order::order_to_layernames, core::test::tests::TestCase,
+        core::bdd_manager::DDManager, core::bdd_node::VarID, core::order::order_to_layernames,
+        core::test::tests::TestCase,
     };
 
     <span class="doccomment">/// Swap each variable pair from initial order
@@ -474,16 +488,27 @@
 
         <span class="kw">let </span>expected = BigUint::parse_bytes(<span class="string">b&quot;2808&quot;</span>, <span class="number">10</span>).unwrap();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>instance = dimacs::parse_dimacs(<span class="string">&quot;examples/sandwich.dimacs&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>instance = dimacs::parse_dimacs(
+            <span class="kw-2">&amp;</span>fs::read_to_string(<span class="string">&quot;examples/sandwich.dimacs&quot;</span>).expect(<span class="string">&quot;Failed to read dimacs file.&quot;</span>),
+        )
+        .expect(<span class="string">&quot;Failed to parse dimacs file.&quot;</span>);
         <span class="kw">let </span>(man, bdd) = DDManager::from_instance(<span class="kw-2">&amp;mut </span>instance, <span class="prelude-val">None</span>, Default::default()).unwrap();
+        <span class="kw">let </span>num_vars = <span class="kw">match </span>instance {
+            dimacs::Instance::Cnf { num_vars, .. } =&gt; num_vars <span class="kw">as </span>usize,
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unsupported dimacs format!&quot;</span>),
+        };
 
         <span class="macro">assert_eq!</span>(man.sat_count(bdd), expected);
 
-        <span class="kw">for </span>v <span class="kw">in </span><span class="number">1</span>..instance.no_variables {
+        <span class="kw">for </span>v <span class="kw">in </span><span class="number">1</span>..num_vars {
             <span class="kw">let </span><span class="kw-2">mut </span>man = man.clone();
             <span class="kw">let </span><span class="kw-2">mut </span>bdd = bdd;
-            <span class="kw">for </span>i <span class="kw">in </span>v..instance.no_variables {
-                bdd = man.swap(VarID(v), VarID(i + <span class="number">1</span>), bdd);
+            <span class="kw">for </span>i <span class="kw">in </span>v..num_vars {
+                bdd = man.swap(
+                    VarID(v.try_into().unwrap()),
+                    VarID((i + <span class="number">1</span>).try_into().unwrap()),
+                    bdd,
+                );
                 <span class="comment">// Use sat_count as sanity check that the BDD isnt completely broken
                 </span><span class="macro">assert_eq!</span>(man.sat_count(bdd), expected);
             }
@@ -493,7 +518,10 @@
     <span class="attr">#[test]
     #[should_panic(expected = <span class="string">&quot;Variables not on adjacent layers!&quot;</span>)]
     </span><span class="kw">fn </span>swap_failure_non_adjacent() {
-        <span class="kw">let </span><span class="kw-2">mut </span>instance = dimacs::parse_dimacs(<span class="string">&quot;examples/sandwich.dimacs&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>instance = dimacs::parse_dimacs(
+            <span class="kw-2">&amp;</span>fs::read_to_string(<span class="string">&quot;examples/sandwich.dimacs&quot;</span>).expect(<span class="string">&quot;Failed to read dimacs file.&quot;</span>),
+        )
+        .expect(<span class="string">&quot;Failed to parse dimacs file.&quot;</span>);
         <span class="kw">let </span>(<span class="kw-2">mut </span>man, bdd) =
             DDManager::from_instance(<span class="kw-2">&amp;mut </span>instance, <span class="prelude-val">None</span>, Default::default()).unwrap();
         <span class="kw">let _ </span>= man.swap(VarID(<span class="number">1</span>), VarID(<span class="number">3</span>), bdd);

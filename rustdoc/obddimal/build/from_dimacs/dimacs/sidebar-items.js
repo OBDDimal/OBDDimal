@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["file_readlines","parse_dimacs"],"struct":["Instance"]};
