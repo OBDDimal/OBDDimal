@@ -1,4 +1,4 @@
-pub mod build;
+mod build;
 pub mod core;
 pub mod misc;
 mod util;

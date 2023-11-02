@@ -163,7 +163,6 @@ impl DDManager {
 mod tests {
     use super::DDManager;
     use crate::{
-        build::from_dimacs::dimacs,
         core::bdd_node::{DDNode, NodeID, VarID},
         misc::hash_select::HashSet,
     };
@@ -450,13 +449,17 @@ mod tests {
     }
 
     use num_bigint::BigUint;
+    use std::fs;
 
     /// This tests that reducing the "sandwich" bdd does not fail and does not break it
     #[test]
     fn reduce_sandwich() {
         let expected = BigUint::parse_bytes(b"2808", 10).unwrap();
 
-        let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
+        let mut instance = dimacs::parse_dimacs(
+            &fs::read_to_string("examples/sandwich.dimacs").expect("Failed to read dimacs file."),
+        )
+        .expect("Failed to parse dimacs file.");
         let (mut man, bdd) =
             DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
 

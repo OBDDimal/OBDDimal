@@ -9,6 +9,8 @@ use crate::{
     misc::hash_select::{HashMap, HashSet},
 };
 
+use dimacs::Clause;
+
 /// Terminal node "zero"
 pub const ZERO: DDNode = DDNode {
     id: NodeID(0),
@@ -98,12 +100,22 @@ impl Default for DDManager {
 }
 
 /// Determine order in which clauses should be added to BDD
-pub(crate) fn align_clauses(clauses: &[Vec<i32>]) -> Vec<usize> {
+pub(crate) fn align_clauses(clauses: &[Clause]) -> Vec<usize> {
     let mut shuffle: Vec<(usize, f32)> = Vec::default();
 
     for (i, clause) in clauses.iter().enumerate() {
-        let min = clause.iter().map(|x| x.abs()).min().unwrap();
-        let max = clause.iter().map(|x| x.abs()).max().unwrap();
+        let min = clause
+            .lits()
+            .iter()
+            .map(|x| x.var().to_u64())
+            .min()
+            .unwrap();
+        let max = clause
+            .lits()
+            .iter()
+            .map(|x| x.var().to_u64())
+            .max()
+            .unwrap();
 
         shuffle.push((i, (clause.len() as f32 * (max - min) as f32)));
     }

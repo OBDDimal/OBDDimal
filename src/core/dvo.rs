@@ -195,8 +195,7 @@ mod tests {
     use num_bigint::BigUint;
 
     use crate::{
-        build::from_dimacs::dimacs, core::bdd_manager::DDManager, core::bdd_node::VarID,
-        core::order::order_to_layernames,
+        core::bdd_manager::DDManager, core::bdd_node::VarID, core::order::order_to_layernames,
     };
 
     #[test]
@@ -206,7 +205,10 @@ mod tests {
         let expected = BigUint::parse_bytes(b"2808", 10).unwrap();
 
         // Build BDD
-        let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
+        let mut instance = dimacs::parse_dimacs(
+            &fs::read_to_string("examples/sandwich.dimacs").expect("Failed to read dimacs file."),
+        )
+        .expect("Failed to parse dimacs file.");
         let (mut man, bdd) =
             DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
         assert_eq!(man.sat_count(bdd), expected);
@@ -229,7 +231,10 @@ mod tests {
         let expected = BigUint::parse_bytes(b"2808", 10).unwrap();
 
         // Build BDD
-        let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
+        let mut instance = dimacs::parse_dimacs(
+            &fs::read_to_string("examples/sandwich.dimacs").expect("Failed to read dimacs file."),
+        )
+        .expect("Failed to parse dimacs file.");
         let (mut man, bdd) =
             DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
         assert_eq!(man.sat_count(bdd), expected);

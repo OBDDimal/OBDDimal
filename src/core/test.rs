@@ -252,7 +252,7 @@ pub mod tests {
         }
     }
 
-    use crate::{build::from_dimacs::dimacs, core::bdd_manager::DDManager};
+    use crate::core::bdd_manager::DDManager;
 
     // Test that a testcase matches itself
     #[test]
@@ -274,7 +274,10 @@ pub mod tests {
     fn trivial_same_as_dimacs() {
         let testcase = TestCase::test_trivial();
 
-        let mut instance = dimacs::parse_dimacs("examples/trivial.dimacs");
+        let mut instance = dimacs::parse_dimacs(
+            &fs::read_to_string("examples/trivial.dimacs").expect("Failed to read dimacs file."),
+        )
+        .expect("Failed to parse dimacs file.");
         let (man_dimacs, bdd_dimacs) =
             DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
         assert!(testcase.verify_against(&man_dimacs, bdd_dimacs));

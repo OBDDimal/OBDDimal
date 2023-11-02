@@ -1,6 +1,6 @@
 //! BDD building from CNF
 
-pub mod dimacs;
+//pub mod dimacs;
 
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 
@@ -12,7 +12,7 @@ use crate::{
     core::order::check_order,
     if_some,
 };
-use dimacs::Instance;
+use dimacs::{Instance, Sign};
 
 impl DDManager {
     /// Builds a BDD from a CNF read from DIMACS.
@@ -28,10 +28,14 @@ impl DDManager {
     /// #               options::Options,
     /// #               bdd_manager::DDManager
     /// #           },
-    /// #           build::from_dimacs::dimacs,
     /// #           misc::static_ordering,
     /// # };
-    /// let mut instance = dimacs::parse_dimacs("examples/trivial.dimacs");
+    /// # use std::fs;
+    /// let mut instance = dimacs::parse_dimacs(
+    ///     &fs::read_to_string("examples/trivial.dimacs")
+    ///         .expect("Failed to read dimacs file."),
+    /// )
+    /// .expect("Failed to parse dimacs file.");
     /// let order = Some(static_ordering::force(&instance));
     /// let dvo = dvo_schedules::SiftingAtThreshold::new(5);
     /// let (man, bdd) = DDManager::from_instance(
@@ -45,9 +49,14 @@ impl DDManager {
         order: Option<Vec<u32>>,
         mut options: Options,
     ) -> Result<(DDManager, NodeID), String> {
+        let clauses = match instance {
+            Instance::Cnf { ref clauses, .. } => clauses,
+            _ => panic!("Unsupported dimacs format!"),
+        };
+
         let mut man = DDManager::default();
 
-        let clause_order = align_clauses(&instance.clauses);
+        let clause_order = align_clauses(clauses);
         if let Some(o) = order {
             check_order(instance, &o)?;
             man.order = o;
@@ -74,16 +83,16 @@ impl DDManager {
         };
 
         for (n, clause_nr) in clause_order.iter().enumerate() {
-            let clause = &instance.clauses[*clause_nr];
+            let clause = &clauses[*clause_nr];
 
             log::info!("Integrating clause: {:?}", clause);
 
             let mut cbdd = man.zero();
-            for x in clause {
-                let node = if *x < 0_i32 {
-                    man.nith_var(VarID(-x as u32))
-                } else {
-                    man.ith_var(VarID(*x as u32))
+            for x in clause.lits().iter() {
+                let var = x.var().to_u64();
+                let node = match x.sign() {
+                    Sign::Pos => man.ith_var(VarID(var as u32)),
+                    Sign::Neg => man.nith_var(VarID(var as u32)),
                 };
 
                 cbdd = man.or(node, cbdd);
@@ -95,7 +104,7 @@ impl DDManager {
                 "Nr. Nodes: {:?} ({:?}/{:?} clauses integrated)",
                 &man.nodes.len(),
                 n,
-                &instance.clauses.len()
+                clauses.len()
             );
 
             man.purge_retain(bdd);

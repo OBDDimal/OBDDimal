@@ -148,8 +148,8 @@ mod tests {
     use num_bigint::BigUint;
 
     use crate::{
-        build::from_dimacs::dimacs, core::bdd_manager::DDManager, core::bdd_node::VarID,
-        core::order::order_to_layernames, core::test::tests::TestCase,
+        core::bdd_manager::DDManager, core::bdd_node::VarID, core::order::order_to_layernames,
+        core::test::tests::TestCase,
     };
 
     /// Swap each variable pair from initial order
@@ -172,16 +172,27 @@ mod tests {
 
         let expected = BigUint::parse_bytes(b"2808", 10).unwrap();
 
-        let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
+        let mut instance = dimacs::parse_dimacs(
+            &fs::read_to_string("examples/sandwich.dimacs").expect("Failed to read dimacs file."),
+        )
+        .expect("Failed to parse dimacs file.");
         let (man, bdd) = DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
+        let num_vars = match instance {
+            dimacs::Instance::Cnf { num_vars, .. } => num_vars as usize,
+            _ => panic!("Unsupported dimacs format!"),
+        };
 
         assert_eq!(man.sat_count(bdd), expected);
 
-        for v in 1..instance.no_variables {
+        for v in 1..num_vars {
             let mut man = man.clone();
             let mut bdd = bdd;
-            for i in v..instance.no_variables {
-                bdd = man.swap(VarID(v), VarID(i + 1), bdd);
+            for i in v..num_vars {
+                bdd = man.swap(
+                    VarID(v.try_into().unwrap()),
+                    VarID((i + 1).try_into().unwrap()),
+                    bdd,
+                );
                 // Use sat_count as sanity check that the BDD isnt completely broken
                 assert_eq!(man.sat_count(bdd), expected);
             }
@@ -191,7 +202,10 @@ mod tests {
     #[test]
     #[should_panic(expected = "Variables not on adjacent layers!")]
     fn swap_failure_non_adjacent() {
-        let mut instance = dimacs::parse_dimacs("examples/sandwich.dimacs");
+        let mut instance = dimacs::parse_dimacs(
+            &fs::read_to_string("examples/sandwich.dimacs").expect("Failed to read dimacs file."),
+        )
+        .expect("Failed to parse dimacs file.");
         let (mut man, bdd) =
             DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
         let _ = man.swap(VarID(1), VarID(3), bdd);

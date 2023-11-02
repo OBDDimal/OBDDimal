@@ -1,8 +1,12 @@
 use criterion::{criterion_group, Criterion};
-use obddimal::{build::from_dimacs::dimacs, core::bdd_manager::DDManager, misc::static_ordering};
+use obddimal::{core::bdd_manager::DDManager, misc::static_ordering};
+use std::fs;
 
 pub fn berkeleydb_sift_all(c: &mut Criterion) {
-    let mut cnf = dimacs::parse_dimacs(concat!("examples/berkeleydb.dimacs"));
+    let mut cnf = dimacs::parse_dimacs(
+        &fs::read_to_string("examples/berkeleydb.dimacs").expect("Failed to read dimacs file."),
+    )
+    .expect("Failed to parse dimacs file.");
     let order = Some(static_ordering::keep(&cnf));
     let (man, bdd) = DDManager::from_instance(&mut cnf, order, Default::default()).unwrap();
 

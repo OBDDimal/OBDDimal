@@ -1,21 +1,26 @@
 //! Utility functions related to variable order
 
-use crate::{build::from_dimacs::dimacs::Instance, core::bdd_node::VarID};
+use crate::core::bdd_node::VarID;
+use dimacs::Instance;
 
 /// Checks if a specified variable ordering is valid for the CNF instance.
 /// Returns `OK(())` or `Err("error message")`.
 pub(crate) fn check_order(cnf: &Instance, order: &[u32]) -> Result<(), String> {
-    if order.len() != cnf.no_variables as usize + 1 {
+    let num_vars = match cnf {
+        Instance::Cnf { num_vars, .. } => *num_vars as usize,
+        _ => panic!("Unsupported dimacs format!"),
+    };
+    if order.len() != num_vars as usize + 1 {
         return Err(format!(
             "Invalid size of ordering: Size was {}, expected {} (nr of variables + 1)",
             order.len(),
-            cnf.no_variables + 1
+            num_vars + 1
         ));
     }
 
-    if order[0] != cnf.no_variables + 1 {
+    if order[0] != (num_vars + 1).try_into().unwrap() {
         return Err(format!(
-            "Depth of terminal nodes (index 0) is specified as {}, but should be {} (nr of variables + 1)",order[0], cnf.no_variables+1
+            "Depth of terminal nodes (index 0) is specified as {}, but should be {} (nr of variables + 1)",order[0], num_vars+1
         ));
     }
 
@@ -28,7 +33,7 @@ pub(crate) fn check_order(cnf: &Instance, order: &[u32]) -> Result<(), String> {
         ));
     }
 
-    let mut var_map = vec![0; cnf.no_variables as usize + 1];
+    let mut var_map = vec![0; num_vars as usize + 1];
     for (var, depth) in order.iter().enumerate() {
         if *depth < 1 {
             return Err(format!(
@@ -37,7 +42,7 @@ pub(crate) fn check_order(cnf: &Instance, order: &[u32]) -> Result<(), String> {
             ));
         }
 
-        if *depth > cnf.no_variables && var != 0 {
+        if *depth > num_vars.try_into().unwrap() && var != 0 {
             return Err(format!(
                 "Variable {} specified at depth {} which is greater than the number of variables",
                 var, depth
@@ -48,7 +53,7 @@ pub(crate) fn check_order(cnf: &Instance, order: &[u32]) -> Result<(), String> {
     }
 
     for (depth, var) in var_map.iter().enumerate() {
-        if *var == 0 && depth != cnf.no_variables as usize {
+        if *var == 0 && depth != num_vars as usize {
             return Err(format!("No variable at depth {}", depth + 1));
         }
     }
