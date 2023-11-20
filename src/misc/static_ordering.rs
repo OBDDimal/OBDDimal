@@ -11,7 +11,7 @@ pub fn keep(instance: &Instance) -> Vec<usize> {
     };
     let mut order: Vec<usize> = (1_usize..num_vars + 1).collect();
 
-    order.insert(0, (order.len() + 1) as usize);
+    order.insert(0, order.len() + 1);
     order
 }
 
@@ -25,7 +25,7 @@ pub fn rand(instance: &Instance) -> Vec<usize> {
 
     order.shuffle(&mut thread_rng());
 
-    order.insert(0, (order.len() + 1) as usize);
+    order.insert(0, order.len() + 1);
     order
 }
 
