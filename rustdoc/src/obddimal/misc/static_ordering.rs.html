@@ -168,7 +168,7 @@
     };
     <span class="kw">let </span><span class="kw-2">mut </span>order: Vec&lt;usize&gt; = (<span class="number">1_usize</span>..num_vars + <span class="number">1</span>).collect();
 
-    order.insert(<span class="number">0</span>, (order.len() + <span class="number">1</span>) <span class="kw">as </span>usize);
+    order.insert(<span class="number">0</span>, order.len() + <span class="number">1</span>);
     order
 }
 
@@ -182,7 +182,7 @@
 
     order.shuffle(<span class="kw-2">&amp;mut </span>thread_rng());
 
-    order.insert(<span class="number">0</span>, (order.len() + <span class="number">1</span>) <span class="kw">as </span>usize);
+    order.insert(<span class="number">0</span>, order.len() + <span class="number">1</span>);
     order
 }
 
