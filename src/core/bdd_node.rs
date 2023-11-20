@@ -4,10 +4,10 @@
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct NodeID(pub u32);
+pub struct NodeID(pub usize);
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct VarID(pub u32);
+pub struct VarID(pub usize);
 
 /// Element of a BDD.
 /// Note that the Node contains its own ID. This may be set to zero until it has been assigned,
@@ -35,12 +35,12 @@ impl DDNode {
     /// Returns the function resulting when setting the specified variable to the specified value.
     /// Note that this only implements the case of the node being at the exact level of the specified
     /// variable.
-    pub fn restrict(&self, top: VarID, order: &[u32], val: bool) -> NodeID {
+    pub fn restrict(&self, top: VarID, var2level: &[usize], val: bool) -> NodeID {
         if self.var == VarID(0) {
             return self.id;
         }
 
-        if order[top.0 as usize] < order[self.var.0 as usize] {
+        if var2level[top.0] < var2level[self.var.0] {
             // Variable does not occur in current function
             return self.id;
         }

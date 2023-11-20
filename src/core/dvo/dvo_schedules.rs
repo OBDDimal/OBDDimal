@@ -62,7 +62,7 @@ impl DVOSchedule for AlwaysUntilConvergence {
 /// See [DDManager::sift_single_var()] for `max_increase` parameter.
 #[derive(Default)]
 pub struct AlwaysOnce {
-    pub max_increase: Option<u32>,
+    pub max_increase: Option<usize>,
 }
 
 impl DVOSchedule for AlwaysOnce {
@@ -83,7 +83,7 @@ impl DVOSchedule for AlwaysOnce {
 
 /// Call the underlying strategy if the node count exceeds the specified limit
 pub struct AtThreshold {
-    pub active_nodes_threshold: u32,
+    pub active_nodes_threshold: usize,
     pub underlying_schedule: Box<DVOScheduleEnum>,
 }
 
@@ -122,7 +122,7 @@ impl DVOSchedule for SiftingAtThreshold {
 }
 
 impl SiftingAtThreshold {
-    pub fn new(active_nodes_threshold: u32) -> SiftingAtThreshold {
+    pub fn new(active_nodes_threshold: usize) -> SiftingAtThreshold {
         SiftingAtThreshold {
             underlying: AtThreshold {
                 active_nodes_threshold,

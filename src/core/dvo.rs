@@ -17,12 +17,12 @@ use crate::if_some;
 
 impl DDManager {
     /// Find the variable at specified level
-    fn var_at_level(&self, level: u32) -> Option<VarID> {
-        self.order
+    fn var_at_level(&self, level: usize) -> Option<VarID> {
+        self.var2level
             .iter()
             .enumerate()
             .find(|(_, &l)| l == level)
-            .map(|(v, _)| VarID(v as u32))
+            .map(|(v, _)| VarID(v))
     }
 
     /// Swap layer containing specified variable first to the bottom of the BDD, then to the top,
@@ -30,8 +30,13 @@ impl DDManager {
     /// Optional parameter `max_increase` stops swapping in either direction once the difference
     /// between BDD size and current optimum exceeds threshold.
     #[allow(unused)]
-    fn sift_single_var(&mut self, var: VarID, max_increase: Option<u32>, mut f: NodeID) -> NodeID {
-        let starting_pos = self.order[var.0 as usize];
+    fn sift_single_var(
+        &mut self,
+        var: VarID,
+        max_increase: Option<usize>,
+        mut f: NodeID,
+    ) -> NodeID {
+        let starting_pos = self.var2level[var.0];
 
         let mut best_position = starting_pos;
         let mut best_graphsize = self.count_active(f);
@@ -44,7 +49,7 @@ impl DDManager {
         );
 
         // Move variable to the bottom
-        let terminal_node_level = self.order[ZERO.var.0 as usize];
+        let terminal_node_level = self.var2level[ZERO.var.0];
 
         let mut current_level = starting_pos;
 
@@ -66,7 +71,7 @@ impl DDManager {
             if new_size < best_graphsize {
                 log::info!(
                     " New optimum found with order {:?}",
-                    order_to_layernames(&self.order)
+                    order_to_layernames(&self.var2level)
                 );
                 self.purge_retain(f);
                 best_graphsize = new_size;
@@ -111,7 +116,7 @@ impl DDManager {
             if new_size < best_graphsize {
                 log::info!(
                     " New optimum found with order {:?}",
-                    order_to_layernames(&self.order)
+                    order_to_layernames(&self.var2level)
                 );
                 self.purge_retain(f);
                 best_graphsize = new_size;
@@ -159,22 +164,22 @@ impl DDManager {
         &mut self,
         mut f: NodeID,
         progressbar: bool,
-        max_increase: Option<u32>,
+        max_increase: Option<usize>,
     ) -> NodeID {
         let bar = if progressbar {
-            Some(ProgressBar::new(self.var2nodes.len() as u64 - 1))
+            Some(ProgressBar::new(self.level2nodes.len() as u64 - 1))
         } else {
             None
         };
 
-        for v in (1..self.var2nodes.len()) {
+        for v in (1..self.var2level.len()) {
             if_some!(bar, inc(1));
 
-            if self.var2nodes[v].is_empty() {
+            if self.level2nodes[self.var2level[v]].is_empty() {
                 continue;
             }
 
-            let var = VarID(v as u32);
+            let var = VarID(v);
             f = self.sift_single_var(var, max_increase, f);
             self.purge_retain(f);
         }
@@ -218,7 +223,10 @@ mod tests {
         let bdd = man.sift_single_var(VarID(2), None, bdd);
         let size_after = man.count_active(bdd);
         println!("Size after sifting: {}", size_after);
-        println!("Order after sifting: {:?}", order_to_layernames(&man.order));
+        println!(
+            "Order after sifting: {:?}",
+            order_to_layernames(&man.var2level)
+        );
 
         assert_eq!(man.sat_count(bdd), expected);
         assert!(size_after <= size_before);
@@ -244,7 +252,10 @@ mod tests {
         let bdd = man.sift_all_vars(bdd, false, None);
         let size_after = man.count_active(bdd);
         println!("Size after sifting: {}", size_after);
-        println!("Order after sifting: {:?}", order_to_layernames(&man.order));
+        println!(
+            "Order after sifting: {:?}",
+            order_to_layernames(&man.var2level)
+        );
         fs::write("after.dot", man.graphviz(bdd)).unwrap();
 
         assert_eq!(man.sat_count(bdd), expected);

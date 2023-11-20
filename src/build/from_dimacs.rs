@@ -11,8 +11,10 @@ use crate::{
     core::options::Options,
     core::order::check_order,
     if_some,
+    misc::hash_select::HashSet,
 };
 use dimacs::{Instance, Sign};
+use std::cmp;
 
 impl DDManager {
     /// Builds a BDD from a CNF read from DIMACS.
@@ -46,7 +48,7 @@ impl DDManager {
     /// ```
     pub fn from_instance(
         instance: &mut Instance,
-        order: Option<Vec<u32>>,
+        order: Option<Vec<usize>>,
         mut options: Options,
     ) -> Result<(DDManager, NodeID), String> {
         let clauses = match instance {
@@ -59,7 +61,11 @@ impl DDManager {
         let clause_order = align_clauses(clauses);
         if let Some(o) = order {
             check_order(instance, &o)?;
-            man.order = o;
+            man.level2nodes.resize(
+                cmp::max(man.level2nodes.len(), *o.iter().max().unwrap()),
+                HashSet::default(),
+            );
+            man.var2level = o;
         }
 
         let mut bdd = man.one();
@@ -91,8 +97,8 @@ impl DDManager {
             for x in clause.lits().iter() {
                 let var = x.var().to_u64();
                 let node = match x.sign() {
-                    Sign::Pos => man.ith_var(VarID(var as u32)),
-                    Sign::Neg => man.nith_var(VarID(var as u32)),
+                    Sign::Pos => man.ith_var(VarID(var as usize)),
+                    Sign::Neg => man.nith_var(VarID(var as usize)),
                 };
 
                 cbdd = man.or(node, cbdd);

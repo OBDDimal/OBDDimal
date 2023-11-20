@@ -5,7 +5,7 @@ use dimacs::Instance;
 
 /// Checks if a specified variable ordering is valid for the CNF instance.
 /// Returns `OK(())` or `Err("error message")`.
-pub(crate) fn check_order(cnf: &Instance, order: &[u32]) -> Result<(), String> {
+pub(crate) fn check_order(cnf: &Instance, order: &[usize]) -> Result<(), String> {
     let num_vars = match cnf {
         Instance::Cnf { num_vars, .. } => *num_vars as usize,
         _ => panic!("Unsupported dimacs format!"),
@@ -18,7 +18,7 @@ pub(crate) fn check_order(cnf: &Instance, order: &[u32]) -> Result<(), String> {
         ));
     }
 
-    if order[0] != (num_vars + 1).try_into().unwrap() {
+    if order[0] != num_vars + 1 {
         return Err(format!(
             "Depth of terminal nodes (index 0) is specified as {}, but should be {} (nr of variables + 1)",order[0], num_vars+1
         ));
@@ -42,14 +42,14 @@ pub(crate) fn check_order(cnf: &Instance, order: &[u32]) -> Result<(), String> {
             ));
         }
 
-        if *depth > num_vars.try_into().unwrap() && var != 0 {
+        if *depth > num_vars && var != 0 {
             return Err(format!(
                 "Variable {} specified at depth {} which is greater than the number of variables",
                 var, depth
             ));
         }
 
-        var_map[*depth as usize - 1] = var;
+        var_map[*depth - 1] = var;
     }
 
     for (depth, var) in var_map.iter().enumerate() {
@@ -62,10 +62,10 @@ pub(crate) fn check_order(cnf: &Instance, order: &[u32]) -> Result<(), String> {
 }
 
 /// Returns the variable order as list of VarID top to bottom
-pub(crate) fn order_to_layernames(order: &[u32]) -> Vec<VarID> {
-    let mut res = vec![VarID(0); *order.iter().max().unwrap() as usize];
+pub(crate) fn order_to_layernames(order: &[usize]) -> Vec<VarID> {
+    let mut res = vec![VarID(0); *order.iter().max().unwrap()];
     for (var_num, var_pos) in order.iter().enumerate() {
-        res[*var_pos as usize - 1] = VarID(var_num as u32);
+        res[*var_pos - 1] = VarID(var_num);
     }
     res
 }

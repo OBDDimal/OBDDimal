@@ -15,7 +15,7 @@ use crate::{
 
 impl DDManager {
     #[allow(dead_code)]
-    fn is_sat(&self, node: u32) -> bool {
+    fn is_sat(&self, node: usize) -> bool {
         node != 0
     }
 
@@ -38,19 +38,21 @@ impl DDManager {
             let high = &self.nodes.get(&node.high).unwrap();
 
             let low_jump = if low.var == VarID(0) {
-                self.order.len() as u32 - self.order[node.var.0 as usize] - 1
+                self.var2level.len() - self.var2level[node.var.0] - 1
             } else {
-                self.order[low.var.0 as usize] - self.order[node.var.0 as usize] - 1
+                self.var2level[low.var.0] - self.var2level[node.var.0] - 1
             };
 
             let high_jump = if high.var == VarID(0) {
-                self.order.len() as u32 - self.order[node.var.0 as usize] - 1
+                self.var2level.len() - self.var2level[node.var.0] - 1
             } else {
-                self.order[high.var.0 as usize] - self.order[node.var.0 as usize] - 1
+                self.var2level[high.var.0] - self.var2level[node.var.0] - 1
             };
 
-            let low_fac = BigUint::parse_bytes(b"2", 10).unwrap().pow(low_jump);
-            let high_fac = BigUint::parse_bytes(b"2", 10).unwrap().pow(high_jump);
+            let low_fac = BigUint::parse_bytes(b"2", 10).unwrap().pow(low_jump as u32);
+            let high_fac = BigUint::parse_bytes(b"2", 10)
+                .unwrap()
+                .pow(high_jump as u32);
 
             total += match cache.get(&node.low) {
                 Some(x) => x * low_fac,
@@ -68,7 +70,7 @@ impl DDManager {
         total
     }
 
-    pub fn count_active(&self, f: NodeID) -> u32 {
+    pub fn count_active(&self, f: NodeID) -> usize {
         // We use HashMap<NodeID, ()> instead of HashSet<NodeID> to be able to use the .entry()
         // API below. This turns out to be faster, since it avoids the double lookup if the
         // ID is not yet known (!contains -> insert).
@@ -93,6 +95,6 @@ impl DDManager {
             }
         }
 
-        nodes.len() as u32
+        nodes.len()
     }
 }

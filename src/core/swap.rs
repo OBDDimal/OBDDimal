@@ -7,37 +7,46 @@ use crate::{
 };
 
 impl DDManager {
-    /// Swaps graph layers of variables a and b. Requires a to be directly above b.
+    /// Swaps graph layers of variables a and b. Requires a to be directly above b or vice versa.
     /// Performs reduction which may change NodeIDs. Returns new NodeID of f.
     #[allow(unused)]
     #[must_use]
     pub fn swap(&mut self, a: VarID, b: VarID, f: NodeID) -> NodeID {
+        // If b above a, switch a and b
+        let (a, b) = if (self.var2level[b.0] < self.var2level[a.0]) {
+            (b, a)
+        } else {
+            (a, b)
+        };
         log::info!(
             "Swapping variables {:?} and {:?} (layers {} and {})",
             a,
             b,
-            self.order[a.0 as usize],
-            self.order[b.0 as usize]
+            self.var2level[a.0],
+            self.var2level[b.0]
         );
         assert!(a.0 != 0 && b.0 != 0);
+        let upperlevel = self.var2level[a.0];
+        let lowerlevel = self.var2level[b.0];
         assert_eq!(
-            self.order[b.0 as usize],
-            self.order[a.0 as usize] + 1,
+            lowerlevel,
+            upperlevel + 1,
             "Variables not on adjacent layers!"
         );
 
-        while self.var2nodes.len() <= a.0 as usize {
-            self.var2nodes.push(Default::default());
-        }
-
-        let ids = self.var2nodes[a.0 as usize]
+        let ids = self.level2nodes[upperlevel]
             .iter()
             .map(|n| n.id)
             .collect::<Vec<NodeID>>();
 
-        self.order.swap(a.0 as usize, b.0 as usize);
+        self.var2level.swap(a.0, b.0);
+        self.level2nodes[upperlevel].clear();
+        assert!(self.level2nodes[upperlevel].is_empty());
+        self.level2nodes[lowerlevel].clear();
+        assert!(self.level2nodes[lowerlevel].is_empty());
 
         for id in ids {
+            log::debug!("Replacing node {:?}.", id);
             let f_id = id;
 
             let old_f_node = self.nodes[&f_id];
@@ -54,6 +63,7 @@ impl DDManager {
                     "Children of node {:?} more than one level below, leaving as is.",
                     f_id
                 );
+                self.level2nodes[lowerlevel].insert(old_f_node);
                 continue;
             }
 
@@ -106,24 +116,9 @@ impl DDManager {
             // Replace node in nodes list
             *self.nodes.get_mut(&f_id).unwrap() = new_f_node;
 
-            // Insert node in new unique-table
-            let inserted = self.var2nodes[b.0 as usize].insert(DDNode {
-                var: b,
-                low: new_else_id,
-                high: new_then_id,
-                id: f_id,
-            });
+            // Insert new node in unique-table
+            let inserted = self.level2nodes[upperlevel].insert(new_f_node);
             assert!(inserted);
-
-            // Remove node from old unique-table
-
-            let removed = self.var2nodes[a.0 as usize].remove(&DDNode {
-                var: a,
-                low: f_0_id,
-                high: f_1_id,
-                id: f_id,
-            });
-            assert!(removed);
 
             log::debug!("Replaced node {:?} with {:?}", f_id, self.nodes[&f_id]);
         }
@@ -133,11 +128,11 @@ impl DDManager {
 
         log::debug!(
             "Order is now: {:?} (layers: {:?})",
-            self.order,
-            order_to_layernames(&self.order)
+            self.var2level,
+            order_to_layernames(&self.var2level)
         );
 
-        f
+        self.reduce(f)
     }
 }
 
@@ -188,11 +183,7 @@ mod tests {
             let mut man = man.clone();
             let mut bdd = bdd;
             for i in v..num_vars {
-                bdd = man.swap(
-                    VarID(v.try_into().unwrap()),
-                    VarID((i + 1).try_into().unwrap()),
-                    bdd,
-                );
+                bdd = man.swap(VarID(v), VarID(i + 1), bdd);
                 // Use sat_count as sanity check that the BDD isnt completely broken
                 assert_eq!(man.sat_count(bdd), expected);
             }
@@ -277,7 +268,7 @@ mod tests {
             man.purge_retain(bdd);
 
             println!("Swapped, count is now {:?}", man.count_active(bdd));
-            println!("Order is now {:?}", order_to_layernames(&man.order));
+            println!("Order is now {:?}", order_to_layernames(&man.var2level));
 
             assert!(testcase.verify_against(&man, bdd));
 
@@ -292,7 +283,7 @@ mod tests {
             man.purge_retain(bdd);
 
             println!("Swapped, count is now {:?}", man.count_active(bdd));
-            println!("Order is now {:?}", order_to_layernames(&man.order));
+            println!("Order is now {:?}", order_to_layernames(&man.var2level));
             assert!(testcase.verify_against(&man, bdd));
 
             counts_up.push(man.count_active(bdd));

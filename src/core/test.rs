@@ -13,10 +13,10 @@ pub mod tests {
     /// A manually constructed BDD plus truth table, allowing verification of
     /// any other BDD agains it for testing if it represents the same function.
     pub struct TestCase {
-        ones: HashSet<Vec<u32>>,
+        ones: HashSet<Vec<usize>>,
         pub man: DDManager,
         pub f: NodeID,
-        pub nr_variables: u32,
+        pub nr_variables: usize,
     }
 
     impl TestCase {
@@ -191,13 +191,13 @@ pub mod tests {
         }
 
         fn from_truthtable<const N: usize>(table: Vec<[u8; N]>) -> TestCase {
-            let mut clauses: HashSet<Vec<u32>> = HashSet::default();
+            let mut clauses: HashSet<Vec<usize>> = HashSet::default();
 
             for line in table {
                 let mut clause = Vec::new();
                 for (var, value) in line.iter().enumerate() {
                     if *value != 0 {
-                        clause.push(var as u32 + 1)
+                        clause.push(var + 1)
                     }
                 }
 
@@ -209,7 +209,7 @@ pub mod tests {
 
             for clause in clauses.iter() {
                 let mut c = ONE.id;
-                for var in 1..N as u32 + 1 {
+                for var in 1..N + 1 {
                     let v = if clause.contains(&var) {
                         man.ith_var(VarID(var))
                     } else {
@@ -224,7 +224,7 @@ pub mod tests {
                 ones: clauses,
                 man,
                 f,
-                nr_variables: N as u32,
+                nr_variables: N,
             }
         }
 
@@ -286,6 +286,6 @@ pub mod tests {
     #[test]
     fn truthtable_satcount_random1() {
         let testcase = TestCase::random_1();
-        assert_eq!(testcase.man.sat_count(testcase.f), BigUint::from(132u32));
+        assert_eq!(testcase.man.sat_count(testcase.f), BigUint::from(132usize));
     }
 }

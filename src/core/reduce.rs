@@ -21,10 +21,10 @@ impl DDManager {
     pub(crate) fn reduce(&mut self, v: NodeID) -> NodeID {
         log::debug!("reducing");
 
-        let mut vlist: Vec<Vec<NodeID>> = vec![Vec::new(); self.order[0] as usize];
+        let mut vlist: Vec<Vec<NodeID>> = vec![Vec::new(); self.var2level[0]];
 
         for (id, node) in self.nodes.iter() {
-            vlist[node.var.0 as usize].push(*id);
+            vlist[node.var.0].push(*id);
         }
 
         let mut nextid = 0;
@@ -41,13 +41,13 @@ impl DDManager {
         let mut new_nodes: HashMap<NodeID, DDNode> = Default::default();
 
         // Graph layers, bottom to top
-        for i in order_to_layernames(&self.order).iter().rev() {
+        for i in order_to_layernames(&self.var2level).iter().rev() {
             log::debug!("Handling var {:?}", i);
 
             #[allow(non_snake_case)]
             let mut Q: Vec<(Key, NodeID)> = Vec::new();
 
-            for u in vlist[i.0 as usize].iter() {
+            for u in vlist[i.0].iter() {
                 let node_var = old_nodes.get(u).unwrap().var;
                 let node_id = old_nodes.get(u).unwrap().id;
                 let low_ptr = old_nodes.get(u).unwrap().low;
@@ -140,12 +140,16 @@ impl DDManager {
         self.nodes = new_nodes;
 
         // Rebuild unique-table
-        for v in self.var2nodes.iter_mut() {
+        for v in self.level2nodes.iter_mut() {
             v.clear();
         }
 
-        for (_id, node) in self.nodes.iter() {
-            self.var2nodes[node.var.0 as usize].insert(DDNode {
+        for node in self.nodes.values() {
+            if self.level2nodes.len() <= self.var2level[node.var.0] {
+                self.level2nodes
+                    .resize(self.var2level[node.var.0] + 1, Default::default());
+            }
+            self.level2nodes[self.var2level[node.var.0]].insert(DDNode {
                 var: node.var,
                 low: node.low,
                 high: node.high,
@@ -179,9 +183,9 @@ mod tests {
         let mut man = DDManager::default();
         #[allow(clippy::field_reassign_with_default)]
         {
-            man.order = vec![4, 1, 2, 3];
+            man.var2level = vec![4, 1, 2, 3];
         }
-        man.var2nodes.resize(4, HashSet::default());
+        man.level2nodes.resize(5, HashSet::default());
 
         // Node 2: Low:0, High: 1
         man.nodes.insert(
@@ -193,7 +197,7 @@ mod tests {
                 high: NodeID(1),
             },
         );
-        man.var2nodes[3].insert(DDNode {
+        man.level2nodes[man.var2level[3]].insert(DDNode {
             id: NodeID(2),
             var: VarID(3),
             low: NodeID(0),
@@ -210,7 +214,7 @@ mod tests {
                 high: NodeID(2),
             },
         );
-        man.var2nodes[2].insert(DDNode {
+        man.level2nodes[man.var2level[2]].insert(DDNode {
             var: VarID(2),
             low: NodeID(2),
             high: NodeID(2),
@@ -227,7 +231,7 @@ mod tests {
                 high: NodeID(3),
             },
         );
-        man.var2nodes[1].insert(DDNode {
+        man.level2nodes[man.var2level[1]].insert(DDNode {
             var: VarID(1),
             low: NodeID(3),
             high: NodeID(3),
@@ -252,9 +256,9 @@ mod tests {
         let mut man = DDManager::default();
         #[allow(clippy::field_reassign_with_default)]
         {
-            man.order = vec![4, 1, 2, 3];
+            man.var2level = vec![4, 1, 2, 3];
         }
-        man.var2nodes.resize(4, HashSet::default());
+        man.level2nodes.resize(5, HashSet::default());
 
         // Node 2: Low=0, High=1
         man.nodes.insert(
@@ -266,7 +270,7 @@ mod tests {
                 high: NodeID(1),
             },
         );
-        man.var2nodes[3].insert(DDNode {
+        man.level2nodes[man.var2level[3]].insert(DDNode {
             id: NodeID(2),
             var: VarID(3),
             low: NodeID(0),
@@ -295,7 +299,7 @@ mod tests {
                 high: NodeID(2),
             },
         );
-        man.var2nodes[2].insert(DDNode {
+        man.level2nodes[man.var2level[2]].insert(DDNode {
             id: NodeID(4),
             var: VarID(2),
             low: NodeID(1),
@@ -312,7 +316,7 @@ mod tests {
                 high: NodeID(4),
             },
         );
-        man.var2nodes[1].insert(DDNode {
+        man.level2nodes[man.var2level[1]].insert(DDNode {
             id: NodeID(5),
             var: VarID(1),
             low: NodeID(3),
@@ -336,9 +340,9 @@ mod tests {
         let mut man = DDManager::default();
         #[allow(clippy::field_reassign_with_default)]
         {
-            man.order = vec![4, 1, 2, 3];
+            man.var2level = vec![4, 1, 2, 3];
         }
-        man.var2nodes.resize(5, HashSet::default());
+        man.level2nodes.resize(5, HashSet::default());
 
         // Node 2: Low=0, High=1
         man.nodes.insert(
@@ -350,7 +354,7 @@ mod tests {
                 high: NodeID(1),
             },
         );
-        man.var2nodes[3].insert(DDNode {
+        man.level2nodes[man.var2level[3]].insert(DDNode {
             id: NodeID(2),
             var: VarID(3),
             low: NodeID(0),
@@ -377,7 +381,7 @@ mod tests {
             high: NodeID(2),
         };
         man.nodes.insert(NodeID(4), node_4);
-        man.var2nodes[2].insert(node_4);
+        man.level2nodes[man.var2level[2]].insert(node_4);
 
         // Node 5: Low=3, High=2
         let node_5 = DDNode {
@@ -387,7 +391,7 @@ mod tests {
             high: NodeID(2),
         };
         man.nodes.insert(NodeID(5), node_5);
-        man.var2nodes[2].insert(node_5);
+        man.level2nodes[man.var2level[2]].insert(node_5);
 
         // Node 6 (f): Low=5, High=4
         let node_6 = DDNode {
@@ -397,7 +401,7 @@ mod tests {
             high: NodeID(4),
         };
         man.nodes.insert(NodeID(6), node_6);
-        man.var2nodes[1].insert(node_6);
+        man.level2nodes[man.var2level[1]].insert(node_6);
 
         let f = NodeID(6);
         let f = man.reduce(f);
@@ -414,9 +418,9 @@ mod tests {
         let mut man = DDManager::default();
         #[allow(clippy::field_reassign_with_default)]
         {
-            man.order = vec![4, 1, 2, 3];
+            man.var2level = vec![4, 1, 2, 3];
         }
-        man.var2nodes.resize(4, HashSet::default());
+        man.level2nodes.resize(5, HashSet::default());
 
         // Node 2: Low=0, High=1
         let node_2 = DDNode {
@@ -426,7 +430,7 @@ mod tests {
             high: NodeID(1),
         };
         man.nodes.insert(NodeID(2), node_2);
-        man.var2nodes[3].insert(node_2);
+        man.level2nodes[man.var2level[3]].insert(node_2);
 
         // Node 3: Low=1, High=0
         let node_3 = DDNode {
@@ -436,7 +440,7 @@ mod tests {
             high: NodeID(0),
         };
         man.nodes.insert(NodeID(3), node_3);
-        man.var2nodes[3].insert(node_3);
+        man.level2nodes[man.var2level[3]].insert(node_3);
 
         let f = NodeID(2);
         let f = man.reduce(f);
@@ -445,7 +449,7 @@ mod tests {
         assert_eq!(f_node.low, NodeID(0));
         // Both nodes should still be present, but the IDs may have changed.
         assert_eq!(man.nodes.len(), 2 + 2);
-        assert_eq!(man.var2nodes[3].len(), 2);
+        assert_eq!(man.level2nodes[man.var2level[3]].len(), 2);
     }
 
     use num_bigint::BigUint;

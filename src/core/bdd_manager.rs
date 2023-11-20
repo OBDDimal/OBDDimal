@@ -63,12 +63,12 @@ fn normalize_ite_args(mut f: NodeID, mut g: NodeID, mut h: NodeID) -> (NodeID, N
 pub struct DDManager {
     /// Node List
     pub nodes: HashMap<NodeID, DDNode>,
-    /// Variable ordering: order[v.0] is the depth of variable v in the tree
-    pub(crate) order: Vec<u32>,
-    /// Unique Table for each variable. Note that the order (depth) in the BDD
-    /// may be different than the order of this vec, and is only determined by
-    /// [order](`DDManager::order`)!
-    pub(super) var2nodes: Vec<HashSet<DDNode>>,
+    /// Variable ordering: var2level[v.0] is the depth of variable v in the tree
+    pub(crate) var2level: Vec<usize>,
+    /// Unique Table for each variable. Note that the indices into this table are the depths of the
+    /// variables, not their IDs. The depth of a variable can be determined through
+    /// [var2level](`DDManager::var2level`)!
+    pub(crate) level2nodes: Vec<HashSet<DDNode>>,
     /// Computed Table: maps (f,g,h) to ite(f,g,h)
     pub(super) c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
 }
@@ -79,7 +79,7 @@ impl fmt::Debug for DDManager {
             f,
             "DDManager [{} nodes, unique table size {}, cache size {}]",
             self.nodes.len(),
-            self.var2nodes.iter().map(|s| s.len()).sum::<usize>(),
+            self.level2nodes.iter().map(|s| s.len()).sum::<usize>(),
             self.c_table.len()
         )
     }
@@ -89,8 +89,8 @@ impl Default for DDManager {
     fn default() -> Self {
         let mut man = DDManager {
             nodes: Default::default(),
-            order: Vec::new(),
-            var2nodes: Vec::new(),
+            var2level: Vec::new(),
+            level2nodes: Vec::new(),
             c_table: Default::default(),
         };
 
@@ -131,28 +131,32 @@ impl DDManager {
         self.add_node(ONE);
     }
 
-    /// Ensure order vec is valid up to specified variable
+    /// Ensure var2level vec is valid up to specified variable
     fn ensure_order(&mut self, target: VarID) {
-        let old_size = self.order.len();
+        let old_size = self.var2level.len();
 
-        if (target.0 as usize) < old_size {
-            // order[target] exists an contains tree depth of target
+        if target.0 < old_size {
+            // var2level[target] exists an contains tree depth of target
             return;
         }
 
-        // Ensure there is space for order[target]
-        self.order.resize((target.0 + 1) as usize, 0);
+        // Ensure there is space for var2level[target]
+        self.var2level.resize(target.0 + 1, 0);
 
         // Fill newly created space:
         let mut y = old_size;
-        for x in old_size..self.order.len() {
-            // order[x] = x
-            self.order[x] = y as u32;
+        for x in old_size..self.var2level.len() {
+            // var2level[x] = x
+            self.var2level[x] = y;
             y += 1;
+            // Add newly created level to level2nodes
+            while self.level2nodes.len() <= y {
+                self.level2nodes.push(HashSet::default());
+            }
         }
 
         // VarID 0 (terminal nodes) at the very bottom of the tree
-        self.order[0] = y as u32;
+        self.var2level[0] = y;
     }
 
     /// Insert Node. ID is assigned for nonterminal nodes (var != 0).
@@ -170,10 +174,10 @@ impl DDManager {
             assert_ne!(node.high, node.low);
 
             // Assign new node ID
-            let mut id = NodeID(rand::thread_rng().gen::<u32>());
+            let mut id = NodeID(rand::thread_rng().gen::<usize>());
 
             while self.nodes.get(&id).is_some() {
-                id = NodeID(rand::thread_rng().gen::<u32>());
+                id = NodeID(rand::thread_rng().gen::<usize>());
             }
 
             node.id = id;
@@ -184,13 +188,9 @@ impl DDManager {
 
         self.nodes.insert(id, node);
 
-        while self.var2nodes.len() <= (var.0 as usize) {
-            self.var2nodes.push(HashSet::default())
-        }
-
         self.ensure_order(var);
 
-        let was_inserted = self.var2nodes[var.0 as usize].insert(node);
+        let was_inserted = self.level2nodes[self.var2level[var.0]].insert(node);
         if !was_inserted {
             panic!("Node is already in unique table!");
         }
@@ -202,13 +202,13 @@ impl DDManager {
     pub(crate) fn node_get_or_create(&mut self, node: &DDNode) -> NodeID {
         assert_ne!(node.low, node.high, "Creating a node with the same low and high edge creates a non-reduced BDD, which we don't want to do.");
 
-        if self.var2nodes.len() <= (node.var.0 as usize) {
+        if self.var2level.len() <= node.var.0 {
             // Unique table does not contain any entries for this variable. Create new Node.
             return self.add_node(*node);
         }
 
         // Lookup in variable-specific unique-table
-        let res = self.var2nodes[node.var.0 as usize].get(node);
+        let res = self.level2nodes[self.var2level[node.var.0]].get(node);
 
         match res {
             Some(stuff) => stuff.id,      // An existing node was found
@@ -238,8 +238,8 @@ impl DDManager {
             high: NodeID(1),
         };
 
-        if self.var2nodes.len() > (var.0 as usize) {
-            let x = self.var2nodes[var.0 as usize].get(&v);
+        if self.var2level.len() > var.0 {
+            let x = self.level2nodes[self.var2level[var.0]].get(&v);
 
             if let Some(x) = x {
                 return x.id;
@@ -257,8 +257,8 @@ impl DDManager {
             high: NodeID(0),
         };
 
-        if self.var2nodes.len() > (var.0 as usize) {
-            let x = self.var2nodes[var.0 as usize].get(&v);
+        if self.var2level.len() > var.0 {
+            let x = self.level2nodes[self.var2level[var.0]].get(&v);
 
             if let Some(x) = x {
                 return x.id;
@@ -302,9 +302,9 @@ impl DDManager {
 
         // Tree depths
         let tlist = [
-            self.order[fvar.0 as usize],
-            self.order[gvar.0 as usize],
-            self.order[hvar.0 as usize],
+            self.var2level[fvar.0],
+            self.var2level[gvar.0],
+            self.var2level[hvar.0],
         ];
 
         // Minimum tree depth
@@ -335,13 +335,13 @@ impl DDManager {
 
                 let top = self.min_by_order(fnode.var, gnode.var, hnode.var);
 
-                let fxt = fnode.restrict(top, &self.order, true);
-                let gxt = gnode.restrict(top, &self.order, true);
-                let hxt = hnode.restrict(top, &self.order, true);
+                let fxt = fnode.restrict(top, &self.var2level, true);
+                let gxt = gnode.restrict(top, &self.var2level, true);
+                let hxt = hnode.restrict(top, &self.var2level, true);
 
-                let fxf = fnode.restrict(top, &self.order, false);
-                let gxf = gnode.restrict(top, &self.order, false);
-                let hxf = hnode.restrict(top, &self.order, false);
+                let fxf = fnode.restrict(top, &self.var2level, false);
+                let gxf = gnode.restrict(top, &self.var2level, false);
+                let hxf = hnode.restrict(top, &self.var2level, false);
 
                 let high = self.ite(fxt, gxt, hxt);
                 let low = self.ite(fxf, gxf, hxf);
@@ -374,16 +374,16 @@ impl DDManager {
     ///
     ///
     #[allow(dead_code)]
-    fn xor_prim(&mut self, _vars: Vec<u32>) -> u32 {
+    fn xor_prim(&mut self, _vars: Vec<usize>) -> usize {
         todo!();
     }
 
     #[allow(dead_code)]
-    pub fn verify(&self, f: NodeID, trues: &[u32]) -> bool {
-        let mut values: Vec<bool> = vec![false; self.var2nodes.len() + 1];
+    pub fn verify(&self, f: NodeID, trues: &[usize]) -> bool {
+        let mut values: Vec<bool> = vec![false; self.level2nodes.len() + 1];
 
         for x in trues {
-            let x: usize = *x as usize;
+            let x: usize = *x;
 
             values[x] = x < values.len();
         }
@@ -393,7 +393,7 @@ impl DDManager {
         while node_id.0 >= 2 {
             let node = &self.nodes.get(&node_id).unwrap();
 
-            if values[node.var.0 as usize] {
+            if values[node.var.0] {
                 node_id = node.high;
             } else {
                 node_id = node.low;
@@ -425,7 +425,7 @@ impl DDManager {
         garbage.retain(|&x, _| !keep.contains(&x) && x.0 > 1);
 
         for x in &garbage {
-            self.var2nodes[x.1.var.0 as usize].remove(x.1);
+            self.level2nodes[self.var2level[x.1.var.0]].remove(x.1);
             self.nodes.remove(x.0);
         }
 
