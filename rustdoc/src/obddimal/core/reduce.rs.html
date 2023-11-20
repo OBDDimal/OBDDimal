@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/core/reduce.rs`."><title>reduce.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="obddimal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../obddimal/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/core/reduce.rs`."><title>reduce.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="obddimal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../obddimal/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -469,6 +469,10 @@
 <a href="#469" id="469">469</a>
 <a href="#470" id="470">470</a>
 <a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! BDD reduction
 
 </span><span class="kw">use crate</span>::{
@@ -492,10 +496,10 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reduce(<span class="kw-2">&amp;mut </span><span class="self">self</span>, v: NodeID) -&gt; NodeID {
         <span class="macro">log::debug!</span>(<span class="string">&quot;reducing&quot;</span>);
 
-        <span class="kw">let </span><span class="kw-2">mut </span>vlist: Vec&lt;Vec&lt;NodeID&gt;&gt; = <span class="macro">vec!</span>[Vec::new(); <span class="self">self</span>.order[<span class="number">0</span>] <span class="kw">as </span>usize];
+        <span class="kw">let </span><span class="kw-2">mut </span>vlist: Vec&lt;Vec&lt;NodeID&gt;&gt; = <span class="macro">vec!</span>[Vec::new(); <span class="self">self</span>.var2level[<span class="number">0</span>]];
 
         <span class="kw">for </span>(id, node) <span class="kw">in </span><span class="self">self</span>.nodes.iter() {
-            vlist[node.var.<span class="number">0 </span><span class="kw">as </span>usize].push(<span class="kw-2">*</span>id);
+            vlist[node.var.<span class="number">0</span>].push(<span class="kw-2">*</span>id);
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>nextid = <span class="number">0</span>;
@@ -512,13 +516,13 @@
         <span class="kw">let </span><span class="kw-2">mut </span>new_nodes: HashMap&lt;NodeID, DDNode&gt; = Default::default();
 
         <span class="comment">// Graph layers, bottom to top
-        </span><span class="kw">for </span>i <span class="kw">in </span>order_to_layernames(<span class="kw-2">&amp;</span><span class="self">self</span>.order).iter().rev() {
+        </span><span class="kw">for </span>i <span class="kw">in </span>order_to_layernames(<span class="kw-2">&amp;</span><span class="self">self</span>.var2level).iter().rev() {
             <span class="macro">log::debug!</span>(<span class="string">&quot;Handling var {:?}&quot;</span>, i);
 
             <span class="attr">#[allow(non_snake_case)]
             </span><span class="kw">let </span><span class="kw-2">mut </span>Q: Vec&lt;(Key, NodeID)&gt; = Vec::new();
 
-            <span class="kw">for </span>u <span class="kw">in </span>vlist[i.<span class="number">0 </span><span class="kw">as </span>usize].iter() {
+            <span class="kw">for </span>u <span class="kw">in </span>vlist[i.<span class="number">0</span>].iter() {
                 <span class="kw">let </span>node_var = old_nodes.get(u).unwrap().var;
                 <span class="kw">let </span>node_id = old_nodes.get(u).unwrap().id;
                 <span class="kw">let </span>low_ptr = old_nodes.get(u).unwrap().low;
@@ -611,12 +615,16 @@
         <span class="self">self</span>.nodes = new_nodes;
 
         <span class="comment">// Rebuild unique-table
-        </span><span class="kw">for </span>v <span class="kw">in </span><span class="self">self</span>.var2nodes.iter_mut() {
+        </span><span class="kw">for </span>v <span class="kw">in </span><span class="self">self</span>.level2nodes.iter_mut() {
             v.clear();
         }
 
-        <span class="kw">for </span>(_id, node) <span class="kw">in </span><span class="self">self</span>.nodes.iter() {
-            <span class="self">self</span>.var2nodes[node.var.<span class="number">0 </span><span class="kw">as </span>usize].insert(DDNode {
+        <span class="kw">for </span>node <span class="kw">in </span><span class="self">self</span>.nodes.values() {
+            <span class="kw">if </span><span class="self">self</span>.level2nodes.len() &lt;= <span class="self">self</span>.var2level[node.var.<span class="number">0</span>] {
+                <span class="self">self</span>.level2nodes
+                    .resize(<span class="self">self</span>.var2level[node.var.<span class="number">0</span>] + <span class="number">1</span>, Default::default());
+            }
+            <span class="self">self</span>.level2nodes[<span class="self">self</span>.var2level[node.var.<span class="number">0</span>]].insert(DDNode {
                 var: node.var,
                 low: node.low,
                 high: node.high,
@@ -650,9 +658,9 @@
         <span class="kw">let </span><span class="kw-2">mut </span>man = DDManager::default();
         <span class="attr">#[allow(clippy::field_reassign_with_default)]
         </span>{
-            man.order = <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
+            man.var2level = <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
         }
-        man.var2nodes.resize(<span class="number">4</span>, HashSet::default());
+        man.level2nodes.resize(<span class="number">5</span>, HashSet::default());
 
         <span class="comment">// Node 2: Low:0, High: 1
         </span>man.nodes.insert(
@@ -664,7 +672,7 @@
                 high: NodeID(<span class="number">1</span>),
             },
         );
-        man.var2nodes[<span class="number">3</span>].insert(DDNode {
+        man.level2nodes[man.var2level[<span class="number">3</span>]].insert(DDNode {
             id: NodeID(<span class="number">2</span>),
             var: VarID(<span class="number">3</span>),
             low: NodeID(<span class="number">0</span>),
@@ -681,7 +689,7 @@
                 high: NodeID(<span class="number">2</span>),
             },
         );
-        man.var2nodes[<span class="number">2</span>].insert(DDNode {
+        man.level2nodes[man.var2level[<span class="number">2</span>]].insert(DDNode {
             var: VarID(<span class="number">2</span>),
             low: NodeID(<span class="number">2</span>),
             high: NodeID(<span class="number">2</span>),
@@ -698,7 +706,7 @@
                 high: NodeID(<span class="number">3</span>),
             },
         );
-        man.var2nodes[<span class="number">1</span>].insert(DDNode {
+        man.level2nodes[man.var2level[<span class="number">1</span>]].insert(DDNode {
             var: VarID(<span class="number">1</span>),
             low: NodeID(<span class="number">3</span>),
             high: NodeID(<span class="number">3</span>),
@@ -723,9 +731,9 @@
         <span class="kw">let </span><span class="kw-2">mut </span>man = DDManager::default();
         <span class="attr">#[allow(clippy::field_reassign_with_default)]
         </span>{
-            man.order = <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
+            man.var2level = <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
         }
-        man.var2nodes.resize(<span class="number">4</span>, HashSet::default());
+        man.level2nodes.resize(<span class="number">5</span>, HashSet::default());
 
         <span class="comment">// Node 2: Low=0, High=1
         </span>man.nodes.insert(
@@ -737,7 +745,7 @@
                 high: NodeID(<span class="number">1</span>),
             },
         );
-        man.var2nodes[<span class="number">3</span>].insert(DDNode {
+        man.level2nodes[man.var2level[<span class="number">3</span>]].insert(DDNode {
             id: NodeID(<span class="number">2</span>),
             var: VarID(<span class="number">3</span>),
             low: NodeID(<span class="number">0</span>),
@@ -766,7 +774,7 @@
                 high: NodeID(<span class="number">2</span>),
             },
         );
-        man.var2nodes[<span class="number">2</span>].insert(DDNode {
+        man.level2nodes[man.var2level[<span class="number">2</span>]].insert(DDNode {
             id: NodeID(<span class="number">4</span>),
             var: VarID(<span class="number">2</span>),
             low: NodeID(<span class="number">1</span>),
@@ -783,7 +791,7 @@
                 high: NodeID(<span class="number">4</span>),
             },
         );
-        man.var2nodes[<span class="number">1</span>].insert(DDNode {
+        man.level2nodes[man.var2level[<span class="number">1</span>]].insert(DDNode {
             id: NodeID(<span class="number">5</span>),
             var: VarID(<span class="number">1</span>),
             low: NodeID(<span class="number">3</span>),
@@ -807,9 +815,9 @@
         <span class="kw">let </span><span class="kw-2">mut </span>man = DDManager::default();
         <span class="attr">#[allow(clippy::field_reassign_with_default)]
         </span>{
-            man.order = <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
+            man.var2level = <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
         }
-        man.var2nodes.resize(<span class="number">5</span>, HashSet::default());
+        man.level2nodes.resize(<span class="number">5</span>, HashSet::default());
 
         <span class="comment">// Node 2: Low=0, High=1
         </span>man.nodes.insert(
@@ -821,7 +829,7 @@
                 high: NodeID(<span class="number">1</span>),
             },
         );
-        man.var2nodes[<span class="number">3</span>].insert(DDNode {
+        man.level2nodes[man.var2level[<span class="number">3</span>]].insert(DDNode {
             id: NodeID(<span class="number">2</span>),
             var: VarID(<span class="number">3</span>),
             low: NodeID(<span class="number">0</span>),
@@ -848,7 +856,7 @@
             high: NodeID(<span class="number">2</span>),
         };
         man.nodes.insert(NodeID(<span class="number">4</span>), node_4);
-        man.var2nodes[<span class="number">2</span>].insert(node_4);
+        man.level2nodes[man.var2level[<span class="number">2</span>]].insert(node_4);
 
         <span class="comment">// Node 5: Low=3, High=2
         </span><span class="kw">let </span>node_5 = DDNode {
@@ -858,7 +866,7 @@
             high: NodeID(<span class="number">2</span>),
         };
         man.nodes.insert(NodeID(<span class="number">5</span>), node_5);
-        man.var2nodes[<span class="number">2</span>].insert(node_5);
+        man.level2nodes[man.var2level[<span class="number">2</span>]].insert(node_5);
 
         <span class="comment">// Node 6 (f): Low=5, High=4
         </span><span class="kw">let </span>node_6 = DDNode {
@@ -868,7 +876,7 @@
             high: NodeID(<span class="number">4</span>),
         };
         man.nodes.insert(NodeID(<span class="number">6</span>), node_6);
-        man.var2nodes[<span class="number">1</span>].insert(node_6);
+        man.level2nodes[man.var2level[<span class="number">1</span>]].insert(node_6);
 
         <span class="kw">let </span>f = NodeID(<span class="number">6</span>);
         <span class="kw">let </span>f = man.reduce(f);
@@ -885,9 +893,9 @@
         <span class="kw">let </span><span class="kw-2">mut </span>man = DDManager::default();
         <span class="attr">#[allow(clippy::field_reassign_with_default)]
         </span>{
-            man.order = <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
+            man.var2level = <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
         }
-        man.var2nodes.resize(<span class="number">4</span>, HashSet::default());
+        man.level2nodes.resize(<span class="number">5</span>, HashSet::default());
 
         <span class="comment">// Node 2: Low=0, High=1
         </span><span class="kw">let </span>node_2 = DDNode {
@@ -897,7 +905,7 @@
             high: NodeID(<span class="number">1</span>),
         };
         man.nodes.insert(NodeID(<span class="number">2</span>), node_2);
-        man.var2nodes[<span class="number">3</span>].insert(node_2);
+        man.level2nodes[man.var2level[<span class="number">3</span>]].insert(node_2);
 
         <span class="comment">// Node 3: Low=1, High=0
         </span><span class="kw">let </span>node_3 = DDNode {
@@ -907,7 +915,7 @@
             high: NodeID(<span class="number">0</span>),
         };
         man.nodes.insert(NodeID(<span class="number">3</span>), node_3);
-        man.var2nodes[<span class="number">3</span>].insert(node_3);
+        man.level2nodes[man.var2level[<span class="number">3</span>]].insert(node_3);
 
         <span class="kw">let </span>f = NodeID(<span class="number">2</span>);
         <span class="kw">let </span>f = man.reduce(f);
@@ -916,7 +924,7 @@
         <span class="macro">assert_eq!</span>(f_node.low, NodeID(<span class="number">0</span>));
         <span class="comment">// Both nodes should still be present, but the IDs may have changed.
         </span><span class="macro">assert_eq!</span>(man.nodes.len(), <span class="number">2 </span>+ <span class="number">2</span>);
-        <span class="macro">assert_eq!</span>(man.var2nodes[<span class="number">3</span>].len(), <span class="number">2</span>);
+        <span class="macro">assert_eq!</span>(man.level2nodes[man.var2level[<span class="number">3</span>]].len(), <span class="number">2</span>);
     }
 
     <span class="kw">use </span>num_bigint::BigUint;
