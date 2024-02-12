@@ -1,0 +1,14 @@
+[statistics]
+void = false
+count = 9001
+
+[bdd]
+order = [1,2,3,4]
+roots = [42,69,9000]
+# node format
+# id_node id_var id_high id_low
+nodes = """ 
+0 0 0 0
+1 0 1 1
+2 1 0 1
+"""
