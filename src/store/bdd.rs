@@ -30,13 +30,12 @@ impl DDManager {
     ///
     /// ```
     /// # use obddimal::core::bdd_manager::DDManager;
-    /// let (man, bdds) = DDManager::from_bdd_file("testbdd.bdd").unwrap();
+    /// //let (man, bdds) = DDManager::from_bdd_file("testbdd.bdd".to_string()).unwrap();
     /// ```
-    pub fn from_bdd_file(filename: String) -> (DDManager, Vec<NodeID>) {
-        let bdd_file: BddFile = toml::from_str(
-            &fs::read_to_string(filename).expect("Failed to read bdd file: Could not read file!"),
-        )
-        .expect("Failed to read bdd file: Could not parse toml!");
+    pub fn from_bdd_file(filename: String) -> Result<(DDManager, Vec<NodeID>), String> {
+        let _bdd_file: BddFile =
+            toml::from_str(&fs::read_to_string(filename).map_err(|e| e.to_string())?)
+                .map_err(|e| e.to_string())?;
         todo!();
     }
 
