@@ -199,9 +199,7 @@ mod tests {
 
     use num_bigint::BigUint;
 
-    use crate::{
-        core::bdd_manager::DDManager, core::bdd_node::VarID, core::order::order_to_layernames,
-    };
+    use crate::core::{bdd_manager::DDManager, bdd_node::VarID, order::order_to_layernames};
 
     #[test]
     fn sift_sandwich_single() {
