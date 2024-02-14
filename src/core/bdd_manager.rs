@@ -2,14 +2,13 @@
 
 use std::fmt;
 
+use dimacs::Clause;
 use rand::Rng;
 
 use crate::{
     core::bdd_node::{DDNode, NodeID, VarID},
     misc::hash_select::{HashMap, HashSet},
 };
-
-use dimacs::Clause;
 
 /// Terminal node "zero"
 pub const ZERO: DDNode = DDNode {

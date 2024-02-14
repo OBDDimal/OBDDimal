@@ -1,3 +1,4 @@
+#![feature(iterator_try_collect)]
 mod build;
 pub mod core;
 pub mod misc;

@@ -1,7 +1,8 @@
 //! Utility functions related to variable order
 
-use crate::core::bdd_node::VarID;
 use dimacs::Instance;
+
+use crate::core::bdd_node::VarID;
 
 /// Checks if a specified variable ordering is valid for the CNF instance.
 /// Returns `OK(())` or `Err("error message")`.

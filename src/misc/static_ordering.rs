@@ -1,7 +1,6 @@
 //! Implementations of different static variable ordering strategies
-use rand::{seq::SliceRandom, thread_rng};
-
 use dimacs::{Clause, Instance};
+use rand::{seq::SliceRandom, thread_rng};
 
 #[allow(dead_code)]
 pub fn keep(instance: &Instance) -> Vec<usize> {

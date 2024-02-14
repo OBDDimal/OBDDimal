@@ -1,8 +1,9 @@
 //! Module containing type definitions for the elements of the BDD:
 //! Nodes ([DDNode], [NodeID]) and Variables ([VarID])
 
-use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
+
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct NodeID(pub usize);
