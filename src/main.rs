@@ -48,8 +48,6 @@ fn main() {
 #[cfg(test)]
 mod tests {
 
-    use std::fs;
-
     use num_bigint::BigUint;
 
     use super::*;

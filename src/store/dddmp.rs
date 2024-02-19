@@ -8,14 +8,28 @@ use crate::{
         bdd_manager::DDManager,
         bdd_node::{NodeID, VarID},
     },
-    misc::hash_select::HashMap,
+    misc::hash_select::{HashMap, HashSet},
 };
 
+/// Stores a BCDD (quiet similar to its representation in the .dddmp file)
+///
+/// * `roots` - The root nodes of the BCDD (may be inverted)
+/// * `varcount` - The number of variables in the BCDD
+/// * `varorder` - The order of the variables of the BCDD
+/// * `nodes` - Maps Node IDs to a tuple containing their Variable and the IDs of the high and low successors (negative ID if inverted edge)
+///
 struct Bcdd {
     roots: Vec<isize>,
-    varcount: usize,
     varorder: Vec<VarID>,
     nodes: HashMap<isize, (VarID, isize, isize)>,
+}
+
+/// Represents a parent node, containing the ID of the node.
+/// For root nodes, a ParentNode::Root() is stored to express their special status.
+#[derive(Eq, Hash, PartialEq)]
+enum ParentNode {
+    Normal(isize),
+    Root(),
 }
 
 impl DDManager {
@@ -31,7 +45,7 @@ impl DDManager {
         let bcdd =
             Self::parse_bcdd_from_dddmp_file(File::open(filename).map_err(|e| e.to_string())?)?;
         let bdd = DDManager::default();
-        Self::convert_bcdd_to_bdd(&bcdd, bdd)
+        Ok(Self::convert_bcdd_to_bdd(&bcdd, bdd))
     }
 
     /// Parses a BCDD from a .dddmp file.
@@ -62,6 +76,7 @@ impl DDManager {
             return Err("DDDMP file version missing!".to_string());
         };
 
+        // To verify file integrity
         let nodecount = {
             let Some(value) = header.get(".nnodes") else {
                 return Err(".nnodes missing!".to_string());
@@ -73,7 +88,6 @@ impl DDManager {
             }
         }?;
         let varcount = {
-            //TODO .nvars or .nsuppvars???
             let Some(value) = header.get(".nvars") else {
                 return Err(".nvars missing!".to_string());
             };
@@ -83,12 +97,14 @@ impl DDManager {
                 Ok(value[0].parse::<usize>().map_err(|e| e.to_string())?)
             }
         }?;
+
+        // Parse variable ordering
         let varorder = {
             let Some(order) = header.get(".permids") else {
                 return Err(".permids missing!".to_string());
             };
 
-            if order.is_empty() {
+            if order.len() != varcount {
                 Err(".permids line invalid!".to_string())
             } else {
                 order
@@ -97,6 +113,8 @@ impl DDManager {
                     .try_collect::<Vec<VarID>>()
             }
         }?;
+
+        // Parse root nodes
         let roots = {
             let Some(roots) = header.get(".rootids") else {
                 return Err(".rootids missing!".to_string());
@@ -113,7 +131,6 @@ impl DDManager {
 
         Ok(Bcdd {
             roots,
-            varcount,
             varorder,
             nodes: Self::parse_bcdd_nodelist(lines, nodecount)?,
         })
@@ -165,10 +182,136 @@ impl DDManager {
     /// * `bcdd` - The BCDD to be converted
     /// * `bdd` - The DDManager the BDD is about to be stored in
     ///
-    fn convert_bcdd_to_bdd(
+    fn convert_bcdd_to_bdd(bcdd: &Bcdd, mut bdd: DDManager) -> (DDManager, Vec<NodeID>) {
+        let bdd_nodes = Self::convert_bcdd_to_bdd_nodes(
+            Self::create_bcdd_node_parent_information(bcdd),
+            Self::create_bcdd_layer_to_nodes(bcdd),
+            bcdd,
+        );
+
+        // Convert NodeIDs:
+        let convert_node_id = |i: &isize| NodeID(*i as usize);
+        let bdd_nodes = bdd_nodes
+            .iter()
+            .map(|(n, (v, c1, c2))| {
+                (
+                    convert_node_id(n),
+                    (*v, convert_node_id(c1), convert_node_id(c2)),
+                )
+            })
+            .collect::<HashMap<NodeID, (VarID, NodeID, NodeID)>>();
+        let roots = bcdd
+            .roots
+            .iter()
+            .map(convert_node_id)
+            .collect::<Vec<NodeID>>();
+
+        bdd.load_bdd_from_nodetable(&bdd_nodes, &bcdd.varorder);
+        (bdd, roots)
+    }
+
+    /// Creates a HashMap containing information about the parents of each node and the edges
+    /// connecting them.
+    ///
+    /// * `bcdd` - The BCDD containing the nodes
+    ///
+    fn create_bcdd_node_parent_information(
         bcdd: &Bcdd,
-        bdd: DDManager,
-    ) -> Result<(DDManager, Vec<NodeID>), String> {
-        todo!();
+    ) -> HashMap<isize, (HashSet<ParentNode>, HashSet<ParentNode>)> {
+        let mut node_parent_information = bcdd
+            .nodes
+            .keys()
+            .map(|k| (*k, (HashSet::default(), HashSet::default())))
+            .collect::<HashMap<isize, (HashSet<ParentNode>, HashSet<ParentNode>)>>();
+        bcdd.nodes
+            .iter()
+            .flat_map(|(p, (_, c1, c2))| [(*p, *c1), (*p, *c2)])
+            .for_each(|(p, c)| {
+                let info = node_parent_information.get_mut(&c.abs()).unwrap();
+                if c < 0 {
+                    info.1.insert(ParentNode::Normal(p));
+                } else {
+                    info.0.insert(ParentNode::Normal(p));
+                }
+            });
+        bcdd.roots.iter().for_each(|r| {
+            let info = node_parent_information.get_mut(&r.abs()).unwrap();
+            if *r < 0 {
+                info.1.insert(ParentNode::Root());
+            } else {
+                info.0.insert(ParentNode::Root());
+            }
+        });
+        node_parent_information
+    }
+
+    /// Creates a HashMap containing the node IDs for each layer.
+    ///
+    /// * `bcdd` - The BCDD containing the nodes
+    ///
+    fn create_bcdd_layer_to_nodes(bcdd: &Bcdd) -> HashMap<usize, Vec<isize>> {
+        let mut var_to_nodes = bcdd
+            .varorder
+            .iter()
+            .map(|v| (*v, Vec::default()))
+            .collect::<HashMap<VarID, Vec<isize>>>();
+        bcdd.nodes.iter().map(|(p, v)| (v, p)).for_each(|(v, p)| {
+            let nodes = var_to_nodes.get_mut(&v.0).unwrap();
+            nodes.push(*p);
+        });
+        bcdd.varorder
+            .iter()
+            .enumerate()
+            .map(|(l, v)| (l, var_to_nodes.get(v).unwrap().clone()))
+            .collect()
+    }
+
+    /// Creates a HashTable containing the nodes of a BDD representing the same function as the
+    /// given BCDD.
+    ///
+    /// * `node_parent_information` - HashMap storing the parents of a node.
+    /// * `layer_to_nodes` - HashMap mapping the layers of the bcdd to its nodes
+    /// * `bcdd` - The BCDD which is going to be converted to a BDD.
+    fn convert_bcdd_to_bdd_nodes(
+        mut node_parent_information: HashMap<isize, (HashSet<ParentNode>, HashSet<ParentNode>)>,
+        layer_to_nodes: HashMap<usize, Vec<isize>>,
+        bcdd: &Bcdd,
+    ) -> HashMap<isize, (VarID, isize, isize)> {
+        let mut bdd_nodes = HashMap::default();
+        for l in layer_to_nodes
+            .keys()
+            .collect::<std::collections::BinaryHeap<_>>() // sort…
+            .iter()
+        {
+            layer_to_nodes.get(l).unwrap().iter().for_each(|node| {
+                let node_info = *bcdd.nodes.get(node).unwrap();
+                let parents_info = node_parent_information.get(node).unwrap();
+                let node = *node;
+                if !parents_info.0.is_empty() {
+                    // If node is required uninverted, add node, childs stay as they are:
+                    bdd_nodes.insert(node, node_info);
+                }
+                if !parents_info.1.is_empty() {
+                    // If node is required inverted, add new node with inverted childs:
+                    let (v, c1, c2) = node_info;
+                    let mut update_child = |c: isize| {
+                        let p = ParentNode::Normal(node);
+                        let (ref mut p_normal, ref mut p_inverted) =
+                            node_parent_information.get_mut(&c.abs()).unwrap();
+                        let (from, to) = if c < 0 {
+                            (p_inverted, p_normal)
+                        } else {
+                            (p_normal, p_inverted)
+                        };
+                        from.remove(&p);
+                        to.insert(p);
+                    };
+                    update_child(c1);
+                    update_child(c2);
+                    bdd_nodes.insert(-node, (v, -c1, -c2));
+                }
+            });
+        }
+        bdd_nodes
     }
 }
