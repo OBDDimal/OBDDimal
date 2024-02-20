@@ -11,6 +11,8 @@ use crate::{
     misc::hash_select::{HashMap, HashSet},
 };
 
+type NodeList = HashMap<isize, (VarID, isize, isize)>;
+
 /// Stores a BCDD (quiet similar to its representation in the .dddmp file)
 ///
 /// * `roots` - The root nodes of the BCDD (may be inverted)
@@ -21,7 +23,8 @@ use crate::{
 struct Bcdd {
     roots: Vec<isize>,
     varorder: Vec<VarID>,
-    nodes: HashMap<isize, (VarID, isize, isize)>,
+    nodes: NodeList,
+    terminal_id: isize,
 }
 
 /// Represents a parent node, containing the ID of the node.
@@ -129,10 +132,14 @@ impl DDManager {
             }
         }?;
 
+        // Parse node list
+        let (nodes, terminal_id) = Self::parse_bcdd_nodelist(lines, nodecount)?;
+
         Ok(Bcdd {
             roots,
             varorder,
-            nodes: Self::parse_bcdd_nodelist(lines, nodecount)?,
+            nodes,
+            terminal_id,
         })
     }
 
@@ -144,13 +151,14 @@ impl DDManager {
     fn parse_bcdd_nodelist<I>(
         lines: &mut std::iter::Peekable<I>,
         expected_nodecount: usize,
-    ) -> Result<HashMap<isize, (VarID, isize, isize)>, String>
+    ) -> Result<(NodeList, isize), String>
     where
         I: std::iter::Iterator<Item = String>,
     {
         if lines.peek().is_none() {
             return Err("Node list missing in dddmp file!".to_string());
         }
+        let mut terminal_id = None;
         let nodes = lines
             .take_while(|line| line.trim() != ".end")
             .filter(|line| !line.trim().is_empty())
@@ -159,8 +167,12 @@ impl DDManager {
                 if line.len() != 5 {
                     Err("Node list contains unexpected line!".to_string())
                 } else {
+                    let id = line[0].parse::<isize>().map_err(|e| e.to_string())?;
+                    if line[1] == "T" {
+                        terminal_id = Some(id);
+                    }
                     Ok((
-                        line[0].parse::<isize>().map_err(|e| e.to_string())?,
+                        id,
                         (
                             VarID(line[2].parse::<usize>().map_err(|e| e.to_string())?),
                             line[3].parse::<isize>().map_err(|e| e.to_string())?,
@@ -169,11 +181,13 @@ impl DDManager {
                     ))
                 }
             })
-            .try_collect::<HashMap<isize, (VarID, isize, isize)>>()?;
+            .try_collect::<NodeList>()?;
         if nodes.len() != expected_nodecount {
             Err("Node list ended unexpectedly!".to_string())
+        } else if terminal_id.is_none() {
+            Err("Terminal node missing!".to_string())
         } else {
-            Ok(nodes)
+            Ok((nodes, terminal_id.unwrap()))
         }
     }
 
@@ -205,9 +219,12 @@ impl DDManager {
             .iter()
             .map(convert_node_id)
             .collect::<Vec<NodeID>>();
+        let terminals = (
+            convert_node_id(&bcdd.terminal_id),
+            convert_node_id(&-bcdd.terminal_id),
+        );
 
-        bdd.load_bdd_from_nodetable(&bdd_nodes, &bcdd.varorder);
-        (bdd, roots)
+        bdd.load_bdd_from_nodetable(&bdd_nodes, &bcdd.varorder, &roots, &terminals)
     }
 
     /// Creates a HashMap containing information about the parents of each node and the edges
@@ -226,6 +243,7 @@ impl DDManager {
         bcdd.nodes
             .iter()
             .flat_map(|(p, (_, c1, c2))| [(*p, *c1), (*p, *c2)])
+            .filter(|(p, _)| *p != bcdd.terminal_id)
             .for_each(|(p, c)| {
                 let info = node_parent_information.get_mut(&c.abs()).unwrap();
                 if c < 0 {
@@ -255,10 +273,14 @@ impl DDManager {
             .iter()
             .map(|v| (*v, Vec::default()))
             .collect::<HashMap<VarID, Vec<isize>>>();
-        bcdd.nodes.iter().map(|(p, v)| (v, p)).for_each(|(v, p)| {
-            let nodes = var_to_nodes.get_mut(&v.0).unwrap();
-            nodes.push(*p);
-        });
+        bcdd.nodes
+            .iter()
+            .filter(|(n, _)| **n != bcdd.terminal_id)
+            .map(|(n, (v, _, _))| (v, n))
+            .for_each(|(v, n)| {
+                let nodes = var_to_nodes.get_mut(v).unwrap();
+                nodes.push(*n);
+            });
         bcdd.varorder
             .iter()
             .enumerate()
@@ -276,7 +298,7 @@ impl DDManager {
         mut node_parent_information: HashMap<isize, (HashSet<ParentNode>, HashSet<ParentNode>)>,
         layer_to_nodes: HashMap<usize, Vec<isize>>,
         bcdd: &Bcdd,
-    ) -> HashMap<isize, (VarID, isize, isize)> {
+    ) -> NodeList {
         let mut bdd_nodes = HashMap::default();
         for l in layer_to_nodes
             .keys()
@@ -287,9 +309,11 @@ impl DDManager {
                 let node_info = *bcdd.nodes.get(node).unwrap();
                 let parents_info = node_parent_information.get(node).unwrap();
                 let node = *node;
+                let mut normal_needed = false;
                 if !parents_info.0.is_empty() {
                     // If node is required uninverted, add node, childs stay as they are:
                     bdd_nodes.insert(node, node_info);
+                    normal_needed = true;
                 }
                 if !parents_info.1.is_empty() {
                     // If node is required inverted, add new node with inverted childs:
@@ -303,7 +327,10 @@ impl DDManager {
                         } else {
                             (p_normal, p_inverted)
                         };
-                        from.remove(&p);
+                        if !normal_needed {
+                            // Only remove if only the inverted version is required
+                            from.remove(&p);
+                        }
                         to.insert(p);
                     };
                     update_child(c1);
@@ -312,6 +339,10 @@ impl DDManager {
                 }
             });
         }
+        // Add 0 and 1 nodes:
+        bdd_nodes.insert(bcdd.terminal_id, (VarID(0), 1, 1));
+        bdd_nodes.insert(-bcdd.terminal_id, (VarID(0), 0, 0));
+
         bdd_nodes
     }
 }
