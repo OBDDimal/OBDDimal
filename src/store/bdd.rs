@@ -24,7 +24,7 @@ struct Statistics {
 
 #[derive(Serialize, Deserialize)]
 struct Bdd {
-    order: Vec<VarID>,
+    order: Vec<usize>,
     roots: Vec<NodeID>,
     // node format:
     // id_node id_var id_high id_low
@@ -44,7 +44,7 @@ impl DDManager {
         let bdd_file: BddFile =
             toml::from_str(&fs::read_to_string(filename).map_err(|e| e.to_string())?)
                 .map_err(|e| e.to_string())?;
-        let varorder: Vec<VarID> = bdd_file.bdd.order;
+        let varorder: Vec<usize> = bdd_file.bdd.order;
         let roots: Vec<NodeID> = bdd_file.bdd.roots;
 
         let mut terminals: (Option<NodeID>, Option<NodeID>) = (None, None);
@@ -81,16 +81,16 @@ impl DDManager {
             _ => Err("Terminal nodes missing!".to_string()),
         }?;
 
-        let mut bdd = DDManager::default();
-        Ok(bdd.load_bdd_from_nodetable(&nodes, &varorder, &roots, &terminals))
+        Ok(DDManager::default().load_bdd_from_nodelist(nodes, varorder, roots, terminals))
     }
 
     /// Writes a (multi-rooted) BDD to a .bdd file.
     ///
+    /// * `self` - The DDManager containing the BDD.
     /// * `filename` - Name of the .bdd file.
     /// * `roots` - The roots of the BDD.
     ///
-    pub fn write_to_bdd_file(filename: String, roots: Vec<NodeID>) -> Result<(), String> {
+    pub fn write_to_bdd_file(&self, filename: String, roots: Vec<NodeID>) -> Result<(), String> {
         let void = true; // TODO
         let count = 42; // TODO
         let order = Vec::new(); // TODO

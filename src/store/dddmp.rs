@@ -47,8 +47,7 @@ impl DDManager {
     pub fn load_from_dddmp_file(filename: String) -> Result<(DDManager, Vec<NodeID>), String> {
         let bcdd =
             Self::parse_bcdd_from_dddmp_file(File::open(filename).map_err(|e| e.to_string())?)?;
-        let bdd = DDManager::default();
-        Ok(Self::convert_bcdd_to_bdd(&bcdd, bdd))
+        Ok(Self::convert_bcdd_to_bdd(&bcdd))
     }
 
     /// Parses a BCDD from a .dddmp file.
@@ -194,9 +193,8 @@ impl DDManager {
     /// Converts a BCDD to a normal BDD
     ///
     /// * `bcdd` - The BCDD to be converted
-    /// * `bdd` - The DDManager the BDD is about to be stored in
     ///
-    fn convert_bcdd_to_bdd(bcdd: &Bcdd, mut bdd: DDManager) -> (DDManager, Vec<NodeID>) {
+    fn convert_bcdd_to_bdd(bcdd: &Bcdd) -> (DDManager, Vec<NodeID>) {
         let bdd_nodes = Self::convert_bcdd_to_bdd_nodes(
             Self::create_bcdd_node_parent_information(bcdd),
             Self::create_bcdd_layer_to_nodes(bcdd),
@@ -224,7 +222,8 @@ impl DDManager {
             convert_node_id(&-bcdd.terminal_id),
         );
 
-        bdd.load_bdd_from_nodetable(&bdd_nodes, &bcdd.varorder, &roots, &terminals)
+        let varorder = Vec::default(); // TODO varorder
+        DDManager::default().load_bdd_from_nodelist(bdd_nodes, varorder, roots, terminals)
     }
 
     /// Creates a HashMap containing information about the parents of each node and the edges
