@@ -101,6 +101,7 @@ impl DDManager {
     /// # use obddimal::core::bdd_manager::DDManager;
     /// //let (man, bdds) = DDManager::load_from_bdd_file("testbdd.bdd".to_string()).unwrap();
     /// ```
+    #[inline]
     pub fn load_from_bdd_file(filename: String) -> Result<(DDManager, Vec<NodeID>), String> {
         let (ddmanager, roots, _) = Self::load_from_bdd_file_with_statistics(filename)?;
         Ok((ddmanager, roots))
