@@ -134,6 +134,13 @@ impl DDManager {
         // Parse node list
         let (nodes, terminal_id) = Self::parse_bcdd_nodelist(lines, nodecount)?;
 
+        // Check if root nodes are valid:
+        for r in roots.iter() {
+            if nodes.get(&r.abs()).is_none() {
+                return Err("Root node not existant in BDD!".to_string());
+            }
+        }
+
         Ok(Bcdd {
             roots,
             varorder,
