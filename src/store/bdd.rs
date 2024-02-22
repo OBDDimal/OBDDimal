@@ -17,7 +17,7 @@ struct BddFile {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Statistics {
+pub struct Statistics {
     void: bool,
     count: usize,
 }
@@ -32,7 +32,7 @@ struct Bdd {
 }
 
 impl DDManager {
-    /// Reads a (multi-rooted) BDD from a .bdd file.
+    /// Reads a (multi-rooted) BDD and corresponding statistics from a .bdd file.
     ///
     /// * `filename` - Name of the .bdd file.
     ///
@@ -40,7 +40,9 @@ impl DDManager {
     /// # use obddimal::core::bdd_manager::DDManager;
     /// //let (man, bdds) = DDManager::load_from_bdd_file("testbdd.bdd".to_string()).unwrap();
     /// ```
-    pub fn load_from_bdd_file(filename: String) -> Result<(DDManager, Vec<NodeID>), String> {
+    pub fn load_from_bdd_file_with_statistics(
+        filename: String,
+    ) -> Result<(DDManager, Vec<NodeID>, Statistics), String> {
         let bdd_file: BddFile =
             toml::from_str(&fs::read_to_string(filename).map_err(|e| e.to_string())?)
                 .map_err(|e| e.to_string())?;
@@ -81,7 +83,22 @@ impl DDManager {
             _ => Err("Terminal nodes missing!".to_string()),
         }?;
 
-        Ok(DDManager::default().load_bdd_from_nodelist(nodes, varorder, roots, terminals))
+        let (ddmanager, roots) =
+            DDManager::default().load_bdd_from_nodelist(nodes, varorder, roots, terminals);
+        Ok((ddmanager, roots, bdd_file.statistics))
+    }
+
+    /// Reads a (multi-rooted) BDD from a .bdd file.
+    ///
+    /// * `filename` - Name of the .bdd file.
+    ///
+    /// ```
+    /// # use obddimal::core::bdd_manager::DDManager;
+    /// //let (man, bdds) = DDManager::load_from_bdd_file("testbdd.bdd".to_string()).unwrap();
+    /// ```
+    pub fn load_from_bdd_file(filename: String) -> Result<(DDManager, Vec<NodeID>), String> {
+        let (ddmanager, roots, _) = Self::load_from_bdd_file_with_statistics(filename)?;
+        Ok((ddmanager, roots))
     }
 
     /// Writes a (multi-rooted) BDD to a .bdd file.
