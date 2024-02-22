@@ -22,7 +22,7 @@ type NodeList = HashMap<isize, (VarID, isize, isize)>;
 ///
 struct Bcdd {
     roots: Vec<isize>,
-    varorder: Vec<VarID>,
+    varorder: Vec<usize>,
     nodes: NodeList,
     terminal_id: isize,
 }
@@ -111,8 +111,8 @@ impl DDManager {
             } else {
                 order
                     .iter()
-                    .map(|id| Ok(VarID(id.parse::<usize>().map_err(|e| e.to_string())?)))
-                    .try_collect::<Vec<VarID>>()
+                    .map(|pos| pos.parse::<usize>().map_err(|e| e.to_string()))
+                    .try_collect::<Vec<usize>>()
             }
         }?;
 
@@ -222,8 +222,12 @@ impl DDManager {
             convert_node_id(&-bcdd.terminal_id),
         );
 
-        let varorder = Vec::default(); // TODO varorder
-        DDManager::default().load_bdd_from_nodelist(bdd_nodes, varorder, roots, terminals)
+        DDManager::default().load_bdd_from_nodelist(
+            bdd_nodes,
+            bcdd.varorder.clone(),
+            roots,
+            terminals,
+        )
     }
 
     /// Creates a HashMap containing information about the parents of each node and the edges
@@ -266,25 +270,21 @@ impl DDManager {
     ///
     /// * `bcdd` - The BCDD containing the nodes
     ///
-    fn create_bcdd_layer_to_nodes(bcdd: &Bcdd) -> HashMap<usize, Vec<isize>> {
-        let mut var_to_nodes = bcdd
-            .varorder
-            .iter()
-            .map(|v| (*v, Vec::default()))
-            .collect::<HashMap<VarID, Vec<isize>>>();
+    fn create_bcdd_layer_to_nodes(bcdd: &Bcdd) -> HashMap<usize, HashSet<isize>> {
         bcdd.nodes
             .iter()
             .filter(|(n, _)| **n != bcdd.terminal_id)
-            .map(|(n, (v, _, _))| (v, n))
-            .for_each(|(v, n)| {
-                let nodes = var_to_nodes.get_mut(v).unwrap();
-                nodes.push(*n);
-            });
-        bcdd.varorder
-            .iter()
-            .enumerate()
-            .map(|(l, v)| (l, var_to_nodes.get(v).unwrap().clone()))
-            .collect()
+            .map(|(n, (v, _, _))| (bcdd.varorder[v.0], n))
+            .fold(HashMap::default(), |mut layer_to_nodes, (l, n)| {
+                if let Some(nodes) = layer_to_nodes.get_mut(&l) {
+                    nodes.insert(*n);
+                } else {
+                    let mut nodes = HashSet::default();
+                    nodes.insert(*n);
+                    layer_to_nodes.insert(l, nodes);
+                }
+                layer_to_nodes
+            })
     }
 
     /// Creates a HashTable containing the nodes of a BDD representing the same function as the
@@ -295,30 +295,33 @@ impl DDManager {
     /// * `bcdd` - The BCDD which is going to be converted to a BDD.
     fn convert_bcdd_to_bdd_nodes(
         mut node_parent_information: HashMap<isize, (HashSet<ParentNode>, HashSet<ParentNode>)>,
-        layer_to_nodes: HashMap<usize, Vec<isize>>,
+        layer_to_nodes: HashMap<usize, HashSet<isize>>,
         bcdd: &Bcdd,
     ) -> NodeList {
         let mut bdd_nodes = HashMap::default();
-        for l in layer_to_nodes
-            .keys()
-            .collect::<std::collections::BinaryHeap<_>>() // sort…
+
+        let mut layers = bcdd.varorder.clone();
+        layers.sort();
+        layers.reverse();
+        layers
             .iter()
-        {
-            layer_to_nodes.get(l).unwrap().iter().for_each(|node| {
-                let node_info = *bcdd.nodes.get(node).unwrap();
-                let parents_info = node_parent_information.get(node).unwrap();
-                let node = *node;
+            .flat_map(|layer| layer_to_nodes.get(layer).unwrap())
+            .filter(|node_id| **node_id != bcdd.terminal_id)
+            .for_each(|node_id| {
+                let node_info = *bcdd.nodes.get(node_id).unwrap();
+                let parents_info = node_parent_information.get(node_id).unwrap();
+                let node_id = *node_id;
                 let mut normal_needed = false;
                 if !parents_info.0.is_empty() {
                     // If node is required uninverted, add node, childs stay as they are:
-                    bdd_nodes.insert(node, node_info);
+                    bdd_nodes.insert(node_id, node_info);
                     normal_needed = true;
                 }
                 if !parents_info.1.is_empty() {
                     // If node is required inverted, add new node with inverted childs:
                     let (v, c1, c2) = node_info;
                     let mut update_child = |c: isize| {
-                        let p = ParentNode::Normal(node);
+                        let p = ParentNode::Normal(node_id);
                         let (ref mut p_normal, ref mut p_inverted) =
                             node_parent_information.get_mut(&c.abs()).unwrap();
                         let (from, to) = if c < 0 {
@@ -334,10 +337,10 @@ impl DDManager {
                     };
                     update_child(c1);
                     update_child(c2);
-                    bdd_nodes.insert(-node, (v, -c1, -c2));
+                    bdd_nodes.insert(-node_id, (v, -c1, -c2));
                 }
             });
-        }
+
         // Add 0 and 1 nodes:
         bdd_nodes.insert(bcdd.terminal_id, (VarID(0), 1, 1));
         bdd_nodes.insert(-bcdd.terminal_id, (VarID(0), 0, 0));
