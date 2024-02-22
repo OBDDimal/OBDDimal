@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     core::{
         bdd_manager::DDManager,
-        bdd_node::{NodeID, VarID},
+        bdd_node::{DDNode, NodeID, VarID},
     },
     misc::hash_select::HashMap,
 };
@@ -18,8 +18,13 @@ struct BddFile {
 
 #[derive(Serialize, Deserialize)]
 pub struct Statistics {
-    void: bool,
-    count: usize,
+    node_statistics: Option<HashMap<NodeID, NodeStatistics>>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NodeStatistics {
+    void: Option<bool>,
+    count: Option<usize>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -106,14 +111,35 @@ impl DDManager {
     /// * `self` - The DDManager containing the BDD.
     /// * `filename` - Name of the .bdd file.
     /// * `roots` - The roots of the BDD.
+    /// * `node_statistics` - Optional HashMap containing statistics about individual nodes, see
+    /// [`NodeStatistics`](NodeStatistics).
     ///
-    pub fn write_to_bdd_file(&self, filename: String, roots: Vec<NodeID>) -> Result<(), String> {
-        let void = true; // TODO
-        let count = 42; // TODO
-        let order = Vec::new(); // TODO
-        let nodes = "".to_string(); // TODO
+    pub fn write_to_bdd_file(
+        &self,
+        filename: String,
+        roots: Vec<NodeID>,
+        node_statistics: Option<HashMap<NodeID, NodeStatistics>>,
+    ) -> Result<(), String> {
+        let order = self.var2level.clone();
+        let nodes = self
+            .nodes
+            .values()
+            .map(
+                |DDNode {
+                     id: NodeID(n),
+                     var: VarID(v),
+                     low: NodeID(l),
+                     high: NodeID(h),
+                     ..
+                 }| format!("{n} {v} {h} {l}"),
+            )
+            .fold("".to_string(), |mut s, line| {
+                s.push('\n');
+                s.push_str(&line);
+                s
+            });
         let bdd_file = BddFile {
-            statistics: Statistics { void, count },
+            statistics: Statistics { node_statistics },
             bdd: Bdd {
                 order,
                 roots,
