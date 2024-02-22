@@ -83,6 +83,14 @@ impl DDManager {
             })
             .try_collect::<HashMap<NodeID, (VarID, NodeID, NodeID)>>()?;
 
+        // Check if root nodes are valid:
+        for r in roots.iter() {
+            if nodes.get(r).is_none() {
+                return Err("Root node not existant in BDD!".to_string());
+            }
+        }
+
+        // Check if terminal nodes exist:
         let terminals = match terminals {
             (Some(t_high), Some(t_low)) => Ok((t_high, t_low)),
             _ => Err("Terminal nodes missing!".to_string()),
