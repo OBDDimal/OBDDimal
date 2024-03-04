@@ -85,7 +85,7 @@ impl DDManager {
 
         // Check if root nodes are valid:
         for r in roots.iter() {
-            if nodes.get(r).is_none() {
+            if !nodes.contains_key(r) {
                 return Err("Root node not existant in BDD!".to_string());
             }
         }
