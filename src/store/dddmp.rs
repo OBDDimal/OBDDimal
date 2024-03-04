@@ -42,7 +42,7 @@ impl DDManager {
     ///
     /// ```
     /// # use obddimal::core::bdd_manager::DDManager;
-    /// //let (man, bdds) = DDManager::load_from_dddmp_file("sandwich.dimacs.dddmp".to_string()).unwrap();
+    /// let Ok((man, bdds)) = DDManager::load_from_dddmp_file("sandwich.dimacs.dddmp".to_string());
     /// ```
     pub fn load_from_dddmp_file(filename: String) -> Result<(DDManager, Vec<NodeID>), String> {
         let bcdd =
@@ -90,30 +90,45 @@ impl DDManager {
             }
         }?;
         let varcount = {
-            let Some(value) = header.get(".nvars") else {
-                return Err(".nvars missing!".to_string());
+            let Some(value) = header.get(".nsuppvars") else {
+                return Err(".nsuppvars missing!".to_string());
             };
             if value.len() != 1 {
-                Err(".nvars line invalid!".to_string())
+                Err(".nsuppvars line invalid!".to_string())
             } else {
                 Ok(value[0].parse::<usize>().map_err(|e| e.to_string())?)
             }
         }?;
 
         // Parse variable ordering
-        let varorder = {
-            let Some(order) = header.get(".permids") else {
+        let varorder: Vec<usize> = {
+            let Some(ids) = header.get(".ids") else {
+                return Err(".ids missing!".to_string());
+            };
+            let ids = ids
+                .iter()
+                .map(|s| s.parse::<usize>().map_err(|e| e.to_string()))
+                .try_collect::<Vec<usize>>()?;
+            let Some(permids) = header.get(".permids") else {
                 return Err(".permids missing!".to_string());
             };
+            let permids = permids
+                .iter()
+                .map(|s| s.parse::<usize>().map_err(|e| e.to_string()))
+                .try_collect::<Vec<usize>>()?;
+            if ids.len() != varcount {
+                return Err(".ids line invalid!".to_string());
+            };
+            if permids.len() != varcount {
+                return Err(".permids line invalid!".to_string());
+            };
 
-            if order.len() != varcount {
-                Err(".permids line invalid!".to_string())
-            } else {
-                order
-                    .iter()
-                    .map(|pos| pos.parse::<usize>().map_err(|e| e.to_string()))
-                    .try_collect::<Vec<usize>>()
-            }
+            let mut order: Vec<usize> = vec![0; ids.iter().max().unwrap() + 2usize];
+            permids.iter().enumerate().for_each(|(i, permid)| {
+                order[ids[i] + 1usize] = *permid;
+            });
+            order[0] = permids.iter().max().unwrap() + 1usize;
+            Ok::<Vec<usize>, String>(order)
         }?;
 
         // Parse root nodes
@@ -136,7 +151,7 @@ impl DDManager {
 
         // Check if root nodes are valid:
         for r in roots.iter() {
-            if nodes.get(&r.abs()).is_none() {
+            if !nodes.contains_key(&r.abs()) {
                 return Err("Root node not existant in BDD!".to_string());
             }
         }
@@ -180,7 +195,7 @@ impl DDManager {
                     Ok((
                         id,
                         (
-                            VarID(line[2].parse::<usize>().map_err(|e| e.to_string())?),
+                            VarID(line[2].parse::<usize>().map_err(|e| e.to_string())? + 1usize),
                             line[3].parse::<isize>().map_err(|e| e.to_string())?,
                             line[4].parse::<isize>().map_err(|e| e.to_string())?,
                         ),
@@ -309,9 +324,9 @@ impl DDManager {
 
         let mut layers = bcdd.varorder.clone();
         layers.sort();
-        layers.reverse();
         layers
             .iter()
+            .filter(|layer| layer_to_nodes.contains_key(layer))
             .flat_map(|layer| layer_to_nodes.get(layer).unwrap())
             .filter(|node_id| **node_id != bcdd.terminal_id)
             .for_each(|node_id| {
