@@ -131,7 +131,7 @@ impl DDManager {
     }
 
     /// Ensure var2level vec is valid up to specified variable
-    fn ensure_order(&mut self, target: VarID) {
+    pub(crate) fn ensure_order(&mut self, target: VarID) {
         let old_size = self.var2level.len();
 
         if target.0 < old_size {
@@ -175,7 +175,7 @@ impl DDManager {
             // Assign new node ID
             let mut id = NodeID(rand::thread_rng().gen::<usize>());
 
-            while self.nodes.get(&id).is_some() {
+            while self.nodes.contains_key(&id) {
                 id = NodeID(rand::thread_rng().gen::<usize>());
             }
 
