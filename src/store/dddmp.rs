@@ -42,7 +42,8 @@ impl DDManager {
     ///
     /// ```
     /// # use obddimal::core::bdd_manager::DDManager;
-    /// let Ok((man, bdds)) = DDManager::load_from_dddmp_file("sandwich.dimacs.dddmp".to_string());
+    /// let (man, bdds) =
+    /// DDManager::load_from_dddmp_file("sandwich.dimacs.dddmp".to_string()).unwrap();
     /// ```
     pub fn load_from_dddmp_file(filename: String) -> Result<(DDManager, Vec<NodeID>), String> {
         let bcdd =
