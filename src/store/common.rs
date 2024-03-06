@@ -39,7 +39,7 @@ impl DDManager {
     ) -> (DDManager, Vec<NodeID>, HashMap<NodeID, NodeID>) {
         assert!(
             self.nodes.len() == 2, // The terminal nodes already exist in a new DDManager
-            "load_bdd_from_nodelist is only allowed on empty DDManagers."
+            "load_bdd_from_nodelist and load_bdd_from_nodelist_with_translation are only allowed on empty DDManagers."
         );
 
         // Prepare DDManager
@@ -61,12 +61,7 @@ impl DDManager {
                 layer_to_nodes
             });
 
-        let mut layers_to_var: Vec<_> = varorder.iter().enumerate().collect();
-        layers_to_var.sort_unstable_by(|(_, a), (_, b)| a.cmp(b));
-        layers_to_var
-            .iter()
-            .filter(|(_, layer)| **layer != 0)
-            .for_each(|(var_id, _)| self.ensure_order(VarID(*var_id)));
+        self.prepare_varorder(varorder.clone());
 
         // Create nodes in DDManager (bottom up)
         let mut layers = varorder;
