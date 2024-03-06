@@ -12,13 +12,31 @@ impl DDManager {
     /// # Panics
     /// Only allowed on empty DDManagers. If called on a non-empty DDManager, this function will
     /// panic!
+    #[inline]
     pub fn load_bdd_from_nodelist(
-        mut self,
+        self,
         nodes: HashMap<NodeID, (VarID, NodeID, NodeID)>,
         varorder: Vec<usize>,
         roots: Vec<NodeID>,
         terminals: (NodeID, NodeID),
     ) -> (DDManager, Vec<NodeID>) {
+        let (man, roots, _) =
+            self.load_bdd_from_nodelist_with_translation(nodes, varorder, roots, terminals);
+        (man, roots)
+    }
+
+    /// Loads a BDD from a Nodelist (containing all nodes from a BDD) into the DDManager.
+    ///
+    /// # Panics
+    /// Only allowed on empty DDManagers. If called on a non-empty DDManager, this function will
+    /// panic!
+    pub fn load_bdd_from_nodelist_with_translation(
+        mut self,
+        nodes: HashMap<NodeID, (VarID, NodeID, NodeID)>,
+        varorder: Vec<usize>,
+        roots: Vec<NodeID>,
+        terminals: (NodeID, NodeID),
+    ) -> (DDManager, Vec<NodeID>, HashMap<NodeID, NodeID>) {
         assert!(
             self.nodes.len() == 2, // The terminal nodes already exist in a new DDManager
             "load_bdd_from_nodelist is only allowed on empty DDManagers."
@@ -43,17 +61,16 @@ impl DDManager {
                 layer_to_nodes
             });
 
-        let mut layers = varorder;
-        layers.sort();
-        layers
+        let mut layers_to_var: Vec<_> = varorder.iter().enumerate().collect();
+        layers_to_var.sort_unstable_by(|(_, a), (_, b)| a.cmp(b));
+        layers_to_var
             .iter()
-            .filter(|layer| layer_to_nodes.contains_key(layer))
-            .map(|layer| layer_to_nodes.get(layer).unwrap())
-            .filter(|node_ids| !node_ids.is_empty())
-            .map(|node_ids| nodes.get(node_ids.iter().next().unwrap()).unwrap().0)
-            .for_each(|var_id| self.ensure_order(var_id));
+            .filter(|(_, layer)| **layer != 0)
+            .for_each(|(var_id, _)| self.ensure_order(VarID(*var_id)));
 
         // Create nodes in DDManager (bottom up)
+        let mut layers = varorder;
+        layers.sort_unstable();
         layers.reverse();
         layers
             .iter()
@@ -74,6 +91,6 @@ impl DDManager {
         // Convert root ids
         let roots: Vec<NodeID> = roots.iter().map(|r| *new_ids.get(r).unwrap()).collect();
 
-        (self, roots)
+        (self, roots, new_ids)
     }
 }

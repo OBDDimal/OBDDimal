@@ -124,6 +124,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 
 [[package]]
+name = "collapse"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba28d63cd46c3b6dc8d75b63f563b724dc9c5e09c59cf5b62f315a7ddfcc135a"
+
+[[package]]
 name = "concat-idents"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -494,6 +500,7 @@ name = "obddimal"
 version = "0.1.0"
 dependencies = [
  "bitvec",
+ "collapse",
  "concat-idents",
  "console",
  "criterion",
