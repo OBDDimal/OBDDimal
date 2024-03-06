@@ -374,39 +374,37 @@ impl DDManager {
 
 #[cfg(test)]
 mod test {
-    use num_bigint::ToBigUint;
-
     use crate::core::bdd_manager::DDManager;
 
     #[test]
-    fn dddmp_read_sandwich() {
+    fn dddmp_file_read_sandwich() {
         let (man, bdds) =
             DDManager::load_from_dddmp_file("examples/sandwich.dimacs.dddmp".to_string()).unwrap();
         let root = bdds[0];
-        assert_eq!(man.sat_count(root), 2808.to_biguint().unwrap());
+        assert_eq!(man.sat_count(root), 2808usize.into());
     }
 
     #[ignore]
     #[test]
-    fn dddmp_read_jhipster() {
+    fn dddmp_file_read_jhipster() {
         let (man, bdds) =
             DDManager::load_from_dddmp_file("examples/JHipster.dimacs.dddmp".to_string()).unwrap();
         let root = bdds[0];
-        assert_eq!(man.sat_count(root), 26256.to_biguint().unwrap());
+        assert_eq!(man.sat_count(root), 26256usize.into());
     }
 
     #[ignore]
     #[test]
-    fn dddmp_read_berkeleydb() {
+    fn dddmp_file_read_berkeleydb() {
         let (man, bdds) =
             DDManager::load_from_dddmp_file("examples/berkeleydb.dimacs.dddmp".to_string())
                 .unwrap();
         let root = bdds[0];
-        assert_eq!(man.sat_count(root), 4080389785u64.to_biguint().unwrap());
+        assert_eq!(man.sat_count(root), 4080389785u64.into());
     }
 
     #[test]
-    fn dddmp_read_invalid() {
+    fn dddmp_file_read_invalid() {
         let result = DDManager::load_from_dddmp_file("examples/invalid.dddmp".to_string());
         assert!(result.is_err());
     }
