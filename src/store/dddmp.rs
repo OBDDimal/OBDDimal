@@ -70,16 +70,7 @@ impl DDManager {
             })
             .collect::<HashMap<String, Vec<String>>>();
 
-        // Check dddmp version
-        if let Some(version) = header.get(".ver") {
-            if version.len() != 1 || version[0] != "DDDMP-2.0" {
-                return Err("DDDMP file version not supported!".to_string());
-            }
-        } else {
-            return Err("DDDMP file version missing!".to_string());
-        };
-
-        // To verify file integrity
+        // Verify file integrity
         let nodecount = {
             let Some(value) = header.get(".nnodes") else {
                 return Err(".nnodes missing!".to_string());
@@ -190,17 +181,15 @@ impl DDManager {
                     Err("Node list contains unexpected line!".to_string())
                 } else {
                     let id = line[0].parse::<isize>().map_err(|e| e.to_string())?;
-                    if line[1] == "T" {
+                    let high = line[3].parse::<isize>().map_err(|e| e.to_string())?;
+                    let low = line[4].parse::<isize>().map_err(|e| e.to_string())?;
+                    let var_id = if line[1] == "T" {
                         terminal_id = Some(id);
-                    }
-                    Ok((
-                        id,
-                        (
-                            VarID(line[2].parse::<usize>().map_err(|e| e.to_string())? + 1usize),
-                            line[3].parse::<isize>().map_err(|e| e.to_string())?,
-                            line[4].parse::<isize>().map_err(|e| e.to_string())?,
-                        ),
-                    ))
+                        VarID(0)
+                    } else {
+                        VarID(line[1].parse::<usize>().map_err(|e| e.to_string())? + 1usize)
+                    };
+                    Ok((id, (var_id, high, low)))
                 }
             })
             .try_collect::<NodeList>()?;
@@ -384,7 +373,6 @@ mod test {
         assert_eq!(man.sat_count(root), 2808usize.into());
     }
 
-    #[ignore]
     #[test]
     fn dddmp_file_read_jhipster() {
         let (man, bdds) =
