@@ -215,10 +215,7 @@ mod test {
     fn bdd_file_write_simple() {
         let bdds = vec![NodeID(4), NodeID(2)];
         let mut man = DDManager::default();
-        man.ensure_order(VarID(1));
-        man.ensure_order(VarID(2));
-        man.ensure_order(VarID(3));
-        man.ensure_order(VarID(4));
+        man.prepare_varorder(vec![5, 1, 2, 3, 4]);
         [
             DDNode {
                 id: NodeID(2),
