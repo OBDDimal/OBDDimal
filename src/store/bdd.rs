@@ -184,3 +184,93 @@ impl DDManager {
         toml::to_string(&bdd_file).map_err(|e| e.to_string())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::fs;
+
+    use crate::{
+        core::{
+            bdd_manager::DDManager,
+            bdd_node::{DDNode, NodeID, VarID},
+        },
+        misc::hash_select::HashMap,
+        store::bdd::NodeStatistics,
+    };
+
+    #[test]
+    fn bdd_file_read_simple() {
+        let (man, bdds, statistics) =
+            DDManager::load_from_bdd_file_with_statistics("examples/simple.bdd".to_string())
+                .unwrap();
+        let statistics_4 = statistics.as_ref().unwrap().get(&bdds[0]).unwrap();
+        let statistics_2 = statistics.as_ref().unwrap().get(&bdds[1]).unwrap();
+        assert!(!statistics_4.void.unwrap());
+        assert_eq!(statistics_4.count.unwrap(), 10usize);
+        assert!(!statistics_2.void.unwrap());
+        assert_eq!(man.sat_count(bdds[0]), 10usize.into());
+    }
+
+    #[test]
+    fn bdd_file_write_simple() {
+        let bdds = vec![NodeID(4), NodeID(2)];
+        let mut man = DDManager::default();
+        man.ensure_order(VarID(1));
+        man.ensure_order(VarID(2));
+        man.ensure_order(VarID(3));
+        man.ensure_order(VarID(4));
+        [
+            DDNode {
+                id: NodeID(2),
+                var: VarID(3),
+                low: NodeID(0),
+                high: NodeID(1),
+            },
+            DDNode {
+                id: NodeID(3),
+                var: VarID(2),
+                low: NodeID(2),
+                high: NodeID(1),
+            },
+            DDNode {
+                id: NodeID(4),
+                var: VarID(1),
+                low: NodeID(2),
+                high: NodeID(3),
+            },
+        ]
+        .iter()
+        .for_each(|node| {
+            man.nodes.insert(node.id, *node);
+            man.level2nodes[man.var2level[node.var.0]].insert(*node);
+        });
+        let statistics = HashMap::from(
+            [
+                (
+                    NodeID(4),
+                    NodeStatistics {
+                        void: Some(false),
+                        count: Some(10),
+                    },
+                ),
+                (
+                    NodeID(2),
+                    NodeStatistics {
+                        void: Some(false),
+                        count: None,
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        );
+
+        assert_eq!(
+            collapse::collapse(
+                &man.generate_bdd_file_string(bdds, Some(statistics))
+                    .unwrap()
+            ),
+            collapse::collapse(&fs::read_to_string("examples/simple.bdd").unwrap())
+        );
+    }
+}
