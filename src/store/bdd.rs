@@ -10,15 +10,12 @@ use crate::{
     misc::hash_select::HashMap,
 };
 
-#[derive(Serialize, Deserialize)]
-struct BddFile {
-    statistics: Statistics,
-    bdd: Bdd,
-}
+type Statistics = Option<HashMap<NodeID, NodeStatistics>>;
 
 #[derive(Serialize, Deserialize)]
-pub struct Statistics {
-    node_statistics: Option<HashMap<NodeID, NodeStatistics>>,
+struct BddFile {
+    statistics: Option<HashMap<String, NodeStatistics>>,
+    bdd: Bdd,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -43,7 +40,7 @@ impl DDManager {
     ///
     /// ```
     /// # use obddimal::core::bdd_manager::DDManager;
-    /// //let (man, bdds) = DDManager::load_from_bdd_file("testbdd.bdd".to_string()).unwrap();
+    /// let (man, bdds, statistics) = DDManager::load_from_bdd_file_with_statistics("examples/simple.bdd".to_string()).unwrap();
     /// ```
     pub fn load_from_bdd_file_with_statistics(
         filename: String,
@@ -96,9 +93,25 @@ impl DDManager {
             _ => Err("Terminal nodes missing!".to_string()),
         }?;
 
-        let (ddmanager, roots) =
-            DDManager::default().load_bdd_from_nodelist(nodes, varorder, roots, terminals);
-        Ok((ddmanager, roots, bdd_file.statistics))
+        let (ddmanager, roots, id_translator) = DDManager::default()
+            .load_bdd_from_nodelist_with_translation(nodes, varorder, roots, terminals);
+
+        // Change node ids in statistic:
+        let statistics = bdd_file
+            .statistics
+            .map(|statistics| {
+                statistics
+                    .into_iter()
+                    .map(|(node_id, stats)| {
+                        let node_id =
+                            NodeID(node_id.parse::<usize>().map_err(|err| err.to_string())?);
+                        Ok::<_, String>((*id_translator.get(&node_id).unwrap(), stats))
+                    })
+                    .try_collect()
+            })
+            .transpose()?;
+
+        Ok((ddmanager, roots, statistics))
     }
 
     /// Reads a (multi-rooted) BDD from a .bdd file.
@@ -107,7 +120,7 @@ impl DDManager {
     ///
     /// ```
     /// # use obddimal::core::bdd_manager::DDManager;
-    /// //let (man, bdds) = DDManager::load_from_bdd_file("testbdd.bdd".to_string()).unwrap();
+    /// let (man, bdds) = DDManager::load_from_bdd_file("examples/simple.bdd".to_string()).unwrap();
     /// ```
     #[inline]
     pub fn load_from_bdd_file(filename: String) -> Result<(DDManager, Vec<NodeID>), String> {
@@ -120,15 +133,23 @@ impl DDManager {
     /// * `self` - The DDManager containing the BDD.
     /// * `filename` - Name of the .bdd file.
     /// * `roots` - The roots of the BDD.
-    /// * `node_statistics` - Optional HashMap containing statistics about individual nodes, see
+    /// * `statistics` - Optional HashMap containing statistics about individual nodes, see
     /// [`NodeStatistics`](NodeStatistics).
-    ///
     pub fn write_to_bdd_file(
         &self,
         filename: String,
         roots: Vec<NodeID>,
-        node_statistics: Option<HashMap<NodeID, NodeStatistics>>,
+        statistics: Statistics,
     ) -> Result<(), String> {
+        fs::write(filename, self.generate_bdd_file_string(roots, statistics)?)
+            .map_err(|e| e.to_string())
+    }
+
+    fn generate_bdd_file_string(
+        &self,
+        roots: Vec<NodeID>,
+        statistics: Statistics,
+    ) -> Result<String, String> {
         let order = self.var2level.clone();
         let nodes = self
             .nodes
@@ -148,17 +169,18 @@ impl DDManager {
                 s
             });
         let bdd_file = BddFile {
-            statistics: Statistics { node_statistics },
+            statistics: statistics.map(|statistics| {
+                statistics
+                    .into_iter()
+                    .map(|(node_id, stats)| (node_id.0.to_string(), stats))
+                    .collect()
+            }),
             bdd: Bdd {
                 order,
                 roots,
                 nodes,
             },
         };
-        fs::write(
-            filename,
-            toml::to_string_pretty(&bdd_file).map_err(|e| e.to_string())?,
-        )
-        .map_err(|e| e.to_string())
+        toml::to_string(&bdd_file).map_err(|e| e.to_string())
     }
 }
