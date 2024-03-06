@@ -2,19 +2,22 @@
 
 //pub mod dimacs;
 
+use std::cmp;
+
+use dimacs::{Instance, Sign};
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 
 use crate::{
-    core::bdd_manager::{align_clauses, DDManager},
-    core::bdd_node::{NodeID, VarID},
-    core::dvo::dvo_schedules::DVOSchedule,
-    core::options::Options,
-    core::order::check_order,
+    core::{
+        bdd_manager::{align_clauses, DDManager},
+        bdd_node::{NodeID, VarID},
+        dvo::dvo_schedules::DVOSchedule,
+        options::Options,
+        order::check_order,
+    },
     if_some,
     misc::hash_select::HashSet,
 };
-use dimacs::{Instance, Sign};
-use std::cmp;
 
 impl DDManager {
     /// Builds a BDD from a CNF read from DIMACS.

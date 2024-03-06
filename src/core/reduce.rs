@@ -452,8 +452,9 @@ mod tests {
         assert_eq!(man.level2nodes[man.var2level[3]].len(), 2);
     }
 
-    use num_bigint::BigUint;
     use std::fs;
+
+    use num_bigint::BigUint;
 
     /// This tests that reducing the "sandwich" bdd does not fail and does not break it
     #[test]

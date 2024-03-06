@@ -1,8 +1,10 @@
+#![feature(iterator_try_collect)]
+use std::fs;
+
 use obddimal::{
     core::{bdd_manager::DDManager, dvo::dvo_schedules, options::Options},
     misc::static_ordering,
 };
-use std::fs;
 
 fn main() {
     env_logger::init();
@@ -49,7 +51,6 @@ mod tests {
     use num_bigint::BigUint;
 
     use super::*;
-    use std::fs;
 
     fn build_verify_ssat(filepath: &str, target: &[u8]) {
         let expected = BigUint::parse_bytes(target, 10).unwrap();

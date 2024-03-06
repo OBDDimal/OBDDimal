@@ -11,11 +11,11 @@ jobs:
         run: |
           apt update
           apt install -y curl git build-essential
-      - name: Install and select latest stable rust toolchain
+      - name: Install and select latest nightly rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           override: true
 
       - name: Checkout PR base
