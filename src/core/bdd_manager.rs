@@ -141,7 +141,7 @@ impl DDManager {
             "prepare_varorder is only allowed on empty DDManagers."
         );
 
-        self.var2level = varorder.clone();
+        self.var2level.clone_from(&varorder);
         self.level2nodes = vec![HashSet::default(); self.var2level[0] + 1];
         self.bootstrap();
     }
