@@ -418,10 +418,10 @@ impl DDManager {
         node_id.0 == 1
     }
 
-    pub fn purge_retain(&mut self, f: NodeID) {
+    pub(crate) fn get_reachable(&mut self, roots: &[NodeID]) -> HashSet<NodeID> {
         let mut keep = HashSet::default();
 
-        let mut stack = vec![f];
+        let mut stack = roots.to_vec();
 
         while let Some(x) = stack.pop() {
             if keep.contains(&x) {
@@ -434,6 +434,16 @@ impl DDManager {
             stack.push(node.high);
             keep.insert(x);
         }
+
+        keep
+    }
+
+    pub fn purge_retain(&mut self, root: NodeID) {
+        self.purge_retain_multi(&[root])
+    }
+
+    pub fn purge_retain_multi(&mut self, roots: &[NodeID]) {
+        let keep = self.get_reachable(roots);
 
         let mut garbage = self.nodes.clone();
 
