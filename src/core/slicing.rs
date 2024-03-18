@@ -17,6 +17,13 @@ impl DDManager {
     ///
     /// # Returns
     /// The id of the root node of the slice.
+    ///
+    /// # Notes
+    /// May create temporary nodes, consider using [`purge_retain_multi`] or [`purge_retain`]
+    /// afterwards.
+    ///
+    /// [`purge_retain_multi`]: crate::core::bdd_manager::DDManager::purge_retain_multi
+    /// [`purge_retain`]: crate::core::bdd_manager::DDManager::purge_retain
     #[inline]
     pub fn create_slice_structural(&mut self, root: NodeID, keep: &HashSet<VarID>) -> NodeID {
         *self
@@ -32,6 +39,13 @@ impl DDManager {
     ///
     /// # Returns
     /// The id of the root node of the slice.
+    ///
+    /// # Notes
+    /// May create temporary nodes, consider using [`purge_retain_multi`] or [`purge_retain`]
+    /// afterwards.
+    ///
+    /// [`purge_retain_multi`]: crate::core::bdd_manager::DDManager::purge_retain_multi
+    /// [`purge_retain`]: crate::core::bdd_manager::DDManager::purge_retain
     #[inline]
     pub fn create_slice_without_vars_structural(
         &mut self,
@@ -53,6 +67,13 @@ impl DDManager {
     /// A HashMap giving the id of the root node of the created slice for each BDD (the keys to the
     /// HashMap are the ids of the root nodes of the original BDDs, as given in the node_ids
     /// parameter).
+    ///
+    /// # Notes
+    /// May create temporary nodes, consider using [`purge_retain_multi`] or [`purge_retain`]
+    /// afterwards.
+    ///
+    /// [`purge_retain_multi`]: crate::core::bdd_manager::DDManager::purge_retain_multi
+    /// [`purge_retain`]: crate::core::bdd_manager::DDManager::purge_retain
     pub fn create_slices_structural(
         &mut self,
         roots: &[NodeID],
@@ -75,6 +96,13 @@ impl DDManager {
     /// A HashMap giving the id of the root node of the created slice for each BDD (the keys to the
     /// HashMap are the ids of the root nodes of the original BDDs, as given in the node_ids
     /// parameter).
+    ///
+    /// # Notes
+    /// May create temporary nodes, consider using [`purge_retain_multi`] or [`purge_retain`]
+    /// afterwards.
+    ///
+    /// [`purge_retain_multi`]: crate::core::bdd_manager::DDManager::purge_retain_multi
+    /// [`purge_retain`]: crate::core::bdd_manager::DDManager::purge_retain
     pub fn create_slices_without_vars_structural(
         &mut self,
         roots: &[NodeID],
