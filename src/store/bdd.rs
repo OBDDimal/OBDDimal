@@ -134,7 +134,7 @@ impl DDManager {
     /// * `filename` - Name of the .bdd file.
     /// * `roots` - The roots of the BDD.
     /// * `statistics` - Optional HashMap containing statistics about individual nodes, see
-    /// [`NodeStatistics`](NodeStatistics).
+    /// [`NodeStatistics`].
     pub fn write_to_bdd_file(
         &self,
         filename: String,

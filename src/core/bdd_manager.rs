@@ -442,10 +442,18 @@ impl DDManager {
         keep
     }
 
+    /// Removes nodes which do not belong to the BDD with the specified root node from the
+    /// [DDManager].
+    ///
+    /// * `root` - The root node of the BDD which should remain in the [DDManager].
     pub fn purge_retain(&mut self, root: NodeID) {
         self.purge_retain_multi(&[root])
     }
 
+    /// Removes nodes which do not belong to any of the BDDs with the specified root nodes from the
+    /// [DDManager].
+    ///
+    /// * `roots` - The root nodes of the BDDs which should remain in the [DDManager].
     pub fn purge_retain_multi(&mut self, roots: &[NodeID]) {
         let keep = self.get_reachable(roots);
 
