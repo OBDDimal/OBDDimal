@@ -12,7 +12,7 @@ use crate::{
 impl DDManager {
     /// Creates a slice of a BDD containing only the given variables.
     ///
-    /// * `keep` - List of the variables to keep
+    /// * `keep` - The variables to keep
     /// * `root` - The root node of the BDD that is supposed to be sliced
     ///
     /// # Returns
@@ -34,7 +34,7 @@ impl DDManager {
 
     /// Creates a slice of a BDD containing all except the given variables.
     ///
-    /// * `remove` - List of the variables to remove
+    /// * `remove` - The variables to remove
     /// * `root` - The root node of the BDD that is supposed to be sliced
     ///
     /// # Returns
@@ -60,7 +60,7 @@ impl DDManager {
 
     /// Creates slices of BDDs containing only the given variables.
     ///
-    /// * `keep` - List of the variables to keep
+    /// * `keep` - The variables to keep
     /// * `roots` - The root nodes of the BDDs that are supposed to be sliced
     ///
     /// # Returns
@@ -89,7 +89,7 @@ impl DDManager {
 
     /// Creates slices of BDDs containing all except the given variables.
     ///
-    /// * `remove` - List of the variables to remove
+    /// * `remove` - The variables to remove
     /// * `roots` - The root nodes of the BDDs that are supposed to be sliced
     ///
     /// # Returns
