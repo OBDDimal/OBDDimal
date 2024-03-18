@@ -215,7 +215,11 @@ impl DDManager {
 
     /// Search for Node, create if it doesnt exist
     pub(crate) fn node_get_or_create(&mut self, node: &DDNode) -> NodeID {
-        assert_ne!(node.low, node.high, "Creating a node with the same low and high edge creates a non-reduced BDD, which we don't want to do.");
+        // If both child nodes are the same, this node must be replaced by its child node to get a
+        // reduced BDD.
+        if node.low == node.high {
+            return node.low;
+        }
 
         if self.var2level.len() <= node.var.0 {
             // Unique table does not contain any entries for this variable. Create new Node.
