@@ -1,9 +1,30 @@
 //! The Apply operator
+#![allow(rustdoc::private_intra_doc_links)]
+
 use crate::core::{
     bdd_manager::DDManager,
     bdd_node::{DDNode, NodeID, VarID, ONE, ZERO},
 };
 
+/// Enum representing the Operations apply can apply.
+///
+/// # Adding Operations
+/// When an operation is added to this enum, the constant function
+/// [`get_apply_operation_functions`] also has to be modified so that it returns the necessary
+/// functions for terminal cases in an [`ApplyOperationFunctions`] struct. **If you forget changing
+/// the function, the compiler should warn you**.
+/// Basically four functions need to be implemented (please take a look at how the existing
+/// functions are implemented for a hint on how this is supposed to be done). These four functions
+/// are:
+/// * `both_terminal`: This function handles the case that both BDDs provided to apply are single
+/// terminal nodes.
+/// * `first_terminal`: This function handles the case, that only the first BDD is a single
+/// terminal node (which can often be handled in constant time).
+/// * `second_terminal`: This function handles the case, that only the second BDD is a single
+/// terminal node (for symmetric operations, this can just call `first_terminal` with swapped
+/// parameters).
+/// * `both_equal`: This function serves the case, that both BDDs are equal (which can also usually
+/// be handled in constant time).
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum ApplyOperation {
     AND,
