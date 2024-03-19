@@ -242,13 +242,22 @@ mod tests {
     };
 
     #[test]
-    fn slice_structural_ab_ba_eq() {
+    fn slice_structural_ab_ba_eq_1() {
+        slice_structural_ab_ba_eq(VarID(5), VarID(15));
+    }
+
+    #[test]
+    fn slice_structural_ab_ba_eq_2() {
+        slice_structural_ab_ba_eq(VarID(1), VarID(19));
+    }
+
+    fn slice_structural_ab_ba_eq(a: VarID, b: VarID) {
         let (mut man, root) =
             DDManager::load_from_dddmp_file("examples/sandwich.dimacs.dddmp".to_string()).unwrap();
         let root = root[0];
 
-        let a = [VarID(5)].into_iter().collect::<HashSet<_>>();
-        let b = [VarID(15)].into_iter().collect::<HashSet<_>>();
+        let a = [a].into_iter().collect::<HashSet<_>>();
+        let b = [b].into_iter().collect::<HashSet<_>>();
 
         let root_bdd_without_a = man.create_slice_without_vars_structural(root, &a);
         let root_bdd_without_b = man.create_slice_without_vars_structural(root, &b);
