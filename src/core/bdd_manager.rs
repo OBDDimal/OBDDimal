@@ -6,7 +6,10 @@ use dimacs::Clause;
 use rand::Rng;
 
 use crate::{
-    core::bdd_node::{DDNode, NodeID, VarID, ONE, ZERO},
+    core::{
+        apply::ApplyOperation,
+        bdd_node::{DDNode, NodeID, VarID, ONE, ZERO},
+    },
     misc::hash_select::{HashMap, HashSet},
 };
 
@@ -22,18 +25,21 @@ pub struct DDManager {
     /// variables, not their IDs. The depth of a variable can be determined through
     /// [var2level](`DDManager::var2level`)!
     pub(crate) level2nodes: Vec<HashSet<DDNode>>,
-    /// Computed Table: maps (f,g,h) to ite(f,g,h)
+    /// Computed Table for ITE: maps (f,g,h) to ite(f,g,h)
     pub(super) ite_c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
+    /// Computed Table for Apply: maps (op,u,v) to apply(op,u,v)
+    pub(super) apply_c_table: HashMap<(ApplyOperation, NodeID, NodeID), NodeID>,
 }
 
 impl fmt::Debug for DDManager {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "DDManager [{} nodes, unique table size {}, cache size {}]",
+            "DDManager [{} nodes, unique table size {}, cache sizes: {} (ite), {} (apply)]",
             self.nodes.len(),
             self.level2nodes.iter().map(|s| s.len()).sum::<usize>(),
-            self.ite_c_table.len()
+            self.ite_c_table.len(),
+            self.apply_c_table.len(),
         )
     }
 }
@@ -45,6 +51,7 @@ impl Default for DDManager {
             var2level: Vec::new(),
             level2nodes: Vec::new(),
             ite_c_table: Default::default(),
+            apply_c_table: Default::default(),
         };
 
         man.bootstrap();
@@ -244,7 +251,7 @@ impl DDManager {
     //------------------------------------------------------------------------//
     // Unitary Operations
 
-    fn not(&mut self, f: NodeID) -> NodeID {
+    pub fn not(&mut self, f: NodeID) -> NodeID {
         self.ite(f, NodeID(0), NodeID(1))
     }
 
@@ -372,5 +379,6 @@ impl DDManager {
 
     pub fn clear_c_table(&mut self) {
         self.ite_c_table.clear();
+        self.apply_c_table.clear();
     }
 }

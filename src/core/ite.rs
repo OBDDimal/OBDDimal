@@ -28,7 +28,7 @@ fn normalize_ite_args(mut f: NodeID, mut g: NodeID, mut h: NodeID) -> (NodeID, N
 }
 
 impl DDManager {
-    pub(crate) fn ite(&mut self, f: NodeID, g: NodeID, h: NodeID) -> NodeID {
+    pub fn ite(&mut self, f: NodeID, g: NodeID, h: NodeID) -> NodeID {
         let (f, g, h) = normalize_ite_args(f, g, h);
         match (f, g, h) {
             (_, NodeID(1), NodeID(0)) => f, // ite(f,1,0)
