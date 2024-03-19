@@ -233,4 +233,27 @@ impl DDManager {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use crate::{
+        core::{bdd_manager::DDManager, bdd_node::VarID},
+        misc::hash_select::HashSet,
+    };
+
+    #[test]
+    fn slice_structural_ab_ba_eq() {
+        let (mut man, root) =
+            DDManager::load_from_dddmp_file("examples/sandwich.dimacs.dddmp".to_string()).unwrap();
+        let root = root[0];
+
+        let a = [VarID(5)].into_iter().collect::<HashSet<_>>();
+        let b = [VarID(15)].into_iter().collect::<HashSet<_>>();
+
+        let root_bdd_without_a = man.create_slice_without_vars_structural(root, &a);
+        let root_bdd_without_b = man.create_slice_without_vars_structural(root, &b);
+
+        assert_eq!(
+            man.create_slice_without_vars_structural(root_bdd_without_a, &b),
+            man.create_slice_without_vars_structural(root_bdd_without_b, &a),
+        );
+    }
+}
