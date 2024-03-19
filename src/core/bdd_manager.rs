@@ -461,4 +461,8 @@ impl DDManager {
 
         self.ite_c_table.retain(|_, x| keep.contains(x));
     }
+
+    pub fn clear_c_table(&mut self) {
+        self.ite_c_table.clear();
+    }
 }
