@@ -148,6 +148,7 @@ impl DDManager {
                 self.level2nodes[self.var2level[var_id.0]]
                     .clone()
                     .iter()
+                    .filter(|DDNode { id, .. }| relevant_nodes.contains(id))
                     .for_each(|DDNode { id, var, low, high }| {
                         let new_node = if force_to {
                             DDNode {
@@ -172,6 +173,7 @@ impl DDManager {
                 self.level2nodes[self.var2level[var_id.0]]
                     .clone()
                     .iter()
+                    .filter(|DDNode { id, .. }| relevant_nodes.contains(id))
                     .for_each(|DDNode { id, var, low, high }| {
                         new_ids.insert(
                             *id,
