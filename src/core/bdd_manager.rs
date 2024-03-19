@@ -37,14 +37,7 @@ fn normalize_ite_args(mut f: NodeID, mut g: NodeID, mut h: NodeID) -> (NodeID, N
         h = ZERO.id
     }
 
-    fn order(a: NodeID, b: NodeID) -> (NodeID, NodeID) {
-        // TODO: "Efficient implementation of a BDD package" orders by top variable first, is this relevant?
-        if a < b {
-            (a, b)
-        } else {
-            (b, a)
-        }
-    }
+    let order = |a, b| if a < b { (a, b) } else { (b, a) };
 
     if g == ONE.id {
         (f, h) = order(f, h);
@@ -69,7 +62,7 @@ pub struct DDManager {
     /// [var2level](`DDManager::var2level`)!
     pub(crate) level2nodes: Vec<HashSet<DDNode>>,
     /// Computed Table: maps (f,g,h) to ite(f,g,h)
-    pub(super) c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
+    pub(super) ite_c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
 }
 
 impl fmt::Debug for DDManager {
@@ -79,7 +72,7 @@ impl fmt::Debug for DDManager {
             "DDManager [{} nodes, unique table size {}, cache size {}]",
             self.nodes.len(),
             self.level2nodes.iter().map(|s| s.len()).sum::<usize>(),
-            self.c_table.len()
+            self.ite_c_table.len()
         )
     }
 }
@@ -90,7 +83,7 @@ impl Default for DDManager {
             nodes: Default::default(),
             var2level: Vec::new(),
             level2nodes: Vec::new(),
-            c_table: Default::default(),
+            ite_c_table: Default::default(),
         };
 
         man.bootstrap();
@@ -342,7 +335,7 @@ impl DDManager {
             (NodeID(0), _, _) => h,         // ite(0,g,h)
             (_, t, e) if t == e => t,       // ite(f,g,g)
             (_, _, _) => {
-                let cache = self.c_table.get(&(f, g, h));
+                let cache = self.ite_c_table.get(&(f, g, h));
 
                 if let Some(cached) = cache {
                     return *cached;
@@ -366,7 +359,7 @@ impl DDManager {
                 let low = self.ite(fxf, gxf, hxf);
 
                 if low == high {
-                    self.c_table.insert((f, g, h), low);
+                    self.ite_c_table.insert((f, g, h), low);
                     return low;
                 }
 
@@ -379,7 +372,7 @@ impl DDManager {
 
                 let out = self.node_get_or_create(&node);
 
-                self.c_table.insert((f, g, h), out);
+                self.ite_c_table.insert((f, g, h), out);
 
                 out
             }
@@ -466,6 +459,6 @@ impl DDManager {
             self.nodes.remove(x.0);
         }
 
-        self.c_table.retain(|_, x| keep.contains(x));
+        self.ite_c_table.retain(|_, x| keep.contains(x));
     }
 }
