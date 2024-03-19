@@ -124,7 +124,7 @@ impl DDManager {
         }
 
         // Clear ITE cache
-        self.c_table.clear();
+        self.ite_c_table.clear();
 
         log::debug!(
             "Order is now: {:?} (layers: {:?})",
