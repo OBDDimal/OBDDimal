@@ -9,8 +9,8 @@ use crossterm::{cursor, execute};
 use indicatif::ProgressBar;
 
 use super::{
-    bdd_manager::{DDManager, ZERO},
-    bdd_node::{NodeID, VarID},
+    bdd_manager::DDManager,
+    bdd_node::{NodeID, VarID, ZERO},
     order::order_to_layernames,
 };
 use crate::if_some;

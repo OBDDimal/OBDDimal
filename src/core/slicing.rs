@@ -2,8 +2,8 @@
 
 use crate::{
     core::{
-        bdd_manager::{DDManager, ONE, ZERO},
-        bdd_node::{DDNode, NodeID, VarID},
+        bdd_manager::DDManager,
+        bdd_node::{DDNode, NodeID, VarID, ONE, ZERO},
         order::order_to_layernames,
     },
     misc::hash_select::{HashMap, HashSet},

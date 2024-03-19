@@ -6,24 +6,8 @@ use dimacs::Clause;
 use rand::Rng;
 
 use crate::{
-    core::bdd_node::{DDNode, NodeID, VarID},
+    core::bdd_node::{DDNode, NodeID, VarID, ONE, ZERO},
     misc::hash_select::{HashMap, HashSet},
-};
-
-/// Terminal node "zero"
-pub const ZERO: DDNode = DDNode {
-    id: NodeID(0),
-    var: VarID(0),
-    low: NodeID(0),
-    high: NodeID(0),
-};
-
-/// Terminal node "one"
-pub const ONE: DDNode = DDNode {
-    id: NodeID(1),
-    var: VarID(0),
-    low: NodeID(1),
-    high: NodeID(1),
 };
 
 /// Container combining the nodes list, unique tables, information about current
