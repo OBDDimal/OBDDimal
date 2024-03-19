@@ -1,7 +1,7 @@
 //! The ITE operator
 use crate::core::{
-    bdd_manager::{DDManager, ONE, ZERO},
-    bdd_node::{DDNode, NodeID},
+    bdd_manager::DDManager,
+    bdd_node::{DDNode, NodeID, ONE, ZERO},
 };
 
 /// Bring ITE calls of the form

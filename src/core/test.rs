@@ -5,10 +5,7 @@ pub mod tests {
     use num_bigint::BigUint;
 
     use crate::{
-        core::{
-            bdd_manager::{ONE, ZERO},
-            bdd_node::{NodeID, VarID},
-        },
+        core::bdd_node::{NodeID, VarID, ONE, ZERO},
         misc::hash_select::HashSet,
     };
 
