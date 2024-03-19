@@ -2,7 +2,7 @@
 
 use crate::{
     core::{
-        bdd_manager::{DDManager, ZERO},
+        bdd_manager::{DDManager, ONE, ZERO},
         bdd_node::{DDNode, NodeID, VarID},
         order::order_to_layernames,
     },
@@ -140,6 +140,8 @@ impl DDManager {
         bottom_up_vars.reverse();
 
         let mut new_ids: HashMap<NodeID, NodeID> = HashMap::default();
+        new_ids.insert(ZERO.id, ZERO.id);
+        new_ids.insert(ONE.id, ONE.id);
 
         let mut changed = false;
         bottom_up_vars.iter().for_each(|var_id| {
@@ -237,25 +239,32 @@ impl DDManager {
 #[cfg(test)]
 mod tests {
     use crate::{
-        core::{bdd_manager::DDManager, bdd_node::VarID},
+        core::{
+            bdd_manager::DDManager,
+            bdd_node::{NodeID, VarID},
+        },
         misc::hash_select::HashSet,
     };
 
     #[test]
     fn slice_structural_ab_ba_eq_1() {
-        slice_structural_ab_ba_eq(VarID(5), VarID(15));
+        let (man, root) =
+            DDManager::load_from_dddmp_file("examples/sandwich.dimacs.dddmp".to_string()).unwrap();
+        let root = root[0];
+
+        slice_structural_ab_ba_eq(man, root, VarID(5), VarID(15));
     }
 
     #[test]
     fn slice_structural_ab_ba_eq_2() {
-        slice_structural_ab_ba_eq(VarID(1), VarID(19));
-    }
-
-    fn slice_structural_ab_ba_eq(a: VarID, b: VarID) {
-        let (mut man, root) =
+        let (man, root) =
             DDManager::load_from_dddmp_file("examples/sandwich.dimacs.dddmp".to_string()).unwrap();
         let root = root[0];
 
+        slice_structural_ab_ba_eq(man, root, VarID(1), VarID(19));
+    }
+
+    fn slice_structural_ab_ba_eq(mut man: DDManager, root: NodeID, a: VarID, b: VarID) {
         let a = [a].into_iter().collect::<HashSet<_>>();
         let b = [b].into_iter().collect::<HashSet<_>>();
 
