@@ -290,17 +290,15 @@ impl DDManager {
     // Binary Operations
 
     pub fn and(&mut self, f: NodeID, g: NodeID) -> NodeID {
-        self.ite(f, g, NodeID(0))
+        self.apply(ApplyOperation::AND, f, g)
     }
 
     pub fn or(&mut self, f: NodeID, g: NodeID) -> NodeID {
-        self.ite(f, NodeID(1), g)
+        self.apply(ApplyOperation::OR, f, g)
     }
 
     pub fn xor(&mut self, f: NodeID, g: NodeID) -> NodeID {
-        let not_g = self.not(g);
-
-        self.ite(f, not_g, g)
+        self.apply(ApplyOperation::XOR, f, g)
     }
 
     //------------------------------------------------------------------------//
