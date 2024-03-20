@@ -256,6 +256,37 @@ impl DDManager {
     }
 
     //------------------------------------------------------------------------//
+    // Quantification
+
+    pub fn exists(&mut self, f: NodeID, vars: &HashSet<VarID>) -> NodeID {
+        let reachable = self.get_reachable(&[f]);
+        let mut func = |DDNode { high, low, .. }: &DDNode,
+                        man: &mut DDManager,
+                        new_ids: &HashMap<NodeID, NodeID>| {
+            man.or(*new_ids.get(high).unwrap(), *new_ids.get(low).unwrap())
+        };
+
+        *self
+            .modify_var_nodes(&reachable, vars, &mut func)
+            .get(&f)
+            .unwrap()
+    }
+
+    pub fn forall(&mut self, f: NodeID, vars: &HashSet<VarID>) -> NodeID {
+        let reachable = self.get_reachable(&[f]);
+        let mut func = |DDNode { high, low, .. }: &DDNode,
+                        man: &mut DDManager,
+                        new_ids: &HashMap<NodeID, NodeID>| {
+            man.and(*new_ids.get(high).unwrap(), *new_ids.get(low).unwrap())
+        };
+
+        *self
+            .modify_var_nodes(&reachable, vars, &mut func)
+            .get(&f)
+            .unwrap()
+    }
+
+    //------------------------------------------------------------------------//
     // Binary Operations
 
     pub fn and(&mut self, f: NodeID, g: NodeID) -> NodeID {
@@ -305,7 +336,6 @@ impl DDManager {
         todo!();
     }
 
-    #[allow(dead_code)]
     pub fn verify(&self, f: NodeID, trues: &[usize]) -> bool {
         let mut values: Vec<bool> = vec![false; self.level2nodes.len() + 1];
 
