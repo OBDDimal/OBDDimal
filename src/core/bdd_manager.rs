@@ -286,6 +286,42 @@ impl DDManager {
             .unwrap()
     }
 
+    /// Existential quantification, but on multiple BDDs at the same time. Returns a HashMap, which
+    /// can be used to translate the root nodes of the old BDDs to the root nodes of the resulting
+    /// BDDs.
+    pub fn exists_multiple(
+        &mut self,
+        fs: &[NodeID],
+        vars: &HashSet<VarID>,
+    ) -> HashMap<NodeID, NodeID> {
+        let reachable = self.get_reachable(fs);
+        let mut func = |DDNode { high, low, .. }: &DDNode,
+                        man: &mut DDManager,
+                        new_ids: &HashMap<NodeID, NodeID>| {
+            man.or(*new_ids.get(high).unwrap(), *new_ids.get(low).unwrap())
+        };
+
+        self.modify_var_nodes(&reachable, vars, &mut func)
+    }
+
+    /// Universal quantification, but on multiple BDDs at the same time. Returns a HashMap, which
+    /// can be used to translate the root nodes of the old BDDs to the root nodes of the resulting
+    /// BDDs.
+    pub fn forall_multiple(
+        &mut self,
+        fs: &[NodeID],
+        vars: &HashSet<VarID>,
+    ) -> HashMap<NodeID, NodeID> {
+        let reachable = self.get_reachable(fs);
+        let mut func = |DDNode { high, low, .. }: &DDNode,
+                        man: &mut DDManager,
+                        new_ids: &HashMap<NodeID, NodeID>| {
+            man.and(*new_ids.get(high).unwrap(), *new_ids.get(low).unwrap())
+        };
+
+        self.modify_var_nodes(&reachable, vars, &mut func)
+    }
+
     //------------------------------------------------------------------------//
     // Binary Operations
 
