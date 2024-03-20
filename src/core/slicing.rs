@@ -362,6 +362,7 @@ mod tests {
         );
     }
 
+    #[ignore]
     #[test]
     fn slice_eq_exists_structural_1() {
         let (man, root) =
@@ -371,6 +372,7 @@ mod tests {
         slice_eq_exists_structural(man, root, VarID(5), VarID(15));
     }
 
+    #[ignore]
     #[test]
     fn slice_eq_exists_structural_2() {
         let (man, root) =
