@@ -3,8 +3,7 @@
 use crate::{
     core::{
         bdd_manager::DDManager,
-        bdd_node::{DDNode, NodeID, VarID, ONE, ZERO},
-        order::order_to_layernames,
+        bdd_node::{DDNode, NodeID, VarID, ZERO},
     },
     misc::hash_select::{HashMap, HashSet},
 };
@@ -135,71 +134,31 @@ impl DDManager {
         force_to: bool,
     ) -> HashMap<NodeID, NodeID> {
         let relevant_nodes = self.get_reachable_with_forced_vars(roots, vars, force_to);
-
-        let mut bottom_up_vars = order_to_layernames(&self.var2level);
-        bottom_up_vars.reverse();
-
-        let mut new_ids: HashMap<NodeID, NodeID> = HashMap::default();
-        new_ids.insert(ZERO.id, ZERO.id);
-        new_ids.insert(ONE.id, ONE.id);
-
-        let mut changed = false;
-        bottom_up_vars.iter().for_each(|var_id| {
-            if vars.contains(var_id) {
-                // Force var to desired value
-                self.level2nodes[self.var2level[var_id.0]]
-                    .clone()
-                    .iter()
-                    .filter(|DDNode { id, .. }| relevant_nodes.contains(id))
-                    .for_each(|DDNode { id, var, low, high }| {
-                        let new_node = if force_to {
-                            DDNode {
-                                id: NodeID(0),
-                                var: *var,
-                                low: ZERO.id,
-                                high: *new_ids.get(high).unwrap(),
-                            }
-                        } else {
-                            DDNode {
-                                id: NodeID(0),
-                                var: *var,
-                                low: *new_ids.get(low).unwrap(),
-                                high: ZERO.id,
-                            }
-                        };
-                        new_ids.insert(*id, self.node_get_or_create(&new_node));
-                    });
-                changed = true;
-            } else if changed {
-                // Update Nodes in case of new children
-                self.level2nodes[self.var2level[var_id.0]]
-                    .clone()
-                    .iter()
-                    .filter(|DDNode { id, .. }| relevant_nodes.contains(id))
-                    .for_each(|DDNode { id, var, low, high }| {
-                        new_ids.insert(
-                            *id,
-                            self.node_get_or_create(&DDNode {
-                                id: NodeID(0),
-                                var: *var,
-                                low: *new_ids.get(low).unwrap(),
-                                high: *new_ids.get(high).unwrap(),
-                            }),
-                        );
-                    });
-            } else {
-                // Just add to new_ids without changing anything
-                self.level2nodes[self.var2level[var_id.0]]
-                    .iter()
-                    .map(|node| node.id)
-                    .filter(|node_id| relevant_nodes.contains(node_id))
-                    .for_each(|node_id| {
-                        new_ids.insert(node_id, node_id);
-                    });
+        let mut func = if force_to {
+            |DDNode { var, high, .. }: &DDNode,
+             man: &mut DDManager,
+             new_ids: &HashMap<NodeID, NodeID>| {
+                man.node_get_or_create(&DDNode {
+                    id: NodeID(0),
+                    var: *var,
+                    low: ZERO.id,
+                    high: *new_ids.get(high).unwrap(),
+                })
             }
-        });
+        } else {
+            |DDNode { var, low, .. }: &DDNode,
+             man: &mut DDManager,
+             new_ids: &HashMap<NodeID, NodeID>| {
+                man.node_get_or_create(&DDNode {
+                    id: NodeID(0),
+                    var: *var,
+                    low: *new_ids.get(low).unwrap(),
+                    high: ZERO.id,
+                })
+            }
+        };
 
-        new_ids
+        self.modify_var_nodes(&relevant_nodes, vars, &mut func)
     }
 
     /// Creates a Set containing only the variables reachable from the specified root nodes with
