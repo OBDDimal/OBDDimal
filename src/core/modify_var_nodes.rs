@@ -4,7 +4,7 @@ use crate::{
     core::{
         bdd_manager::DDManager,
         bdd_node::{DDNode, NodeID, VarID, ONE, ZERO},
-        order::order_to_layernames,
+        order::var2level_to_ordered_varids,
     },
     misc::hash_select::{HashMap, HashSet},
 };
@@ -39,7 +39,7 @@ impl DDManager {
         vars: &HashSet<VarID>,
         func: &mut NodeModFunction,
     ) -> HashMap<NodeID, NodeID> {
-        let mut bottom_up_vars = order_to_layernames(&self.var2level);
+        let mut bottom_up_vars = var2level_to_ordered_varids(&self.var2level);
         bottom_up_vars.reverse();
 
         let mut new_ids: HashMap<NodeID, NodeID> = HashMap::default();

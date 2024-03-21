@@ -454,7 +454,7 @@ mod tests {
         core::{
             bdd_manager::DDManager,
             bdd_node::{VarID, ONE, ZERO},
-            order::order_to_layernames,
+            order::var2level_to_ordered_varids,
         },
         misc::hash_select::HashSet,
     };
@@ -464,7 +464,7 @@ mod tests {
         let (mut man, root) =
             DDManager::load_from_dddmp_file("examples/sandwich.dimacs.dddmp".to_string()).unwrap();
         let root = root[0];
-        let vars = order_to_layernames(&man.var2level)
+        let vars = var2level_to_ordered_varids(&man.var2level)
             .into_iter()
             .collect::<HashSet<VarID>>();
 
@@ -476,7 +476,7 @@ mod tests {
         let (mut man, root) =
             DDManager::load_from_dddmp_file("examples/sandwich.dimacs.dddmp".to_string()).unwrap();
         let root = root[0];
-        let vars = order_to_layernames(&man.var2level)
+        let vars = var2level_to_ordered_varids(&man.var2level)
             .into_iter()
             .collect::<HashSet<VarID>>();
 
