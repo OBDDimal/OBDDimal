@@ -447,3 +447,39 @@ impl DDManager {
         self.apply_c_table.clear();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        core::{
+            bdd_manager::DDManager,
+            bdd_node::{VarID, ONE, ZERO},
+            order::order_to_layernames,
+        },
+        misc::hash_select::HashSet,
+    };
+
+    #[test]
+    fn exists_all() {
+        let (mut man, root) =
+            DDManager::load_from_dddmp_file("examples/sandwich.dimacs.dddmp".to_string()).unwrap();
+        let root = root[0];
+        let vars = order_to_layernames(&man.var2level)
+            .into_iter()
+            .collect::<HashSet<VarID>>();
+
+        assert_eq!(man.exists(root, &vars), ONE.id);
+    }
+
+    #[test]
+    fn forall_all() {
+        let (mut man, root) =
+            DDManager::load_from_dddmp_file("examples/sandwich.dimacs.dddmp".to_string()).unwrap();
+        let root = root[0];
+        let vars = order_to_layernames(&man.var2level)
+            .into_iter()
+            .collect::<HashSet<VarID>>();
+
+        assert_eq!(man.forall(root, &vars), ZERO.id);
+    }
+}
