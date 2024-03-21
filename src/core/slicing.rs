@@ -73,6 +73,7 @@ impl DDManager {
     ///
     /// [`purge_retain_multi`]: crate::core::bdd_manager::DDManager::purge_retain_multi
     /// [`purge_retain`]: crate::core::bdd_manager::DDManager::purge_retain
+    #[inline]
     pub fn create_slices_structural(
         &mut self,
         roots: &[NodeID],
@@ -115,7 +116,7 @@ impl DDManager {
             .map(|node_id| {
                 (
                     *node_id,
-                    self.and(
+                    self.or(
                         *new_ids_forced_to_false.get(node_id).unwrap(),
                         *new_ids_forced_to_true.get(node_id).unwrap(),
                     ),
@@ -252,6 +253,7 @@ impl DDManager {
     ///
     /// [`purge_retain_multi`]: crate::core::bdd_manager::DDManager::purge_retain_multi
     /// [`purge_retain`]: crate::core::bdd_manager::DDManager::purge_retain
+    #[inline]
     pub fn create_slices_exists(
         &mut self,
         roots: &[NodeID],
@@ -281,6 +283,7 @@ impl DDManager {
     ///
     /// [`purge_retain_multi`]: crate::core::bdd_manager::DDManager::purge_retain_multi
     /// [`purge_retain`]: crate::core::bdd_manager::DDManager::purge_retain
+    #[inline]
     pub fn create_slices_without_vars_exists(
         &mut self,
         roots: &[NodeID],
