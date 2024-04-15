@@ -50,6 +50,7 @@ dimacs = "0.2.0"
 # https://crates.io/crates/toml
 toml = "0.8.8"
 serde = { version = "1.0.195", features = ["derive"] }
+weak-table = "0.3.2"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

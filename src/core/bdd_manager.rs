@@ -1,9 +1,17 @@
 //! All BDD building and manipulation functionality
 
-use std::fmt;
+use std::{
+    fmt,
+    hash::{Hash, Hasher},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Weak,
+    },
+};
 
 use dimacs::Clause;
 use rand::Rng;
+use weak_table::WeakHashSet;
 
 use crate::{
     core::{
@@ -11,12 +19,16 @@ use crate::{
         bdd_node::{DDNode, NodeID, VarID, ONE, ZERO},
     },
     misc::hash_select::{HashMap, HashSet},
+    views::bdd_view::BddView,
 };
+
+static DDMANAGER_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 /// Container combining the nodes list, unique tables, information about current
 /// variable ordering and computed table.
-#[derive(Clone)]
 pub struct DDManager {
+    /// ID to identify the DDManager
+    id: usize,
     /// Node List
     pub nodes: HashMap<NodeID, DDNode>,
     /// Variable ordering: var2level[v.0] is the depth of variable v in the tree
@@ -29,33 +41,52 @@ pub struct DDManager {
     pub(super) ite_c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
     /// Computed Table for Apply: maps (op,u,v) to apply(op,u,v)
     pub(super) apply_c_table: HashMap<(ApplyOperation, NodeID, NodeID), NodeID>,
-}
-
-impl fmt::Debug for DDManager {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "DDManager [{} nodes, unique table size {}, cache sizes: {} (ite), {} (apply)]",
-            self.nodes.len(),
-            self.level2nodes.iter().map(|s| s.len()).sum::<usize>(),
-            self.ite_c_table.len(),
-            self.apply_c_table.len(),
-        )
-    }
+    /// Set of Views for BDDs in this manager
+    views: WeakHashSet<Weak<BddView>>,
 }
 
 impl Default for DDManager {
     fn default() -> Self {
         let mut man = DDManager {
+            id: DDMANAGER_COUNTER.fetch_add(1, Ordering::SeqCst),
             nodes: Default::default(),
             var2level: Vec::new(),
             level2nodes: Vec::new(),
             ite_c_table: Default::default(),
             apply_c_table: Default::default(),
+            views: Default::default(),
         };
 
         man.bootstrap();
         man
+    }
+}
+
+impl PartialEq for DDManager {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for DDManager {}
+
+impl Hash for DDManager {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl Clone for DDManager {
+    fn clone(&self) -> Self {
+        Self {
+            id: DDMANAGER_COUNTER.fetch_add(1, Ordering::SeqCst),
+            nodes: self.nodes.clone(),
+            var2level: self.var2level.clone(),
+            level2nodes: self.level2nodes.clone(),
+            ite_c_table: self.ite_c_table.clone(),
+            apply_c_table: self.apply_c_table.clone(),
+            views: self.views.clone(),
+        }
     }
 }
 
@@ -89,6 +120,22 @@ impl DDManager {
     fn bootstrap(&mut self) {
         self.add_node(ZERO);
         self.add_node(ONE);
+    }
+
+    /// Add a view to the BDD Manager
+    pub(crate) fn get_or_add_view(&mut self, view: BddView) -> Arc<BddView> {
+        let view: Arc<BddView> = view.into();
+        if let Some(view) = self.views.get(&view) {
+            view
+        } else {
+            self.views.insert(view.clone());
+            view
+        }
+    }
+
+    /// Remove a view from the BDD Manager
+    pub(crate) fn remove_view(&mut self, view: &BddView) {
+        self.views.remove(view);
     }
 
     /// Initializes the BDD for a specific variable ordering.
@@ -445,6 +492,19 @@ impl DDManager {
     pub fn clear_c_table(&mut self) {
         self.ite_c_table.clear();
         self.apply_c_table.clear();
+    }
+}
+
+impl fmt::Debug for DDManager {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "DDManager [{} nodes, unique table size {}, cache sizes: {} (ite), {} (apply)]",
+            self.nodes.len(),
+            self.level2nodes.iter().map(|s| s.len()).sum::<usize>(),
+            self.ite_c_table.len(),
+            self.apply_c_table.len(),
+        )
     }
 }
 
