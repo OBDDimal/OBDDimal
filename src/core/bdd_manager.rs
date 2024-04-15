@@ -136,6 +136,7 @@ impl DDManager {
     /// Remove a view from the BDD Manager
     pub(crate) fn remove_view(&mut self, view: &BddView) {
         self.views.remove(view);
+        self.purge_retain_multi(&self.views.iter().map(|v| v.get_root()).collect::<Vec<_>>());
     }
 
     /// Initializes the BDD for a specific variable ordering.
