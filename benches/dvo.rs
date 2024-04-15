@@ -1,6 +1,7 @@
+use std::fs;
+
 use criterion::{criterion_group, Criterion};
 use obddimal::{core::bdd_manager::DDManager, misc::static_ordering};
-use std::fs;
 
 pub fn berkeleydb_sift_all(c: &mut Criterion) {
     let mut cnf = dimacs::parse_dimacs(

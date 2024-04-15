@@ -2,14 +2,13 @@
 
 use std::fmt;
 
+use dimacs::Clause;
 use rand::Rng;
 
 use crate::{
     core::bdd_node::{DDNode, NodeID, VarID},
     misc::hash_select::{HashMap, HashSet},
 };
-
-use dimacs::Clause;
 
 /// Terminal node "zero"
 pub const ZERO: DDNode = DDNode {
@@ -131,6 +130,22 @@ impl DDManager {
         self.add_node(ONE);
     }
 
+    /// Initializes the BDD for a specific variable ordering.
+    ///
+    /// # Panics
+    /// Only allowed on empty DDManagers. If called on a non-empty DDManager, this function will
+    /// panic!
+    pub(crate) fn prepare_varorder(&mut self, varorder: Vec<usize>) {
+        assert!(
+            self.nodes.len() == 2, // The terminal nodes already exist in a new DDManager
+            "prepare_varorder is only allowed on empty DDManagers."
+        );
+
+        self.var2level.clone_from(&varorder);
+        self.level2nodes = vec![HashSet::default(); self.var2level[0] + 1];
+        self.bootstrap();
+    }
+
     /// Ensure var2level vec is valid up to specified variable
     fn ensure_order(&mut self, target: VarID) {
         let old_size = self.var2level.len();
@@ -176,7 +191,7 @@ impl DDManager {
             // Assign new node ID
             let mut id = NodeID(rand::thread_rng().gen::<usize>());
 
-            while self.nodes.get(&id).is_some() {
+            while self.nodes.contains_key(&id) {
                 id = NodeID(rand::thread_rng().gen::<usize>());
             }
 
