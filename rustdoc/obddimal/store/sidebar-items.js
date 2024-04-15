@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["bdd","common","dddmp","json","xml"]};
