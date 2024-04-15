@@ -57,7 +57,6 @@ impl BddView {
         Self::new_with_sliced(root, manager, HashSet::<VarID>::default())
     }
 
-    #[allow(dead_code)]
     pub(crate) fn new_with_sliced(
         root: NodeID,
         manager: Arc<RwLock<DDManager>>,
@@ -69,6 +68,61 @@ impl BddView {
             sliced_vars,
         };
         manager.write().unwrap().get_or_add_view(view)
+    }
+
+    pub fn get_manager(&self) -> Arc<RwLock<DDManager>> {
+        self.man.clone()
+    }
+
+    pub fn get_root(&self) -> NodeID {
+        self.root
+    }
+
+    //------------------------------------------------------------------------//
+    // Unitary Operations
+
+    pub fn not(&self) -> Arc<Self> {
+        Self::new_with_sliced(
+            self.man.write().unwrap().not(self.root),
+            self.man.clone(),
+            self.sliced_vars.clone(),
+        )
+    }
+
+    //------------------------------------------------------------------------//
+    // Binary Operations
+
+    pub fn and(&self, other: &Self) -> Arc<Self> {
+        assert_eq!(self.sliced_vars, other.sliced_vars);
+        assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
+
+        Self::new_with_sliced(
+            self.man.write().unwrap().and(self.root, other.root),
+            self.man.clone(),
+            self.sliced_vars.clone(),
+        )
+    }
+
+    pub fn or(&self, other: &Self) -> Arc<Self> {
+        assert_eq!(self.sliced_vars, other.sliced_vars);
+        assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
+
+        Self::new_with_sliced(
+            self.man.write().unwrap().or(self.root, other.root),
+            self.man.clone(),
+            self.sliced_vars.clone(),
+        )
+    }
+
+    pub fn xor(&self, other: &Self) -> Arc<Self> {
+        assert_eq!(self.sliced_vars, other.sliced_vars);
+        assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
+
+        Self::new_with_sliced(
+            self.man.write().unwrap().xor(self.root, other.root),
+            self.man.clone(),
+            self.sliced_vars.clone(),
+        )
     }
 }
 
