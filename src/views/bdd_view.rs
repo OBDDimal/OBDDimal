@@ -8,6 +8,8 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use num_bigint::BigUint;
+
 use crate::{
     core::{
         bdd_manager::DDManager,
@@ -158,6 +160,17 @@ impl BddView {
         );
         man.clean();
         sliced
+    }
+
+    //------------------------------------------------------------------------//
+    // SAT / #SAT
+
+    pub fn is_sat(&self) -> bool {
+        self.man.read().unwrap().is_sat(self.root)
+    }
+
+    pub fn sat_count(&self) -> BigUint {
+        self.man.read().unwrap().sat_count(self.root) >> self.sliced_vars.len()
     }
 
     //------------------------------------------------------------------------//
