@@ -443,7 +443,7 @@ impl DDManager {
     }
 
     /// Returns a set containing all nodes reachable from the given root nodes.
-    pub fn get_reachable(&mut self, roots: &[NodeID]) -> HashSet<NodeID> {
+    pub fn get_reachable(&self, roots: &[NodeID]) -> HashSet<NodeID> {
         let mut keep = HashSet::default();
 
         let mut stack = roots.to_vec();
