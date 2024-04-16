@@ -248,11 +248,11 @@ impl DDManager {
     // Constants
 
     pub(crate) fn zero(&self) -> NodeID {
-        NodeID(0)
+        ZERO.id
     }
 
     pub(crate) fn one(&self) -> NodeID {
-        NodeID(1)
+        ONE.id
     }
 
     //------------------------------------------------------------------------//
