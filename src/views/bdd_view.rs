@@ -125,6 +125,33 @@ impl BddView {
             self.sliced_vars.clone(),
         )
     }
+
+    //------------------------------------------------------------------------//
+    // Slicing
+    pub fn create_slice(&self, keep: &HashSet<VarID>) -> Arc<Self> {
+        let man = self.man.read().unwrap();
+        let remove = (1..(man.var2level.len() - 1))
+            .map(VarID)
+            .filter(|var_id| !keep.contains(var_id))
+            .collect::<HashSet<_>>();
+        drop(man);
+
+        self.create_slice_without_vars(&remove)
+    }
+
+    pub fn create_slice_without_vars(&self, remove: &HashSet<VarID>) -> Arc<Self> {
+        Self::new_with_sliced(
+            self.man
+                .write()
+                .unwrap()
+                .create_slice_without_vars(self.root, remove),
+            self.man.clone(),
+            remove
+                .union(&self.sliced_vars)
+                .copied()
+                .collect::<HashSet<_>>(),
+        )
+    }
 }
 
 impl ops::Not for &BddView {
