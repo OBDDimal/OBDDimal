@@ -128,6 +128,10 @@ impl BddView {
 
     //------------------------------------------------------------------------//
     // Slicing
+
+    /// Creates a slice of the BDD containing only the given variables.
+    ///
+    /// * `keep` - The variables to keep
     pub fn create_slice(&self, keep: &HashSet<VarID>) -> Arc<Self> {
         let man = self.man.read().unwrap();
         let remove = (1..(man.var2level.len() - 1))
@@ -139,18 +143,21 @@ impl BddView {
         self.create_slice_without_vars(&remove)
     }
 
+    /// Creates a slice of the BDD containing all except the given variables.
+    ///
+    /// * `remove` - The variables to remove
     pub fn create_slice_without_vars(&self, remove: &HashSet<VarID>) -> Arc<Self> {
-        Self::new_with_sliced(
-            self.man
-                .write()
-                .unwrap()
-                .create_slice_without_vars(self.root, remove),
+        let mut man = self.man.write().unwrap();
+        let sliced = Self::new_with_sliced(
+            man.create_slice_without_vars(self.root, remove),
             self.man.clone(),
             remove
                 .union(&self.sliced_vars)
                 .copied()
                 .collect::<HashSet<_>>(),
-        )
+        );
+        man.clean();
+        sliced
     }
 }
 

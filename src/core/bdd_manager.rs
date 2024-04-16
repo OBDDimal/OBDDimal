@@ -136,7 +136,7 @@ impl DDManager {
     /// Remove a view from the BDD Manager
     pub(crate) fn remove_view(&mut self, view: &BddView) {
         self.views.remove(view);
-        self.purge_retain_multi(&self.views.iter().map(|v| v.get_root()).collect::<Vec<_>>());
+        self.clean()
     }
 
     /// Initializes the BDD for a specific variable ordering.
@@ -488,6 +488,12 @@ impl DDManager {
         }
 
         self.ite_c_table.retain(|_, x| keep.contains(x));
+    }
+
+    /// Removes nodes which do not belong to any of the BDDs for which views exist from the
+    /// [DDManager].
+    pub fn clean(&mut self) {
+        self.purge_retain_multi(&self.views.iter().map(|v| v.get_root()).collect::<Vec<_>>());
     }
 
     pub fn clear_c_table(&mut self) {
