@@ -1,7 +1,5 @@
 //! Satisfyability count, active nodes count
 
-use std::collections::hash_map::Entry::{Occupied, Vacant};
-
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 
@@ -14,9 +12,8 @@ use crate::{
 };
 
 impl DDManager {
-    #[allow(dead_code)]
-    fn is_sat(&self, node: usize) -> bool {
-        node != 0
+    pub fn is_sat(&self, node: NodeID) -> bool {
+        node.0 != 0
     }
 
     pub fn sat_count(&self, f: NodeID) -> BigUint {
@@ -71,30 +68,6 @@ impl DDManager {
     }
 
     pub fn count_active(&self, f: NodeID) -> usize {
-        // We use HashMap<NodeID, ()> instead of HashSet<NodeID> to be able to use the .entry()
-        // API below. This turns out to be faster, since it avoids the double lookup if the
-        // ID is not yet known (!contains -> insert).
-        let mut nodes = HashMap::<NodeID, ()>::default();
-        nodes.reserve(self.nodes.len());
-
-        let mut stack = vec![f];
-        stack.reserve(self.nodes.len());
-
-        while let Some(x) = stack.pop() {
-            let entry = nodes.entry(x);
-
-            match entry {
-                Occupied(_) => continue, // Node already counted
-                Vacant(vacant_entry) => {
-                    // Store node, add children to stack
-                    let node = self.nodes.get(&x).unwrap();
-                    stack.push(node.low);
-                    stack.push(node.high);
-                    vacant_entry.insert(());
-                }
-            }
-        }
-
-        nodes.len()
+        self.get_reachable(&[f]).len()
     }
 }
