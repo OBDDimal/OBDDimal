@@ -14,6 +14,7 @@ use crate::{
     core::{
         bdd_manager::DDManager,
         bdd_node::{NodeID, VarID},
+        options::Options,
     },
     misc::hash_select::HashSet,
 };
@@ -79,6 +80,31 @@ impl BddView {
 
     pub fn get_root(&self) -> NodeID {
         self.root
+    }
+
+    //------------------------------------------------------------------------//
+    // Building BDDs
+
+    /// Returns a [BddView] for a BDD which represents the function which is constant 0.
+    pub fn zero(manager: Arc<RwLock<DDManager>>) -> Arc<BddView> {
+        Self::new(manager.clone().read().unwrap().zero(), manager)
+    }
+
+    /// Returns a [BddView] for a BDD which represents the function which is constant 1.
+    pub fn one(manager: Arc<RwLock<DDManager>>) -> Arc<BddView> {
+        Self::new(manager.clone().read().unwrap().one(), manager)
+    }
+
+    pub fn from_dimacs(
+        dimacs: String,
+        order: Option<Vec<usize>>,
+        options: Options,
+    ) -> Result<Arc<BddView>, String> {
+        let mut instance =
+            dimacs::parse_dimacs(&dimacs).map_err(|_| "Failed to parse dimacs file.")?;
+        let (man, root) = DDManager::from_instance(&mut instance, order, options)?;
+
+        Ok(BddView::new(root, RwLock::new(man).into()))
     }
 
     //------------------------------------------------------------------------//
