@@ -56,7 +56,6 @@ impl PartialEq for BddView {
 impl Eq for BddView {}
 
 impl BddView {
-    #[allow(dead_code)]
     pub(crate) fn new(root: NodeID, manager: Arc<RwLock<DDManager>>) -> Arc<Self> {
         Self::new_with_sliced(root, manager, HashSet::<VarID>::default())
     }
@@ -74,10 +73,12 @@ impl BddView {
         manager.write().unwrap().get_or_add_view(view)
     }
 
+    /// Gives access to the manager which stores the BDD.
     pub fn get_manager(&self) -> Arc<RwLock<DDManager>> {
         self.man.clone()
     }
 
+    /// Returns the [NodeID] of the root node of this BDD.
     pub fn get_root(&self) -> NodeID {
         self.root
     }
@@ -95,6 +96,7 @@ impl BddView {
         Self::new(manager.clone().read().unwrap().one(), manager)
     }
 
+    /// Build a bdd from dimacs. The BDD is stored in a new DDManager created by this function.
     pub fn from_dimacs(
         dimacs: String,
         order: Option<Vec<usize>>,
@@ -110,6 +112,7 @@ impl BddView {
     //------------------------------------------------------------------------//
     // Unitary Operations
 
+    /// Returns a (new) view on a BDD which represents the inverse of the function of the BDD.
     pub fn not(&self) -> Arc<Self> {
         Self::new_with_sliced(
             self.man.write().unwrap().not(self.root),
@@ -121,6 +124,8 @@ impl BddView {
     //------------------------------------------------------------------------//
     // Binary Operations
 
+    /// Returns a (new) view on the BDD resulting from connecting this views' BDD and another one
+    /// given via the parameter with an `and`.
     pub fn and(&self, other: &Self) -> Arc<Self> {
         assert_eq!(self.sliced_vars, other.sliced_vars);
         assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
@@ -132,6 +137,8 @@ impl BddView {
         )
     }
 
+    /// Returns a (new) view on the BDD resulting from connecting this views' BDD and another one
+    /// given via the parameter with an `or`.
     pub fn or(&self, other: &Self) -> Arc<Self> {
         assert_eq!(self.sliced_vars, other.sliced_vars);
         assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
@@ -143,6 +150,8 @@ impl BddView {
         )
     }
 
+    /// Returns a (new) view on the BDD resulting from connecting this views' BDD and another one
+    /// given via the parameter with an `xor`.
     pub fn xor(&self, other: &Self) -> Arc<Self> {
         assert_eq!(self.sliced_vars, other.sliced_vars);
         assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
@@ -189,12 +198,32 @@ impl BddView {
     }
 
     //------------------------------------------------------------------------//
+    // Import- / Export of BDDs
+
+    fn nodelist_to_viewlist(nodes: Vec<NodeID>, man: DDManager) -> Vec<Arc<BddView>> {
+        let man: Arc<RwLock<DDManager>> = RwLock::new(man).into();
+        nodes.iter().map(|id| Self::new(*id, man.clone())).collect()
+    }
+
+    /// Loads the BDDs from a .dddmp file.
+    ///
+    /// * `filename` - Name of the .dddmp file.
+    pub fn load_from_dddmp_file(filename: String) -> Result<Vec<Arc<BddView>>, String> {
+        let (man, roots) = DDManager::load_from_dddmp_file(filename)?;
+        Ok(Self::nodelist_to_viewlist(roots, man))
+    }
+
+    //TODO bdd, json and xml im-/export
+
+    //------------------------------------------------------------------------//
     // SAT / #SAT
 
+    /// Returns, whether the function represented by this BDD is satisfyable.
     pub fn is_sat(&self) -> bool {
         self.man.read().unwrap().is_sat(self.root)
     }
 
+    /// Returns the #SAT result for the function represented by this BDD.
     pub fn sat_count(&self) -> BigUint {
         self.man.read().unwrap().sat_count(self.root) >> self.sliced_vars.len()
     }
