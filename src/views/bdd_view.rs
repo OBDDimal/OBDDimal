@@ -159,6 +159,14 @@ impl BddView {
         man.clean();
         sliced
     }
+
+    //------------------------------------------------------------------------//
+    // Graphviz
+
+    /// Generate graphviz for the BDD.
+    pub fn graphviz(&self) -> String {
+        self.man.read().unwrap().graphviz(self.root)
+    }
 }
 
 impl ops::Not for &BddView {
