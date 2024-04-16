@@ -4,6 +4,7 @@ use std::{
     collections::BTreeSet,
     fmt,
     hash::{Hash, Hasher},
+    ops,
     sync::{Arc, RwLock},
 };
 
@@ -123,6 +124,38 @@ impl BddView {
             self.man.clone(),
             self.sliced_vars.clone(),
         )
+    }
+}
+
+impl ops::Not for &BddView {
+    type Output = Arc<BddView>;
+
+    fn not(self) -> Self::Output {
+        self.not()
+    }
+}
+
+impl ops::BitAnd for &BddView {
+    type Output = Arc<BddView>;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        self.and(rhs)
+    }
+}
+
+impl ops::BitOr for &BddView {
+    type Output = Arc<BddView>;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        self.or(rhs)
+    }
+}
+
+impl ops::BitXor for &BddView {
+    type Output = Arc<BddView>;
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        self.xor(rhs)
     }
 }
 
