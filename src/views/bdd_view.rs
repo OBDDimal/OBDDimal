@@ -109,6 +109,18 @@ impl BddView {
         Ok(BddView::new(root, RwLock::new(man).into()))
     }
 
+    /// Builds a xor ladder with all variables in the DDManager except the given ones and returns a
+    /// [BddView] for the resulting BDD.
+    pub fn xor_prim(
+        manager: Arc<RwLock<DDManager>>,
+        without_vars: &HashSet<VarID>,
+    ) -> Arc<BddView> {
+        Self::new(
+            manager.clone().write().unwrap().xor_prim(without_vars),
+            manager,
+        )
+    }
+
     //------------------------------------------------------------------------//
     // Unitary Operations
 

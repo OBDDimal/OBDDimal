@@ -17,6 +17,7 @@ use crate::{
     core::{
         apply::ApplyOperation,
         bdd_node::{DDNode, NodeID, VarID, ONE, ZERO},
+        order::var2level_to_ordered_varids,
     },
     misc::hash_select::{HashMap, HashSet},
     views::bdd_view::BddView,
@@ -411,11 +412,33 @@ impl DDManager {
     // Builders
 
     /// Creates an XOR "ladder"
-    ///
-    ///
-    #[allow(dead_code)]
-    fn xor_prim(&mut self, _vars: Vec<usize>) -> usize {
-        todo!();
+    pub fn xor_prim(&mut self, without_vars: &HashSet<VarID>) -> NodeID {
+        let mut vars = var2level_to_ordered_varids(&self.var2level);
+        vars.reverse();
+
+        let mut one_side = self.one();
+        let mut zero_side = self.zero();
+
+        vars.iter()
+            .filter(|v| !without_vars.contains(v))
+            .for_each(|var| {
+                let one_side_new = self.node_get_or_create(&DDNode {
+                    id: NodeID(0),
+                    var: *var,
+                    low: one_side,
+                    high: zero_side,
+                });
+                let zero_side_new = self.node_get_or_create(&DDNode {
+                    id: NodeID(0),
+                    var: *var,
+                    low: zero_side,
+                    high: one_side,
+                });
+
+                (one_side, zero_side) = (one_side_new, zero_side_new);
+            });
+
+        zero_side
     }
 
     pub fn verify(&self, f: NodeID, trues: &[usize]) -> bool {
