@@ -22,19 +22,14 @@ use crate::{
 //#[derive(Clone)]
 pub struct BddView {
     man: Arc<RwLock<DDManager>>,
+    man_id: usize,
     root: NodeID,
     sliced_vars: HashSet<VarID>,
 }
 
-impl Drop for BddView {
-    fn drop(&mut self) {
-        self.man.clone().write().unwrap().remove_view(self);
-    }
-}
-
 impl Hash for BddView {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.man.read().unwrap().hash(state);
+        self.man_id.hash(state);
         self.root.hash(state);
         self.sliced_vars.iter().collect::<BTreeSet<_>>().hash(state);
     }
@@ -42,14 +37,9 @@ impl Hash for BddView {
 
 impl PartialEq for BddView {
     fn eq(&self, other: &Self) -> bool {
-        #[inline]
-        fn calc_hash(view: &BddView) -> u64 {
-            let mut s = std::hash::DefaultHasher::new();
-            view.hash(&mut s);
-            s.finish()
-        }
-
-        calc_hash(self) == calc_hash(other)
+        self.man_id == other.man_id
+            && self.root == other.root
+            && self.sliced_vars == other.sliced_vars
     }
 }
 
@@ -67,6 +57,7 @@ impl BddView {
     ) -> Arc<Self> {
         let view = Self {
             man: manager.clone(),
+            man_id: manager.read().unwrap().get_id(),
             root,
             sliced_vars,
         };
@@ -81,6 +72,11 @@ impl BddView {
     /// Returns the [NodeID] of the root node of this BDD.
     pub fn get_root(&self) -> NodeID {
         self.root
+    }
+
+    /// Returns the [VarID]s of the sliced variables of this BDD.
+    pub fn get_sliced_variables(&self) -> HashSet<VarID> {
+        self.sliced_vars.clone()
     }
 
     //------------------------------------------------------------------------//

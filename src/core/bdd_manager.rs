@@ -125,19 +125,29 @@ impl DDManager {
 
     /// Add a view to the BDD Manager
     pub(crate) fn get_or_add_view(&mut self, view: BddView) -> Arc<BddView> {
-        let view: Arc<BddView> = view.into();
         if let Some(view) = self.views.get(&view) {
             view
         } else {
+            let view: Arc<BddView> = view.into();
             self.views.insert(view.clone());
             view
         }
     }
 
-    /// Remove a view from the BDD Manager
-    pub(crate) fn remove_view(&mut self, view: &BddView) {
-        self.views.remove(view);
-        self.clean()
+    /// Get all views for this BDD Manager
+    pub fn get_views(&self) -> Vec<Arc<BddView>> {
+        self.views.iter().collect()
+    }
+
+    /// Get all root nodes for this BDD Manager
+    pub fn get_roots(&self) -> Vec<NodeID> {
+        self.views.iter().map(|v| v.get_root()).collect()
+    }
+
+    /// Get the id of the BDD Manager (mostly relevant for checking for equality of two BDD
+    /// Managers).
+    pub(crate) fn get_id(&self) -> usize {
+        self.id
     }
 
     /// Initializes the BDD for a specific variable ordering.
@@ -516,7 +526,8 @@ impl DDManager {
     /// Removes nodes which do not belong to any of the BDDs for which views exist from the
     /// [DDManager].
     pub fn clean(&mut self) {
-        self.purge_retain_multi(&self.views.iter().map(|v| v.get_root()).collect::<Vec<_>>());
+        self.views.remove_expired();
+        self.purge_retain_multi(&self.get_roots());
     }
 
     pub fn clear_c_table(&mut self) {
