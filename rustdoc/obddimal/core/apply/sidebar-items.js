@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ApplyOperation"],"fn":["get_apply_operation_functions"],"struct":["ApplyOperationFunctions"]};

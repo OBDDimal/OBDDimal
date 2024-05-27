@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["DDNode","NodeID","VarID"]};
+window.SIDEBAR_ITEMS = {"constant":["ONE","ZERO"],"struct":["DDNode","NodeID","VarID"]};

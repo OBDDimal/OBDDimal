@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["check_order","order_to_layernames"]};
+window.SIDEBAR_ITEMS = {"fn":["check_order","var2level_to_ordered_varids"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["ONE","ZERO"],"fn":["align_clauses","normalize_ite_args"],"struct":["DDManager"]};
+window.SIDEBAR_ITEMS = {"fn":["align_clauses"],"static":["DDMANAGER_COUNTER"],"struct":["DDManager"]};

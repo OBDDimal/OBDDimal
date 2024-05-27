@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Bdd","BddFile","NodeStatistics"],"type":["Statistics"]};
+window.SIDEBAR_ITEMS = {"struct":["Bdd","BddFile","NodeStatistics","View"],"type":["LoadResult","LoadResultWithStatistics","Statistics"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["bdd_manager","bdd_node","dvo","options","order","reduce","swap","test"]};
+window.SIDEBAR_ITEMS = {"mod":["apply","bdd_manager","bdd_node","dvo","ite","modify_var_nodes","options","order","reduce","slicing","swap","test"]};
