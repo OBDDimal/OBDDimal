@@ -41,7 +41,7 @@ impl DDManager {
     /// * `self` - The DDManager containing the BDD.
     /// * `filename` - Name of the .bdd file.
     /// * `statistics` - Optional HashMap containing statistics about individual nodes, see
-    /// [`NodeStatistics`](NodeStatistics).
+    ///   [`NodeStatistics`](NodeStatistics).
     pub fn write_all_views_to_bdd_file(
         &self,
         filename: String,
@@ -62,7 +62,7 @@ impl DDManager {
     /// * `roots` - The roots of the BDD.
     /// * `views` - Optionally the views to store for the BDDs.
     /// * `statistics` - Optional HashMap containing statistics about individual nodes, see
-    /// [`NodeStatistics`].
+    ///   [`NodeStatistics`](NodeStatistics).
     pub fn write_to_bdd_file(
         &self,
         filename: String,
