@@ -3,7 +3,7 @@
 use crate::core::{
     bdd_manager::DDManager,
     bdd_node::{DDNode, NodeID, VarID},
-    order::order_to_layernames,
+    order::var2level_to_ordered_varids,
 };
 
 impl DDManager {
@@ -124,12 +124,12 @@ impl DDManager {
         }
 
         // Clear ITE cache
-        self.c_table.clear();
+        self.clear_c_table();
 
         log::debug!(
             "Order is now: {:?} (layers: {:?})",
             self.var2level,
-            order_to_layernames(&self.var2level)
+            var2level_to_ordered_varids(&self.var2level)
         );
 
         self.reduce(f)
@@ -143,7 +143,8 @@ mod tests {
     use num_bigint::BigUint;
 
     use crate::core::{
-        bdd_manager::DDManager, bdd_node::VarID, order::order_to_layernames, test::tests::TestCase,
+        bdd_manager::DDManager, bdd_node::VarID, order::var2level_to_ordered_varids,
+        test::tests::TestCase,
     };
 
     /// Swap each variable pair from initial order
@@ -267,7 +268,10 @@ mod tests {
             man.purge_retain(bdd);
 
             println!("Swapped, count is now {:?}", man.count_active(bdd));
-            println!("Order is now {:?}", order_to_layernames(&man.var2level));
+            println!(
+                "Order is now {:?}",
+                var2level_to_ordered_varids(&man.var2level)
+            );
 
             assert!(testcase.verify_against(&man, bdd));
 
@@ -282,7 +286,10 @@ mod tests {
             man.purge_retain(bdd);
 
             println!("Swapped, count is now {:?}", man.count_active(bdd));
-            println!("Order is now {:?}", order_to_layernames(&man.var2level));
+            println!(
+                "Order is now {:?}",
+                var2level_to_ordered_varids(&man.var2level)
+            );
             assert!(testcase.verify_against(&man, bdd));
 
             counts_up.push(man.count_active(bdd));

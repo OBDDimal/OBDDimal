@@ -5,6 +5,18 @@ count = 10
 [statistics.2]
 void = false
 
+[[views]]
+root = 2
+sliced_vars = []
+
+[[views]]
+root = 4
+sliced_vars = []
+
+[[views]]
+root = 4
+sliced_vars = [4]
+
 [bdd]
 order = [5, 1, 2, 3, 4]
 roots = [4, 2]

@@ -1,3 +1,5 @@
+use std::sync::{Arc, RwLock};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -6,14 +8,39 @@ use crate::{
         bdd_node::{DDNode, NodeID, VarID},
     },
     misc::hash_select::{HashMap, HashSet},
+    views::bdd_view::BddView,
 };
 
 pub(super) type Statistics = Option<HashMap<NodeID, NodeStatistics>>;
+pub type LoadResult = Result<
+    (
+        Arc<RwLock<DDManager>>,
+        Vec<NodeID>,
+        Option<Vec<Arc<BddView>>>,
+    ),
+    String,
+>;
+pub type LoadResultWithStatistics = Result<
+    (
+        Arc<RwLock<DDManager>>,
+        Vec<NodeID>,
+        Option<Vec<Arc<BddView>>>,
+        Statistics,
+    ),
+    String,
+>;
 
 #[derive(Serialize, Deserialize)]
 pub(super) struct BddFile {
     statistics: Option<HashMap<String, NodeStatistics>>,
+    views: Option<Vec<View>>,
     bdd: Bdd,
+}
+
+#[derive(Serialize, Deserialize)]
+struct View {
+    root: NodeID,
+    sliced_vars: Vec<VarID>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -37,7 +64,7 @@ impl DDManager {
     /// * `bdd_file` - The BddFile object.
     pub(super) fn load_from_bdd_file_object_with_statistics(
         bdd_file: BddFile,
-    ) -> Result<(DDManager, Vec<NodeID>, Statistics), String> {
+    ) -> LoadResultWithStatistics {
         let varorder: Vec<usize> = bdd_file.bdd.order;
         let roots: Vec<NodeID> = bdd_file.bdd.roots;
 
@@ -101,14 +128,41 @@ impl DDManager {
             })
             .transpose()?;
 
-        Ok((ddmanager, roots, statistics))
+        // Wrap DDManager in RWLock and Arc:
+        let ddmanager: Arc<RwLock<DDManager>> = RwLock::new(ddmanager).into();
+
+        // Translate views if given:
+        let views = bdd_file.views.map(|views| {
+            views
+                .iter()
+                .map(|v| {
+                    BddView::new_with_sliced(
+                        *id_translator.get(&v.root).unwrap(),
+                        ddmanager.clone(),
+                        v.sliced_vars.iter().cloned().collect(),
+                    )
+                })
+                .collect()
+        });
+
+        Ok((ddmanager, roots, views, statistics))
     }
 
     pub(super) fn generate_bdd_file_object(
         &self,
         roots: Vec<NodeID>,
+        views: Option<Vec<Arc<BddView>>>,
         statistics: Statistics,
     ) -> BddFile {
+        let views: Option<Vec<View>> = views.map(|views| {
+            views
+                .iter()
+                .map(|v| View {
+                    root: v.get_root(),
+                    sliced_vars: v.get_sliced_variables().iter().cloned().collect(),
+                })
+                .collect()
+        });
         let order = self.var2level.clone();
         let nodes = self
             .nodes
@@ -134,6 +188,7 @@ impl DDManager {
                     .map(|(node_id, stats)| (node_id.0.to_string(), stats))
                     .collect()
             }),
+            views,
             bdd: Bdd {
                 order,
                 roots,

@@ -9,9 +9,9 @@ use crossterm::{cursor, execute};
 use indicatif::ProgressBar;
 
 use super::{
-    bdd_manager::{DDManager, ZERO},
-    bdd_node::{NodeID, VarID},
-    order::order_to_layernames,
+    bdd_manager::DDManager,
+    bdd_node::{NodeID, VarID, ZERO},
+    order::var2level_to_ordered_varids,
 };
 use crate::if_some;
 
@@ -71,7 +71,7 @@ impl DDManager {
             if new_size < best_graphsize {
                 log::info!(
                     " New optimum found with order {:?}",
-                    order_to_layernames(&self.var2level)
+                    var2level_to_ordered_varids(&self.var2level)
                 );
                 self.purge_retain(f);
                 best_graphsize = new_size;
@@ -116,7 +116,7 @@ impl DDManager {
             if new_size < best_graphsize {
                 log::info!(
                     " New optimum found with order {:?}",
-                    order_to_layernames(&self.var2level)
+                    var2level_to_ordered_varids(&self.var2level)
                 );
                 self.purge_retain(f);
                 best_graphsize = new_size;
@@ -199,7 +199,9 @@ mod tests {
 
     use num_bigint::BigUint;
 
-    use crate::core::{bdd_manager::DDManager, bdd_node::VarID, order::order_to_layernames};
+    use crate::core::{
+        bdd_manager::DDManager, bdd_node::VarID, order::var2level_to_ordered_varids,
+    };
 
     #[test]
     fn sift_sandwich_single() {
@@ -223,7 +225,7 @@ mod tests {
         println!("Size after sifting: {}", size_after);
         println!(
             "Order after sifting: {:?}",
-            order_to_layernames(&man.var2level)
+            var2level_to_ordered_varids(&man.var2level)
         );
 
         assert_eq!(man.sat_count(bdd), expected);
@@ -252,7 +254,7 @@ mod tests {
         println!("Size after sifting: {}", size_after);
         println!(
             "Order after sifting: {:?}",
-            order_to_layernames(&man.var2level)
+            var2level_to_ordered_varids(&man.var2level)
         );
         fs::write("after.dot", man.graphviz(bdd)).unwrap();
 

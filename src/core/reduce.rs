@@ -2,9 +2,9 @@
 
 use crate::{
     core::{
-        bdd_manager::{DDManager, ZERO},
-        bdd_node::{DDNode, NodeID, VarID},
-        order::order_to_layernames,
+        bdd_manager::DDManager,
+        bdd_node::{DDNode, NodeID, VarID, ZERO},
+        order::var2level_to_ordered_varids,
     },
     misc::hash_select::HashMap,
 };
@@ -41,7 +41,7 @@ impl DDManager {
         let mut new_nodes: HashMap<NodeID, DDNode> = Default::default();
 
         // Graph layers, bottom to top
-        for i in order_to_layernames(&self.var2level).iter().rev() {
+        for i in var2level_to_ordered_varids(&self.var2level).iter().rev() {
             log::debug!("Handling var {:?}", i);
 
             #[allow(non_snake_case)]

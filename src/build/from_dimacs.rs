@@ -26,6 +26,8 @@ impl DDManager {
     /// * `order` - Optional initial variable ordering, see [crate::misc::static_ordering] for implementations
     /// * `options` - DVO and progress bar settings
     ///
+    /// TODO Variant that works on already existing DDManager…
+    ///
     /// ```
     /// # use obddimal::{
     /// #           core::{

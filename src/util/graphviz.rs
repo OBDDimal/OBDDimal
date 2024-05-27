@@ -2,38 +2,17 @@
 
 use crate::{
     core::{
-        bdd_manager::{DDManager, ZERO},
-        bdd_node::{DDNode, NodeID, VarID},
+        bdd_manager::DDManager,
+        bdd_node::{DDNode, NodeID, VarID, ZERO},
     },
-    misc::hash_select::{HashMap, HashSet},
+    misc::hash_select::HashMap,
 };
 
 impl DDManager {
-    /// Collect all nodes that are part of the specified function
-    fn collect_nodes(&self, f: NodeID) -> HashSet<NodeID> {
-        let mut nodes = HashSet::<NodeID>::default();
-
-        let mut stack = vec![f];
-
-        while let Some(x) = stack.pop() {
-            if nodes.contains(&x) {
-                continue;
-            }
-
-            let node = self.nodes.get(&x).unwrap();
-
-            stack.push(node.low);
-            stack.push(node.high);
-            nodes.insert(x);
-        }
-
-        nodes
-    }
-
     /// Generate graphviz for the provided function, not including any graph nodes not part of the function.
     /// TODO: Graphviz of all functions in DDManager
     pub fn graphviz(&self, f: NodeID) -> String {
-        let nodes = self.collect_nodes(f);
+        let nodes = self.get_reachable(&[f]);
 
         let mut by_var: HashMap<VarID, Vec<DDNode>> = HashMap::default();
         for id in nodes.iter() {

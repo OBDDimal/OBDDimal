@@ -8,8 +8,24 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct NodeID(pub usize);
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct VarID(pub usize);
+
+/// Terminal node "zero"
+pub const ZERO: DDNode = DDNode {
+    id: NodeID(0),
+    var: VarID(0),
+    low: NodeID(0),
+    high: NodeID(0),
+};
+
+/// Terminal node "one"
+pub const ONE: DDNode = DDNode {
+    id: NodeID(1),
+    var: VarID(0),
+    low: NodeID(1),
+    high: NodeID(1),
+};
 
 /// Element of a BDD.
 /// Note that the Node contains its own ID. This may be set to zero until it has been assigned,

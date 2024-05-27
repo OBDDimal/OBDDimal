@@ -1,65 +1,35 @@
 //! All BDD building and manipulation functionality
 
-use std::fmt;
+use std::{
+    fmt,
+    hash::{Hash, Hasher},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Weak,
+    },
+};
 
 use dimacs::Clause;
 use rand::Rng;
+use weak_table::WeakHashSet;
 
 use crate::{
-    core::bdd_node::{DDNode, NodeID, VarID},
+    core::{
+        apply::ApplyOperation,
+        bdd_node::{DDNode, NodeID, VarID, ONE, ZERO},
+        order::var2level_to_ordered_varids,
+    },
     misc::hash_select::{HashMap, HashSet},
+    views::bdd_view::BddView,
 };
 
-/// Terminal node "zero"
-pub const ZERO: DDNode = DDNode {
-    id: NodeID(0),
-    var: VarID(0),
-    low: NodeID(0),
-    high: NodeID(0),
-};
-
-/// Terminal node "one"
-pub const ONE: DDNode = DDNode {
-    id: NodeID(1),
-    var: VarID(0),
-    low: NodeID(1),
-    high: NodeID(1),
-};
-
-/// Bring ITE calls of the form
-/// ite(f,f,h) = ite(f,1,h) = ite(h,1,f)
-/// ite(f,g,f) = ite(f,g,0) = ite(g,f,0)
-/// into canonical form
-fn normalize_ite_args(mut f: NodeID, mut g: NodeID, mut h: NodeID) -> (NodeID, NodeID, NodeID) {
-    if f == g {
-        g = ONE.id;
-    } else if f == h {
-        h = ZERO.id
-    }
-
-    fn order(a: NodeID, b: NodeID) -> (NodeID, NodeID) {
-        // TODO: "Efficient implementation of a BDD package" orders by top variable first, is this relevant?
-        if a < b {
-            (a, b)
-        } else {
-            (b, a)
-        }
-    }
-
-    if g == ONE.id {
-        (f, h) = order(f, h);
-    }
-    if h == ZERO.id {
-        (f, g) = order(f, g);
-    }
-
-    (f, g, h)
-}
+static DDMANAGER_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 /// Container combining the nodes list, unique tables, information about current
 /// variable ordering and computed table.
-#[derive(Clone)]
 pub struct DDManager {
+    /// ID to identify the DDManager
+    id: usize,
     /// Node List
     pub nodes: HashMap<NodeID, DDNode>,
     /// Variable ordering: var2level[v.0] is the depth of variable v in the tree
@@ -68,33 +38,56 @@ pub struct DDManager {
     /// variables, not their IDs. The depth of a variable can be determined through
     /// [var2level](`DDManager::var2level`)!
     pub(crate) level2nodes: Vec<HashSet<DDNode>>,
-    /// Computed Table: maps (f,g,h) to ite(f,g,h)
-    pub(super) c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
-}
-
-impl fmt::Debug for DDManager {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "DDManager [{} nodes, unique table size {}, cache size {}]",
-            self.nodes.len(),
-            self.level2nodes.iter().map(|s| s.len()).sum::<usize>(),
-            self.c_table.len()
-        )
-    }
+    /// Computed Table for ITE: maps (f,g,h) to ite(f,g,h)
+    pub(super) ite_c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
+    /// Computed Table for Apply: maps (op,u,v) to apply(op,u,v)
+    pub(super) apply_c_table: HashMap<(ApplyOperation, NodeID, NodeID), NodeID>,
+    /// Set of Views for BDDs in this manager
+    views: WeakHashSet<Weak<BddView>>,
 }
 
 impl Default for DDManager {
     fn default() -> Self {
         let mut man = DDManager {
+            id: DDMANAGER_COUNTER.fetch_add(1, Ordering::SeqCst),
             nodes: Default::default(),
             var2level: Vec::new(),
             level2nodes: Vec::new(),
-            c_table: Default::default(),
+            ite_c_table: Default::default(),
+            apply_c_table: Default::default(),
+            views: Default::default(),
         };
 
         man.bootstrap();
         man
+    }
+}
+
+impl PartialEq for DDManager {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for DDManager {}
+
+impl Hash for DDManager {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl Clone for DDManager {
+    fn clone(&self) -> Self {
+        Self {
+            id: DDMANAGER_COUNTER.fetch_add(1, Ordering::SeqCst),
+            nodes: self.nodes.clone(),
+            var2level: self.var2level.clone(),
+            level2nodes: self.level2nodes.clone(),
+            ite_c_table: self.ite_c_table.clone(),
+            apply_c_table: self.apply_c_table.clone(),
+            views: self.views.clone(),
+        }
     }
 }
 
@@ -128,6 +121,33 @@ impl DDManager {
     fn bootstrap(&mut self) {
         self.add_node(ZERO);
         self.add_node(ONE);
+    }
+
+    /// Add a view to the BDD Manager
+    pub(crate) fn get_or_add_view(&mut self, view: BddView) -> Arc<BddView> {
+        if let Some(view) = self.views.get(&view) {
+            view
+        } else {
+            let view: Arc<BddView> = view.into();
+            self.views.insert(view.clone());
+            view
+        }
+    }
+
+    /// Get all views for this BDD Manager
+    pub fn get_views(&self) -> Vec<Arc<BddView>> {
+        self.views.iter().collect()
+    }
+
+    /// Get all root nodes for this BDD Manager
+    pub fn get_roots(&self) -> Vec<NodeID> {
+        self.views.iter().map(|v| v.get_root()).collect()
+    }
+
+    /// Get the id of the BDD Manager (mostly relevant for checking for equality of two BDD
+    /// Managers).
+    pub(crate) fn get_id(&self) -> usize {
+        self.id
     }
 
     /// Initializes the BDD for a specific variable ordering.
@@ -215,7 +235,11 @@ impl DDManager {
 
     /// Search for Node, create if it doesnt exist
     pub(crate) fn node_get_or_create(&mut self, node: &DDNode) -> NodeID {
-        assert_ne!(node.low, node.high, "Creating a node with the same low and high edge creates a non-reduced BDD, which we don't want to do.");
+        // If both child nodes are the same, this node must be replaced by its child node to get a
+        // reduced BDD.
+        if node.low == node.high {
+            return node.low;
+        }
 
         if self.var2level.len() <= node.var.0 {
             // Unique table does not contain any entries for this variable. Create new Node.
@@ -235,11 +259,11 @@ impl DDManager {
     // Constants
 
     pub(crate) fn zero(&self) -> NodeID {
-        NodeID(0)
+        ZERO.id
     }
 
     pub(crate) fn one(&self) -> NodeID {
-        NodeID(1)
+        ONE.id
     }
 
     //------------------------------------------------------------------------//
@@ -286,33 +310,97 @@ impl DDManager {
     //------------------------------------------------------------------------//
     // Unitary Operations
 
-    fn not(&mut self, f: NodeID) -> NodeID {
+    pub fn not(&mut self, f: NodeID) -> NodeID {
         self.ite(f, NodeID(0), NodeID(1))
+    }
+
+    //------------------------------------------------------------------------//
+    // Quantification
+
+    pub fn exists(&mut self, f: NodeID, vars: &HashSet<VarID>) -> NodeID {
+        let reachable = self.get_reachable(&[f]);
+        let mut func = |DDNode { high, low, .. }: &DDNode,
+                        man: &mut DDManager,
+                        new_ids: &HashMap<NodeID, NodeID>| {
+            man.or(*new_ids.get(high).unwrap(), *new_ids.get(low).unwrap())
+        };
+
+        *self
+            .modify_var_nodes(&reachable, vars, &mut func)
+            .get(&f)
+            .unwrap()
+    }
+
+    pub fn forall(&mut self, f: NodeID, vars: &HashSet<VarID>) -> NodeID {
+        let reachable = self.get_reachable(&[f]);
+        let mut func = |DDNode { high, low, .. }: &DDNode,
+                        man: &mut DDManager,
+                        new_ids: &HashMap<NodeID, NodeID>| {
+            man.and(*new_ids.get(high).unwrap(), *new_ids.get(low).unwrap())
+        };
+
+        *self
+            .modify_var_nodes(&reachable, vars, &mut func)
+            .get(&f)
+            .unwrap()
+    }
+
+    /// Existential quantification, but on multiple BDDs at the same time. Returns a HashMap, which
+    /// can be used to translate the root nodes of the old BDDs to the root nodes of the resulting
+    /// BDDs.
+    pub fn exists_multiple(
+        &mut self,
+        fs: &[NodeID],
+        vars: &HashSet<VarID>,
+    ) -> HashMap<NodeID, NodeID> {
+        let reachable = self.get_reachable(fs);
+        let mut func = |DDNode { high, low, .. }: &DDNode,
+                        man: &mut DDManager,
+                        new_ids: &HashMap<NodeID, NodeID>| {
+            man.or(*new_ids.get(high).unwrap(), *new_ids.get(low).unwrap())
+        };
+
+        self.modify_var_nodes(&reachable, vars, &mut func)
+    }
+
+    /// Universal quantification, but on multiple BDDs at the same time. Returns a HashMap, which
+    /// can be used to translate the root nodes of the old BDDs to the root nodes of the resulting
+    /// BDDs.
+    pub fn forall_multiple(
+        &mut self,
+        fs: &[NodeID],
+        vars: &HashSet<VarID>,
+    ) -> HashMap<NodeID, NodeID> {
+        let reachable = self.get_reachable(fs);
+        let mut func = |DDNode { high, low, .. }: &DDNode,
+                        man: &mut DDManager,
+                        new_ids: &HashMap<NodeID, NodeID>| {
+            man.and(*new_ids.get(high).unwrap(), *new_ids.get(low).unwrap())
+        };
+
+        self.modify_var_nodes(&reachable, vars, &mut func)
     }
 
     //------------------------------------------------------------------------//
     // Binary Operations
 
     pub fn and(&mut self, f: NodeID, g: NodeID) -> NodeID {
-        self.ite(f, g, NodeID(0))
+        self.apply(ApplyOperation::AND, f, g)
     }
 
     pub fn or(&mut self, f: NodeID, g: NodeID) -> NodeID {
-        self.ite(f, NodeID(1), g)
+        self.apply(ApplyOperation::OR, f, g)
     }
 
-    #[allow(dead_code)]
-    fn xor(&mut self, f: NodeID, g: NodeID) -> NodeID {
-        let ng = self.not(g);
-
-        self.ite(f, ng, g)
+    pub fn xor(&mut self, f: NodeID, g: NodeID) -> NodeID {
+        self.apply(ApplyOperation::XOR, f, g)
     }
 
     //------------------------------------------------------------------------//
     // N-ary Operations
 
     /// Find top variable: Highest in tree according to order
-    fn min_by_order(&self, fvar: VarID, gvar: VarID, hvar: VarID) -> VarID {
+    pub(super) fn min_by_order(&self, fvar: VarID, gvar: VarID, hvar: VarID) -> VarID {
         let list = [fvar, gvar, hvar];
 
         // Tree depths
@@ -330,70 +418,39 @@ impl DDManager {
         list[index]
     }
 
-    fn ite(&mut self, f: NodeID, g: NodeID, h: NodeID) -> NodeID {
-        let (f, g, h) = normalize_ite_args(f, g, h);
-        match (f, g, h) {
-            (_, NodeID(1), NodeID(0)) => f, // ite(f,1,0)
-            (NodeID(1), _, _) => g,         // ite(1,g,h)
-            (NodeID(0), _, _) => h,         // ite(0,g,h)
-            (_, t, e) if t == e => t,       // ite(f,g,g)
-            (_, _, _) => {
-                let cache = self.c_table.get(&(f, g, h));
-
-                if let Some(cached) = cache {
-                    return *cached;
-                }
-
-                let fnode = self.nodes.get(&f).unwrap();
-                let gnode = self.nodes.get(&g).unwrap();
-                let hnode = self.nodes.get(&h).unwrap();
-
-                let top = self.min_by_order(fnode.var, gnode.var, hnode.var);
-
-                let fxt = fnode.restrict(top, &self.var2level, true);
-                let gxt = gnode.restrict(top, &self.var2level, true);
-                let hxt = hnode.restrict(top, &self.var2level, true);
-
-                let fxf = fnode.restrict(top, &self.var2level, false);
-                let gxf = gnode.restrict(top, &self.var2level, false);
-                let hxf = hnode.restrict(top, &self.var2level, false);
-
-                let high = self.ite(fxt, gxt, hxt);
-                let low = self.ite(fxf, gxf, hxf);
-
-                if low == high {
-                    self.c_table.insert((f, g, h), low);
-                    return low;
-                }
-
-                let node = DDNode {
-                    id: NodeID(0),
-                    var: top,
-                    low,
-                    high,
-                };
-
-                let out = self.node_get_or_create(&node);
-
-                self.c_table.insert((f, g, h), out);
-
-                out
-            }
-        }
-    }
-
     //------------------------------------------------------------------------//
     // Builders
 
     /// Creates an XOR "ladder"
-    ///
-    ///
-    #[allow(dead_code)]
-    fn xor_prim(&mut self, _vars: Vec<usize>) -> usize {
-        todo!();
+    pub fn xor_prim(&mut self, without_vars: &HashSet<VarID>) -> NodeID {
+        let mut vars = var2level_to_ordered_varids(&self.var2level);
+        vars.reverse();
+
+        let mut one_side = self.one();
+        let mut zero_side = self.zero();
+
+        vars.iter()
+            .filter(|v| !without_vars.contains(v))
+            .for_each(|var| {
+                let one_side_new = self.node_get_or_create(&DDNode {
+                    id: NodeID(0),
+                    var: *var,
+                    low: one_side,
+                    high: zero_side,
+                });
+                let zero_side_new = self.node_get_or_create(&DDNode {
+                    id: NodeID(0),
+                    var: *var,
+                    low: zero_side,
+                    high: one_side,
+                });
+
+                (one_side, zero_side) = (one_side_new, zero_side_new);
+            });
+
+        zero_side
     }
 
-    #[allow(dead_code)]
     pub fn verify(&self, f: NodeID, trues: &[usize]) -> bool {
         let mut values: Vec<bool> = vec![false; self.level2nodes.len() + 1];
 
@@ -418,10 +475,11 @@ impl DDManager {
         node_id.0 == 1
     }
 
-    pub fn purge_retain(&mut self, f: NodeID) {
+    /// Returns a set containing all nodes reachable from the given root nodes.
+    pub fn get_reachable(&self, roots: &[NodeID]) -> HashSet<NodeID> {
         let mut keep = HashSet::default();
 
-        let mut stack = vec![f];
+        let mut stack = roots.to_vec();
 
         while let Some(x) = stack.pop() {
             if keep.contains(&x) {
@@ -435,6 +493,24 @@ impl DDManager {
             keep.insert(x);
         }
 
+        keep
+    }
+
+    /// Removes nodes which do not belong to the BDD with the specified root node from the
+    /// [DDManager].
+    ///
+    /// * `root` - The root node of the BDD which should remain in the [DDManager].
+    pub fn purge_retain(&mut self, root: NodeID) {
+        self.purge_retain_multi(&[root])
+    }
+
+    /// Removes nodes which do not belong to any of the BDDs with the specified root nodes from the
+    /// [DDManager].
+    ///
+    /// * `roots` - The root nodes of the BDDs which should remain in the [DDManager].
+    pub fn purge_retain_multi(&mut self, roots: &[NodeID]) {
+        let keep = self.get_reachable(roots);
+
         let mut garbage = self.nodes.clone();
 
         garbage.retain(|&x, _| !keep.contains(&x) && x.0 > 1);
@@ -444,6 +520,67 @@ impl DDManager {
             self.nodes.remove(x.0);
         }
 
-        self.c_table.retain(|_, x| keep.contains(x));
+        self.ite_c_table.retain(|_, x| keep.contains(x));
+    }
+
+    /// Removes nodes which do not belong to any of the BDDs for which views exist from the
+    /// [DDManager].
+    pub fn clean(&mut self) {
+        self.views.remove_expired();
+        self.purge_retain_multi(&self.get_roots());
+    }
+
+    pub fn clear_c_table(&mut self) {
+        self.ite_c_table.clear();
+        self.apply_c_table.clear();
+    }
+}
+
+impl fmt::Debug for DDManager {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "DDManager [{} nodes, unique table size {}, cache sizes: {} (ite), {} (apply)]",
+            self.nodes.len(),
+            self.level2nodes.iter().map(|s| s.len()).sum::<usize>(),
+            self.ite_c_table.len(),
+            self.apply_c_table.len(),
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        core::{
+            bdd_manager::DDManager,
+            bdd_node::{VarID, ONE, ZERO},
+            order::var2level_to_ordered_varids,
+        },
+        misc::hash_select::HashSet,
+    };
+
+    #[test]
+    fn exists_all() {
+        let (mut man, root) =
+            DDManager::load_from_dddmp_file("examples/sandwich.dimacs.dddmp".to_string()).unwrap();
+        let root = root[0];
+        let vars = var2level_to_ordered_varids(&man.var2level)
+            .into_iter()
+            .collect::<HashSet<VarID>>();
+
+        assert_eq!(man.exists(root, &vars), ONE.id);
+    }
+
+    #[test]
+    fn forall_all() {
+        let (mut man, root) =
+            DDManager::load_from_dddmp_file("examples/sandwich.dimacs.dddmp".to_string()).unwrap();
+        let root = root[0];
+        let vars = var2level_to_ordered_varids(&man.var2level)
+            .into_iter()
+            .collect::<HashSet<VarID>>();
+
+        assert_eq!(man.forall(root, &vars), ZERO.id);
     }
 }
