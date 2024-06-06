@@ -221,8 +221,6 @@ impl BddView {
         Ok(Self::nodelist_to_viewlist(roots, man))
     }
 
-    //TODO bdd, json and xml im-/export
-
     //------------------------------------------------------------------------//
     // SAT / #SAT
 
