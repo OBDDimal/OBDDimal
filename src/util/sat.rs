@@ -34,8 +34,6 @@ impl DDManager {
 
             let node = &self.nodes.get(&node_id).unwrap();
 
-            println!("{:?}", self.var2level);
-
             let low_var = &self.nodes.get(&node.low).unwrap().var;
             let low_jump = self.var2level[low_var.0] - self.var2level[node.var.0] - 1;
             let low_fac = BigUint::parse_bytes(b"2", 10).unwrap().pow(low_jump as u32);
