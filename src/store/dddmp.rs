@@ -119,7 +119,7 @@ impl DDManager {
             permids.iter().enumerate().for_each(|(i, permid)| {
                 order[ids[i] + 1usize] = *permid + 1;
             });
-            order[0] = permids.iter().max().unwrap() + 1usize;
+            order[0] = permids.iter().max().unwrap() + 2usize;
             Ok::<Vec<usize>, String>(order)
         }?;
 

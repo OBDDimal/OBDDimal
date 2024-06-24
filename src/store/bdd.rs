@@ -118,9 +118,9 @@ mod test {
         assert!(!statistics_2.void.unwrap());
 
         assert_eq!(man.read().unwrap().sat_count(bdds[0]), 10usize.into());
-        assert_eq!(man.read().unwrap().sat_count(bdds[1]), 2usize.into());
+        assert_eq!(man.read().unwrap().sat_count(bdds[1]), 8usize.into());
 
-        assert_eq!(views.as_ref().unwrap()[0].sat_count(), 2usize.into());
+        assert_eq!(views.as_ref().unwrap()[0].sat_count(), 8usize.into());
         assert_eq!(views.as_ref().unwrap()[1].sat_count(), 10usize.into());
         assert_eq!(views.unwrap()[2].sat_count(), 5usize.into());
     }
