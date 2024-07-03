@@ -9,14 +9,16 @@ use std::{
 };
 
 use num_bigint::BigUint;
+use num_traits::Zero;
 
 use crate::{
     core::{
         bdd_manager::DDManager,
-        bdd_node::{NodeID, VarID},
+        bdd_node::{DDNode, NodeID, VarID},
         options::Options,
+        order::var2level_to_ordered_varids,
     },
-    misc::hash_select::HashSet,
+    misc::hash_select::{HashMap, HashSet},
 };
 
 //#[derive(Clone)]
@@ -130,6 +132,29 @@ impl BddView {
     }
 
     //------------------------------------------------------------------------//
+    // Quantification
+
+    /// Returns a (new) view on the BDD resulting from applying exists with the given variables to
+    /// the BDD.
+    pub fn exists(&self, vars: &HashSet<VarID>) -> Arc<Self> {
+        Self::new_with_sliced(
+            self.man.write().unwrap().exists(self.root, vars),
+            self.man.clone(),
+            self.sliced_vars.clone(),
+        )
+    }
+
+    /// Returns a (new) view on the BDD resulting from applying forall with the given variables to
+    /// the BDD.
+    pub fn forall(&self, vars: &HashSet<VarID>) -> Arc<Self> {
+        Self::new_with_sliced(
+            self.man.write().unwrap().forall(self.root, vars),
+            self.man.clone(),
+            self.sliced_vars.clone(),
+        )
+    }
+
+    //------------------------------------------------------------------------//
     // Binary Operations
 
     /// Returns a (new) view on the BDD resulting from connecting this views' BDD and another one
@@ -232,6 +257,153 @@ impl BddView {
     /// Returns the #SAT result for the function represented by this BDD.
     pub fn sat_count(&self) -> BigUint {
         self.man.read().unwrap().sat_count(self.root) >> self.sliced_vars.len()
+    }
+
+    //------------------------------------------------------------------------//
+    // Atomic Sets
+
+    fn count_models_by_variable(&self) -> HashMap<VarID, BigUint> {
+        let man = self.man.read().unwrap();
+
+        let varids = var2level_to_ordered_varids(&man.var2level);
+        let count_sliced_vars_between = |first: &VarID, last: &VarID| -> usize {
+            ((man.var2level[first.0])..(man.var2level[last.0]))
+                .map(|level| varids[level])
+                .filter(|var_id| self.sliced_vars.contains(var_id))
+                .count()
+        };
+
+        let mut node_to_sat_count = HashMap::default();
+        man.sat_count_with_cache(self.root, &mut node_to_sat_count);
+
+        let reachable = node_to_sat_count.keys().cloned().collect::<HashSet<_>>();
+
+        let mut paths_to_node: HashMap<NodeID, usize> =
+            reachable.iter().map(|node| (*node, 0usize)).collect();
+
+        let mut models_by_variable: HashMap<VarID, BigUint> = varids
+            .iter()
+            .map(|var| -> (VarID, BigUint) { (*var, Zero::zero()) })
+            .collect();
+
+        let root_var = man.nodes.get(&self.root).unwrap().var;
+        let top_jump =
+            man.var2level[root_var.0] - 1 - count_sliced_vars_between(&varids[0], &root_var);
+        paths_to_node.insert(self.root, 2usize.pow(top_jump as u32));
+
+        for var_id in varids.iter() {
+            man.level2nodes[man.var2level[var_id.0]]
+                .iter()
+                .filter(|node| reachable.contains(&node.id))
+                .for_each(
+                    |DDNode {
+                         id: node_id,
+                         low: low_id,
+                         high: high_id,
+                         ..
+                     }| {
+                        let low_var = &man.nodes.get(low_id).unwrap().var;
+                        let low_jump = man.var2level[low_var.0]
+                            - man.var2level[var_id.0]
+                            - 1
+                            - count_sliced_vars_between(var_id, low_var);
+
+                        let high_var = &man.nodes.get(high_id).unwrap().var;
+                        let high_jump = man.var2level[high_var.0]
+                            - man.var2level[var_id.0]
+                            - 1
+                            - count_sliced_vars_between(var_id, high_var);
+
+                        // Calculate this node's model count for the current variable
+                        let high_models = node_to_sat_count.get(high_id).unwrap()
+                            * BigUint::parse_bytes(b"2", 10)
+                                .unwrap()
+                                .pow(high_jump as u32);
+                        *models_by_variable.get_mut(var_id).unwrap() +=
+                            paths_to_node.get(node_id).unwrap() * high_models;
+
+                        // Calculate model counts for skipped variables (through jumps)
+                        for (child_id, child_var, child_jump) in
+                            [(low_id, low_var, low_jump), (high_id, high_var, high_jump)].iter()
+                        {
+                            let child_jump = *child_jump;
+
+                            *paths_to_node.get_mut(child_id).unwrap() +=
+                                paths_to_node.get(node_id).unwrap() * 2usize.pow(child_jump as u32);
+
+                            if child_jump > 0 {
+                                ((man.var2level[var_id.0] + 1)..(man.var2level[child_var.0] - 1))
+                                    .map(|level| varids[level])
+                                    .filter(|jumped_var_id| {
+                                        !self.sliced_vars.contains(jumped_var_id)
+                                    })
+                                    .for_each(|jumped_var_id| {
+                                        *models_by_variable.get_mut(&jumped_var_id).unwrap() +=
+                                            paths_to_node.get(node_id).unwrap()
+                                                    // The nodes above that got also jumped add *2
+                                                    // to the paths, the nodes below add *2 to the
+                                                    // sat count below, the current node only uses
+                                                    // its high edge… => * 2^(child_jump-1)
+                                                * 2usize.pow((child_jump - 1) as u32)
+                                                * node_to_sat_count.get(child_id).unwrap();
+                                    });
+                            }
+                        }
+                    },
+                );
+        }
+
+        models_by_variable
+    }
+
+    pub fn identify_atomic_sets(&self) -> Vec<HashSet<VarID>> {
+        // Identify candidates for atomic sets using commonalities:
+        let mut candidates: HashMap<BigUint, HashSet<VarID>> = HashMap::default();
+        self.count_models_by_variable()
+            .iter()
+            .for_each(|(var, model_count)| {
+                if !candidates.contains_key(model_count) {
+                    candidates.insert(model_count.clone(), HashSet::default());
+                }
+                candidates.get_mut(model_count).unwrap().insert(*var);
+            });
+
+        // Sort out false postitives:
+        candidates
+            .values()
+            .filter(|candidate_set| candidate_set.len() > 1)
+            .flat_map(|candidate_set| {
+                let mut result_sets: Vec<HashSet<VarID>> = Vec::default();
+                candidate_set.iter().for_each(|candidate_var| {
+                    let mut inserted = false;
+                    for set in result_sets.iter_mut() {
+                        let (a, b) = (candidate_var, set.iter().next().unwrap());
+                        let a_xor_b = Self::xor_prim(
+                            self.man.clone(),
+                            &var2level_to_ordered_varids(&self.man.read().unwrap().var2level)
+                                .into_iter()
+                                .filter(|var| var != a && var != b)
+                                .collect(),
+                        );
+                        let a_xor_b = a_xor_b.as_ref();
+
+                        if !(a_xor_b & self)
+                            .exists(&vec![*a, *b].into_iter().collect())
+                            .is_sat()
+                        {
+                            set.insert(*candidate_var);
+                            inserted = true;
+                            break;
+                        }
+                    }
+                    if !inserted {
+                        result_sets.push(vec![*candidate_var].into_iter().collect());
+                    }
+                });
+                result_sets
+            })
+            .filter(|candidate_set| candidate_set.len() > 1)
+            .collect()
     }
 
     //------------------------------------------------------------------------//

@@ -14,7 +14,15 @@ impl DDManager {
     }
 
     pub fn sat_count(&self, f: NodeID) -> BigUint {
-        let node_sat = self.sat_count_rec(f, &mut HashMap::default());
+        self.sat_count_with_cache(f, &mut HashMap::default())
+    }
+
+    pub(crate) fn sat_count_with_cache(
+        &self,
+        f: NodeID,
+        cache: &mut HashMap<NodeID, BigUint>,
+    ) -> BigUint {
+        let node_sat = self.sat_count_rec(f, cache);
 
         let jump = self.var2level[self.nodes.get(&f).unwrap().var.0] - 1;
         let fac = BigUint::parse_bytes(b"2", 10).unwrap().pow(jump as u32);
