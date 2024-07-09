@@ -277,15 +277,7 @@ impl DDManager {
             high: NodeID(1),
         };
 
-        if self.var2level.len() > var.0 {
-            let x = self.level2nodes[self.var2level[var.0]].get(&v);
-
-            if let Some(x) = x {
-                return x.id;
-            }
-        }
-
-        self.add_node(v)
+        self.node_get_or_create(&v)
     }
 
     pub fn nith_var(&mut self, var: VarID) -> NodeID {
@@ -296,15 +288,7 @@ impl DDManager {
             high: NodeID(0),
         };
 
-        if self.var2level.len() > var.0 {
-            let x = self.level2nodes[self.var2level[var.0]].get(&v);
-
-            if let Some(x) = x {
-                return x.id;
-            }
-        }
-
-        self.add_node(v)
+        self.node_get_or_create(&v)
     }
 
     //------------------------------------------------------------------------//

@@ -27,6 +27,7 @@ pub struct BddView {
     man_id: usize,
     root: NodeID,
     sliced_vars: HashSet<VarID>,
+    atomic_sets: Option<HashMap<VarID, HashSet<VarID>>>,
 }
 
 impl Hash for BddView {
@@ -34,6 +35,7 @@ impl Hash for BddView {
         self.man_id.hash(state);
         self.root.hash(state);
         self.sliced_vars.iter().collect::<BTreeSet<_>>().hash(state);
+        self.atomic_sets.is_some().hash(state);
     }
 }
 
@@ -42,6 +44,7 @@ impl PartialEq for BddView {
         self.man_id == other.man_id
             && self.root == other.root
             && self.sliced_vars == other.sliced_vars
+            && self.atomic_sets.is_some() == other.atomic_sets.is_some()
     }
 }
 
@@ -57,11 +60,21 @@ impl BddView {
         manager: Arc<RwLock<DDManager>>,
         sliced_vars: HashSet<VarID>,
     ) -> Arc<Self> {
+        Self::new_with_atomic_sets(root, manager, sliced_vars, None)
+    }
+
+    fn new_with_atomic_sets(
+        root: NodeID,
+        manager: Arc<RwLock<DDManager>>,
+        sliced_vars: HashSet<VarID>,
+        atomic_sets: Option<HashMap<VarID, HashSet<VarID>>>,
+    ) -> Arc<Self> {
         let view = Self {
             man: manager.clone(),
             man_id: manager.read().unwrap().get_id(),
             root,
             sliced_vars,
+            atomic_sets,
         };
         manager.write().unwrap().get_or_add_view(view)
     }
@@ -137,6 +150,8 @@ impl BddView {
     /// Returns a (new) view on the BDD resulting from applying exists with the given variables to
     /// the BDD.
     pub fn exists(&self, vars: &HashSet<VarID>) -> Arc<Self> {
+        assert!(self.atomic_sets.is_none());
+
         Self::new_with_sliced(
             self.man.write().unwrap().exists(self.root, vars),
             self.man.clone(),
@@ -147,6 +162,8 @@ impl BddView {
     /// Returns a (new) view on the BDD resulting from applying forall with the given variables to
     /// the BDD.
     pub fn forall(&self, vars: &HashSet<VarID>) -> Arc<Self> {
+        assert!(self.atomic_sets.is_none());
+
         Self::new_with_sliced(
             self.man.write().unwrap().forall(self.root, vars),
             self.man.clone(),
@@ -162,6 +179,7 @@ impl BddView {
     pub fn and(&self, other: &Self) -> Arc<Self> {
         assert_eq!(self.sliced_vars, other.sliced_vars);
         assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
+        assert!(self.atomic_sets.is_none() && other.atomic_sets.is_none());
 
         Self::new_with_sliced(
             self.man.write().unwrap().and(self.root, other.root),
@@ -175,6 +193,7 @@ impl BddView {
     pub fn or(&self, other: &Self) -> Arc<Self> {
         assert_eq!(self.sliced_vars, other.sliced_vars);
         assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
+        assert!(self.atomic_sets.is_none() && other.atomic_sets.is_none());
 
         Self::new_with_sliced(
             self.man.write().unwrap().or(self.root, other.root),
@@ -188,6 +207,7 @@ impl BddView {
     pub fn xor(&self, other: &Self) -> Arc<Self> {
         assert_eq!(self.sliced_vars, other.sliced_vars);
         assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
+        assert!(self.atomic_sets.is_none() && other.atomic_sets.is_none());
 
         Self::new_with_sliced(
             self.man.write().unwrap().xor(self.root, other.root),
@@ -217,6 +237,7 @@ impl BddView {
     ///
     /// * `remove` - The variables to remove
     pub fn create_slice_without_vars(&self, remove: &HashSet<VarID>) -> Arc<Self> {
+        assert!(self.atomic_sets.is_none());
         let mut man = self.man.write().unwrap();
         let sliced = Self::new_with_sliced(
             man.create_slice_without_vars(self.root, remove),
@@ -262,7 +283,9 @@ impl BddView {
     //------------------------------------------------------------------------//
     // Atomic Sets
 
-    fn count_models_by_variable(&self) -> HashMap<VarID, BigUint> {
+    fn count_models_by_variable(&self) -> (BigUint, HashMap<VarID, BigUint>) {
+        assert!(self.atomic_sets.is_none());
+
         let man = self.man.read().unwrap();
 
         let varids = var2level_to_ordered_varids(&man.var2level);
@@ -274,7 +297,7 @@ impl BddView {
         };
 
         let mut node_to_sat_count = HashMap::default();
-        man.sat_count_with_cache(self.root, &mut node_to_sat_count);
+        let sat_count = man.sat_count_with_cache(self.root, &mut node_to_sat_count);
 
         let reachable = node_to_sat_count.keys().cloned().collect::<HashSet<_>>();
 
@@ -353,20 +376,41 @@ impl BddView {
                 );
         }
 
-        models_by_variable
+        // Remove sliced vars
+        self.sliced_vars.iter().for_each(|var_id| {
+            models_by_variable.remove(var_id);
+        });
+
+        (sat_count, models_by_variable)
     }
 
     pub fn identify_atomic_sets(&self) -> Vec<HashSet<VarID>> {
+        if self.atomic_sets.is_some() {
+            return self
+                .atomic_sets
+                .as_ref()
+                .unwrap()
+                .iter()
+                .map(|(top_var, set)| {
+                    let mut set = set.clone();
+                    set.insert(*top_var);
+                    set
+                })
+                .collect::<Vec<HashSet<VarID>>>();
+        }
+
         // Identify candidates for atomic sets using commonalities:
         let mut candidates: HashMap<BigUint, HashSet<VarID>> = HashMap::default();
-        self.count_models_by_variable()
-            .iter()
-            .for_each(|(var, model_count)| {
+        let (sat_count, models_by_variable) = self.count_models_by_variable();
+        models_by_variable.iter().for_each(|(var, model_count)| {
+            // Exclude free variables
+            if *model_count != sat_count {
                 if !candidates.contains_key(model_count) {
                     candidates.insert(model_count.clone(), HashSet::default());
                 }
                 candidates.get_mut(model_count).unwrap().insert(*var);
-            });
+            }
+        });
 
         // Sort out false postitives:
         candidates
@@ -406,11 +450,51 @@ impl BddView {
             .collect()
     }
 
+    /// Optimizes the BDD by making use of Atomic Sets. Returns None if this view already uses an
+    /// optimized BDD or otherwise a (new) View for the optimized BDD.
+    pub fn optimize_through_atomic_sets(&self) -> Option<Arc<Self>> {
+        if self.atomic_sets.is_some() {
+            return None;
+        }
+
+        let var2level = &self.man.read().unwrap().var2level.clone();
+
+        let atomic_sets = self
+            .identify_atomic_sets()
+            .into_iter()
+            .map(|mut set| {
+                let top = *set
+                    .iter()
+                    .min_by(|var_a, var_b| var2level[var_a.0].cmp(&var2level[var_b.0]))
+                    .unwrap();
+                set.remove(&top);
+                (top, set)
+            })
+            .collect::<HashMap<VarID, HashSet<VarID>>>();
+
+        let root = self.man.write().unwrap().exists(
+            self.root,
+            &atomic_sets
+                .values()
+                .flatten()
+                .cloned()
+                .collect::<HashSet<VarID>>(),
+        );
+
+        Some(Self::new_with_atomic_sets(
+            root,
+            self.man.clone(),
+            self.sliced_vars.clone(),
+            Some(atomic_sets),
+        ))
+    }
+
     //------------------------------------------------------------------------//
     // Graphviz
 
     /// Generate graphviz for the BDD.
     pub fn graphviz(&self) -> String {
+        assert!(self.atomic_sets.is_none());
         self.man.read().unwrap().graphviz(self.root)
     }
 }
@@ -451,8 +535,8 @@ impl fmt::Debug for BddView {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "BDD_View [Root Node: {:?}, Manager: {:?}, sliced variables: {:?}]",
-            self.root, self.man, self.sliced_vars,
+            "BDD_View [Root Node: {:?}, Manager: {:?}, sliced variables: {:?}, atomic set optimizations: {:?}]",
+            self.root, self.man, self.sliced_vars, self.atomic_sets,
         )
     }
 }
