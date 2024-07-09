@@ -497,6 +497,30 @@ impl BddView {
         assert!(self.atomic_sets.is_none());
         self.man.read().unwrap().graphviz(self.root)
     }
+
+    //------------------------------------------------------------------------//
+    // Other
+
+    /// Evaluates the BDD, setting all given vars to 1 and all remaining vars to 0.
+    ///
+    /// * `trues` - The variables that should be set to true
+    pub fn evaluate(&self, trues: &[VarID]) -> bool {
+        // Check if all the variables in each atomic set have the same value before evaluation, if
+        // atomic sets have been optimized
+        let atomic_sets_check = match &self.atomic_sets {
+            Some(atomic_sets) => {
+                let trues_set = trues.iter().cloned().collect::<HashSet<VarID>>();
+                atomic_sets.keys().all(|var_id| {
+                    atomic_sets.get(var_id).unwrap().iter().all(|other_var| {
+                        trues_set.contains(var_id) == trues_set.contains(other_var)
+                    })
+                })
+            }
+            None => true,
+        };
+
+        atomic_sets_check && self.man.read().unwrap().evaluate(self.root, trues)
+    }
 }
 
 impl ops::Not for &BddView {
