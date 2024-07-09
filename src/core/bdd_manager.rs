@@ -435,11 +435,11 @@ impl DDManager {
         zero_side
     }
 
-    pub fn verify(&self, f: NodeID, trues: &[usize]) -> bool {
+    pub fn evaluate(&self, f: NodeID, trues: &[VarID]) -> bool {
         let mut values: Vec<bool> = vec![false; self.level2nodes.len() + 1];
 
         for x in trues {
-            let x: usize = *x;
+            let x: usize = x.0;
 
             values[x] = x < values.len();
         }
