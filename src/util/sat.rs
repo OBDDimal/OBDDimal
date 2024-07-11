@@ -4,7 +4,7 @@ use num_bigint::BigUint;
 use num_traits::{One, Zero};
 
 use crate::{
-    core::{bdd_manager::DDManager, bdd_node::NodeID},
+    core::{bdd_manager::DDManager, bdd_node, bdd_node::NodeID},
     misc::hash_select::HashMap,
 };
 
@@ -22,7 +22,7 @@ impl DDManager {
         f: NodeID,
         cache: &mut HashMap<NodeID, BigUint>,
     ) -> BigUint {
-        let node_sat = self.sat_count_rec(f, cache);
+        let node_sat = self.sat_count_from(f, cache);
 
         let jump = self.var2level[self.nodes.get(&f).unwrap().var.0] - 1;
         let fac = BigUint::parse_bytes(b"2", 10).unwrap().pow(jump as u32);
@@ -30,33 +30,37 @@ impl DDManager {
         node_sat * fac
     }
 
-    fn sat_count_rec(&self, node_id: NodeID, cache: &mut HashMap<NodeID, BigUint>) -> BigUint {
-        if node_id == NodeID(0) {
-            Zero::zero()
-        } else if node_id == NodeID(1) {
-            One::one()
-        } else if cache.contains_key(&node_id) {
-            cache.get(&node_id).unwrap().clone()
-        } else {
-            let mut total: BigUint = Zero::zero();
+    #[inline]
+    fn sat_count_from(&self, from_node: NodeID, cache: &mut HashMap<NodeID, BigUint>) -> BigUint {
+        let reachable = self.get_reachable(&[from_node]);
 
-            let node = &self.nodes.get(&node_id).unwrap();
+        cache.insert(NodeID(0), Zero::zero());
+        cache.insert(NodeID(1), One::one());
 
-            let low_var = &self.nodes.get(&node.low).unwrap().var;
-            let low_jump = self.var2level[low_var.0] - self.var2level[node.var.0] - 1;
-            let low_fac = BigUint::parse_bytes(b"2", 10).unwrap().pow(low_jump as u32);
-            total += self.sat_count_rec(node.low, cache) * low_fac;
+        (self.var2level[self.nodes.get(&from_node).unwrap().var.0]
+            ..self.var2level[bdd_node::ZERO.var.0])
+            .rev()
+            .flat_map(|level| &self.level2nodes[level])
+            .filter(|node| reachable.contains(&node.id))
+            .for_each(|node| {
+                let mut total: BigUint = Zero::zero();
 
-            let high_var = &self.nodes.get(&node.high).unwrap().var;
-            let high_jump = self.var2level[high_var.0] - self.var2level[node.var.0] - 1;
-            let high_fac = BigUint::parse_bytes(b"2", 10)
-                .unwrap()
-                .pow(high_jump as u32);
-            total += self.sat_count_rec(node.high, cache) * high_fac;
+                let low_var = &self.nodes.get(&node.low).unwrap().var;
+                let low_jump = self.var2level[low_var.0] - self.var2level[node.var.0] - 1;
+                let low_fac = BigUint::parse_bytes(b"2", 10).unwrap().pow(low_jump as u32);
+                total += cache.get(&node.low).unwrap() * low_fac;
 
-            cache.insert(node_id, total.clone());
-            total
-        }
+                let high_var = &self.nodes.get(&node.high).unwrap().var;
+                let high_jump = self.var2level[high_var.0] - self.var2level[node.var.0] - 1;
+                let high_fac = BigUint::parse_bytes(b"2", 10)
+                    .unwrap()
+                    .pow(high_jump as u32);
+                total += cache.get(&node.high).unwrap() * high_fac;
+
+                cache.insert(node.id, total);
+            });
+
+        cache.get(&from_node).unwrap().clone()
     }
 
     pub fn count_active(&self, f: NodeID) -> usize {

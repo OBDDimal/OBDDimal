@@ -178,20 +178,26 @@ impl DDManager {
         // Ensure there is space for var2level[target]
         self.var2level.resize(target.0 + 1, 0);
 
+        // Remove terminal nodes if already existent to make sure they end up at the lowest level
+        // after this operation.
+        let terminals = self.level2nodes.pop();
+
         // Fill newly created space:
-        let mut y = old_size;
         for x in old_size..self.var2level.len() {
-            // var2level[x] = x
-            self.var2level[x] = y;
-            y += 1;
+            self.var2level[x] = x;
             // Add newly created level to level2nodes
-            while self.level2nodes.len() <= y {
+            while self.level2nodes.len() <= x {
                 self.level2nodes.push(HashSet::default());
             }
         }
 
         // VarID 0 (terminal nodes) at the very bottom of the tree
-        self.var2level[0] = y;
+        self.var2level[0] = self.var2level.len();
+        if let Some(terminals) = terminals {
+            self.level2nodes.push(terminals);
+        } else {
+            self.level2nodes.push(HashSet::default());
+        }
     }
 
     /// Insert Node. ID is assigned for nonterminal nodes (var != 0).
