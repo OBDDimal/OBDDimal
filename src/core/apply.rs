@@ -109,62 +109,83 @@ const fn get_apply_operation_functions(op: ApplyOperation) -> ApplyOperationFunc
 
 impl DDManager {
     pub fn apply(&mut self, op: ApplyOperation, u: NodeID, v: NodeID) -> NodeID {
-        if let Some(result) = self.apply_c_table.get(&(op, u, v)) {
-            return *result;
+        let mut apply_stack = vec![(op, u, v)];
+
+        while let Some((op, u, v)) = apply_stack.pop() {
+            if self.apply_c_table.contains_key(&(op, u, v)) {
+                continue; // Result already in cache, so nothing to do
+            }
+
+            let u = *self
+                .nodes
+                .get(&u)
+                .expect("Apply called on non-existing Nodes!");
+            let v = *self
+                .nodes
+                .get(&v)
+                .expect("Apply called on non-existing Nodes!");
+
+            let result = if u.var == VarID(0) && v.var == VarID(0) {
+                // Both nodes are terminal nodes
+                let both_terminal = get_apply_operation_functions(op).both_terminal;
+                Some(both_terminal(self, u.id, v.id))
+            } else if u.var == VarID(0) {
+                // First node is terminal node
+                Some((get_apply_operation_functions(op).first_terminal)(
+                    self, u.id, v.id,
+                ))
+            } else if v.var == VarID(0) {
+                // Second node is terminal node
+                Some((get_apply_operation_functions(op).second_terminal)(
+                    self, u.id, v.id,
+                ))
+            } else if u.id == v.id {
+                // Both nodes are equal
+                Some((get_apply_operation_functions(op).both_equal)(self, u.id))
+            } else {
+                // No special case
+                let upper_var = if self.var2level[u.var.0] <= self.var2level[v.var.0] {
+                    u.var
+                } else {
+                    v.var
+                };
+                let (u_high, u_low) = if u.var == upper_var {
+                    (u.high, u.low)
+                } else {
+                    (u.id, u.id)
+                };
+                let (v_high, v_low) = if v.var == upper_var {
+                    (v.high, v.low)
+                } else {
+                    (v.id, v.id)
+                };
+
+                if self.apply_c_table.contains_key(&(op, u_high, v_high))
+                    && self.apply_c_table.contains_key(&(op, u_low, v_low))
+                {
+                    let w_high = self.apply_c_table.get(&(op, u_high, v_high)).unwrap();
+                    let w_low = self.apply_c_table.get(&(op, u_low, v_low)).unwrap();
+
+                    Some(self.node_get_or_create(&DDNode {
+                        id: NodeID(0),
+                        var: upper_var,
+                        high: *w_high,
+                        low: *w_low,
+                    }))
+                } else {
+                    apply_stack.push((op, u.id, v.id));
+                    apply_stack.push((op, u_high, v_high));
+                    apply_stack.push((op, u_low, v_low));
+                    None
+                }
+            };
+
+            if let Some(result) = result {
+                self.apply_c_table.insert((op, u.id, v.id), result);
+            }
         }
 
-        let u = *self
-            .nodes
-            .get(&u)
-            .expect("Apply called on non-existing Nodes!");
-        let v = *self
-            .nodes
-            .get(&v)
-            .expect("Apply called on non-existing Nodes!");
-
-        let result = if u.var == VarID(0) && v.var == VarID(0) {
-            // Both nodes are terminal nodes
-            let both_terminal = get_apply_operation_functions(op).both_terminal;
-            both_terminal(self, u.id, v.id)
-        } else if u.var == VarID(0) {
-            // First node is terminal node
-            (get_apply_operation_functions(op).first_terminal)(self, u.id, v.id)
-        } else if v.var == VarID(0) {
-            // Second node is terminal node
-            (get_apply_operation_functions(op).second_terminal)(self, u.id, v.id)
-        } else if u.id == v.id {
-            // Both nodes are equal
-            (get_apply_operation_functions(op).both_equal)(self, u.id)
-        } else {
-            // No special case
-            let upper_var = if self.var2level[u.var.0] <= self.var2level[v.var.0] {
-                u.var
-            } else {
-                v.var
-            };
-            let (u_high, u_low) = if u.var == upper_var {
-                (u.high, u.low)
-            } else {
-                (u.id, u.id)
-            };
-            let (v_high, v_low) = if v.var == upper_var {
-                (v.high, v.low)
-            } else {
-                (v.id, v.id)
-            };
-
-            let w_high = self.apply(op, u_high, v_high);
-            let w_low = self.apply(op, u_low, v_low);
-
-            self.node_get_or_create(&DDNode {
-                id: NodeID(0),
-                var: upper_var,
-                high: w_high,
-                low: w_low,
-            })
-        };
-
-        self.apply_c_table.insert((op, u.id, v.id), result);
-        result
+        // The c_table has to contain the result, if the stack is empty
+        *self.apply_c_table.get(&(op, u, v)).unwrap()
     }
 }
