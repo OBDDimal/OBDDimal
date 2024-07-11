@@ -505,6 +505,7 @@ impl DDManager {
         }
 
         self.ite_c_table.retain(|_, x| keep.contains(x));
+        self.apply_c_table.retain(|_, x| keep.contains(x));
     }
 
     /// Removes nodes which do not belong to any of the BDDs for which views exist from the
