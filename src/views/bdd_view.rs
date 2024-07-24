@@ -280,7 +280,18 @@ impl BddView {
 
     /// Returns the #SAT result for the function represented by this BDD.
     pub fn sat_count(&self) -> BigUint {
-        self.man.read().unwrap().sat_count(self.root) >> self.removed_vars.len()
+        self.man.read().unwrap().sat_count(self.root)
+            >> (self.removed_vars.len()
+                + if self.atomic_sets.is_some() {
+                    self.atomic_sets
+                        .as_ref()
+                        .unwrap()
+                        .values()
+                        .flatten()
+                        .count()
+                } else {
+                    0
+                })
     }
 
     //------------------------------------------------------------------------//
