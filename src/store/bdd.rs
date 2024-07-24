@@ -181,7 +181,11 @@ mod test {
         let views: Vec<Arc<BddView>> = vec![
             BddView::new(NodeID(2), man.clone()),
             BddView::new(NodeID(4), man.clone()),
-            BddView::new_with_sliced(NodeID(4), man.clone(), vec![VarID(4)].into_iter().collect()),
+            BddView::new_with_removed_vars(
+                NodeID(4),
+                man.clone(),
+                vec![VarID(4)].into_iter().collect(),
+            ),
         ];
 
         assert_eq!(

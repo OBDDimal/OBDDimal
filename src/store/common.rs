@@ -136,7 +136,7 @@ impl DDManager {
             views
                 .iter()
                 .map(|v| {
-                    BddView::new_with_sliced(
+                    BddView::new_with_removed_vars(
                         *id_translator.get(&v.root).unwrap(),
                         ddmanager.clone(),
                         v.sliced_vars.iter().cloned().collect(),
@@ -159,7 +159,7 @@ impl DDManager {
                 .iter()
                 .map(|v| View {
                     root: v.get_root(),
-                    sliced_vars: v.get_sliced_variables().iter().cloned().collect(),
+                    sliced_vars: v.get_removed_variables().iter().cloned().collect(),
                 })
                 .collect()
         });

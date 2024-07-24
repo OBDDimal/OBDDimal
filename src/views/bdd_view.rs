@@ -26,7 +26,7 @@ pub struct BddView {
     man: Arc<RwLock<DDManager>>,
     man_id: usize,
     root: NodeID,
-    sliced_vars: HashSet<VarID>,
+    removed_vars: HashSet<VarID>,
     atomic_sets: Option<HashMap<VarID, HashSet<VarID>>>,
 }
 
@@ -34,7 +34,10 @@ impl Hash for BddView {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.man_id.hash(state);
         self.root.hash(state);
-        self.sliced_vars.iter().collect::<BTreeSet<_>>().hash(state);
+        self.removed_vars
+            .iter()
+            .collect::<BTreeSet<_>>()
+            .hash(state);
         self.atomic_sets.is_some().hash(state);
     }
 }
@@ -43,7 +46,7 @@ impl PartialEq for BddView {
     fn eq(&self, other: &Self) -> bool {
         self.man_id == other.man_id
             && self.root == other.root
-            && self.sliced_vars == other.sliced_vars
+            && self.removed_vars == other.removed_vars
             && self.atomic_sets.is_some() == other.atomic_sets.is_some()
     }
 }
@@ -52,28 +55,28 @@ impl Eq for BddView {}
 
 impl BddView {
     pub(crate) fn new(root: NodeID, manager: Arc<RwLock<DDManager>>) -> Arc<Self> {
-        Self::new_with_sliced(root, manager, HashSet::<VarID>::default())
+        Self::new_with_removed_vars(root, manager, HashSet::<VarID>::default())
     }
 
-    pub(crate) fn new_with_sliced(
+    pub(crate) fn new_with_removed_vars(
         root: NodeID,
         manager: Arc<RwLock<DDManager>>,
-        sliced_vars: HashSet<VarID>,
+        removed_vars: HashSet<VarID>,
     ) -> Arc<Self> {
-        Self::new_with_atomic_sets(root, manager, sliced_vars, None)
+        Self::new_with_atomic_sets(root, manager, removed_vars, None)
     }
 
     fn new_with_atomic_sets(
         root: NodeID,
         manager: Arc<RwLock<DDManager>>,
-        sliced_vars: HashSet<VarID>,
+        removed_vars: HashSet<VarID>,
         atomic_sets: Option<HashMap<VarID, HashSet<VarID>>>,
     ) -> Arc<Self> {
         let view = Self {
             man: manager.clone(),
             man_id: manager.read().unwrap().get_id(),
             root,
-            sliced_vars,
+            removed_vars,
             atomic_sets,
         };
         manager.write().unwrap().get_or_add_view(view)
@@ -89,9 +92,9 @@ impl BddView {
         self.root
     }
 
-    /// Returns the [VarID]s of the sliced variables of this BDD.
-    pub fn get_sliced_variables(&self) -> HashSet<VarID> {
-        self.sliced_vars.clone()
+    /// Returns the [VarID]s of the removed variables of this BDD.
+    pub fn get_removed_variables(&self) -> HashSet<VarID> {
+        self.removed_vars.clone()
     }
 
     //------------------------------------------------------------------------//
@@ -137,10 +140,10 @@ impl BddView {
 
     /// Returns a (new) view on a BDD which represents the inverse of the function of the BDD.
     pub fn not(&self) -> Arc<Self> {
-        Self::new_with_sliced(
+        Self::new_with_removed_vars(
             self.man.write().unwrap().not(self.root),
             self.man.clone(),
-            self.sliced_vars.clone(),
+            self.removed_vars.clone(),
         )
     }
 
@@ -152,10 +155,10 @@ impl BddView {
     pub fn exists(&self, vars: &HashSet<VarID>) -> Arc<Self> {
         assert!(self.atomic_sets.is_none());
 
-        Self::new_with_sliced(
+        Self::new_with_removed_vars(
             self.man.write().unwrap().exists(self.root, vars),
             self.man.clone(),
-            self.sliced_vars.clone(),
+            self.removed_vars.clone(),
         )
     }
 
@@ -164,10 +167,10 @@ impl BddView {
     pub fn forall(&self, vars: &HashSet<VarID>) -> Arc<Self> {
         assert!(self.atomic_sets.is_none());
 
-        Self::new_with_sliced(
+        Self::new_with_removed_vars(
             self.man.write().unwrap().forall(self.root, vars),
             self.man.clone(),
-            self.sliced_vars.clone(),
+            self.removed_vars.clone(),
         )
     }
 
@@ -177,42 +180,42 @@ impl BddView {
     /// Returns a (new) view on the BDD resulting from connecting this views' BDD and another one
     /// given via the parameter with an `and`.
     pub fn and(&self, other: &Self) -> Arc<Self> {
-        assert_eq!(self.sliced_vars, other.sliced_vars);
+        assert_eq!(self.removed_vars, other.removed_vars);
         assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
         assert!(self.atomic_sets.is_none() && other.atomic_sets.is_none());
 
-        Self::new_with_sliced(
+        Self::new_with_removed_vars(
             self.man.write().unwrap().and(self.root, other.root),
             self.man.clone(),
-            self.sliced_vars.clone(),
+            self.removed_vars.clone(),
         )
     }
 
     /// Returns a (new) view on the BDD resulting from connecting this views' BDD and another one
     /// given via the parameter with an `or`.
     pub fn or(&self, other: &Self) -> Arc<Self> {
-        assert_eq!(self.sliced_vars, other.sliced_vars);
+        assert_eq!(self.removed_vars, other.removed_vars);
         assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
         assert!(self.atomic_sets.is_none() && other.atomic_sets.is_none());
 
-        Self::new_with_sliced(
+        Self::new_with_removed_vars(
             self.man.write().unwrap().or(self.root, other.root),
             self.man.clone(),
-            self.sliced_vars.clone(),
+            self.removed_vars.clone(),
         )
     }
 
     /// Returns a (new) view on the BDD resulting from connecting this views' BDD and another one
     /// given via the parameter with an `xor`.
     pub fn xor(&self, other: &Self) -> Arc<Self> {
-        assert_eq!(self.sliced_vars, other.sliced_vars);
+        assert_eq!(self.removed_vars, other.removed_vars);
         assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
         assert!(self.atomic_sets.is_none() && other.atomic_sets.is_none());
 
-        Self::new_with_sliced(
+        Self::new_with_removed_vars(
             self.man.write().unwrap().xor(self.root, other.root),
             self.man.clone(),
-            self.sliced_vars.clone(),
+            self.removed_vars.clone(),
         )
     }
 
@@ -239,11 +242,11 @@ impl BddView {
     pub fn create_slice_without_vars(&self, remove: &HashSet<VarID>) -> Arc<Self> {
         assert!(self.atomic_sets.is_none());
         let mut man = self.man.write().unwrap();
-        let sliced = Self::new_with_sliced(
+        let sliced = Self::new_with_removed_vars(
             man.create_slice_without_vars(self.root, remove),
             self.man.clone(),
             remove
-                .union(&self.sliced_vars)
+                .union(&self.removed_vars)
                 .copied()
                 .collect::<HashSet<_>>(),
         );
@@ -277,7 +280,7 @@ impl BddView {
 
     /// Returns the #SAT result for the function represented by this BDD.
     pub fn sat_count(&self) -> BigUint {
-        self.man.read().unwrap().sat_count(self.root) >> self.sliced_vars.len()
+        self.man.read().unwrap().sat_count(self.root) >> self.removed_vars.len()
     }
 
     //------------------------------------------------------------------------//
@@ -289,10 +292,10 @@ impl BddView {
         let man = self.man.read().unwrap();
 
         let varids = var2level_to_ordered_varids(&man.var2level);
-        let count_sliced_vars_between = |first: &VarID, last: &VarID| -> usize {
+        let count_removed_vars_between = |first: &VarID, last: &VarID| -> usize {
             ((man.var2level[first.0])..(man.var2level[last.0]))
                 .map(|level| varids[level])
-                .filter(|var_id| self.sliced_vars.contains(var_id))
+                .filter(|var_id| self.removed_vars.contains(var_id))
                 .count()
         };
 
@@ -311,7 +314,7 @@ impl BddView {
 
         let root_var = man.nodes.get(&self.root).unwrap().var;
         let top_jump =
-            man.var2level[root_var.0] - 1 - count_sliced_vars_between(&varids[0], &root_var);
+            man.var2level[root_var.0] - 1 - count_removed_vars_between(&varids[0], &root_var);
         paths_to_node.insert(self.root, 2usize.pow(top_jump as u32));
 
         for var_id in varids.iter() {
@@ -329,13 +332,13 @@ impl BddView {
                         let low_jump = man.var2level[low_var.0]
                             - man.var2level[var_id.0]
                             - 1
-                            - count_sliced_vars_between(var_id, low_var);
+                            - count_removed_vars_between(var_id, low_var);
 
                         let high_var = &man.nodes.get(high_id).unwrap().var;
                         let high_jump = man.var2level[high_var.0]
                             - man.var2level[var_id.0]
                             - 1
-                            - count_sliced_vars_between(var_id, high_var);
+                            - count_removed_vars_between(var_id, high_var);
 
                         // Calculate this node's model count for the current variable
                         let high_models = node_to_sat_count.get(high_id).unwrap()
@@ -358,7 +361,7 @@ impl BddView {
                                 ((man.var2level[var_id.0] + 1)..(man.var2level[child_var.0] - 1))
                                     .map(|level| varids[level])
                                     .filter(|jumped_var_id| {
-                                        !self.sliced_vars.contains(jumped_var_id)
+                                        !self.removed_vars.contains(jumped_var_id)
                                     })
                                     .for_each(|jumped_var_id| {
                                         *models_by_variable.get_mut(&jumped_var_id).unwrap() +=
@@ -376,8 +379,8 @@ impl BddView {
                 );
         }
 
-        // Remove sliced vars
-        self.sliced_vars.iter().for_each(|var_id| {
+        // Remove removed vars
+        self.removed_vars.iter().for_each(|var_id| {
             models_by_variable.remove(var_id);
         });
 
@@ -484,7 +487,7 @@ impl BddView {
         Some(Self::new_with_atomic_sets(
             root,
             self.man.clone(),
-            self.sliced_vars.clone(),
+            self.removed_vars.clone(),
             Some(atomic_sets),
         ))
     }
@@ -559,8 +562,8 @@ impl fmt::Debug for BddView {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "BDD_View [Root Node: {:?}, Manager: {:?}, sliced variables: {:?}, atomic set optimizations: {:?}]",
-            self.root, self.man, self.sliced_vars, self.atomic_sets,
+            "BDD_View [Root Node: {:?}, Manager: {:?}, removed variables: {:?}, atomic set optimizations: {:?}]",
+            self.root, self.man, self.removed_vars, self.atomic_sets,
         )
     }
 }
