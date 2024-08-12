@@ -46,7 +46,7 @@ console = "0.15.1"
 crossterm = "0.25.0"
 enum_dispatch = "0.3.8"
 fnv = "1.0.3"
-dimacs = "0.2.0"
+dimacs = "*"
 # https://crates.io/crates/toml
 toml = "0.8.8"
 serde = { version = "1.0.195", features = ["derive"] }
