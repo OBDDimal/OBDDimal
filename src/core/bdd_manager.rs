@@ -200,20 +200,26 @@ impl DDManager {
         // Ensure there is space for var2level[target]
         self.var2level.resize(target.0 + 1, 0);
 
+        // Remove terminal nodes if already existent to make sure they end up at the lowest level
+        // after this operation.
+        let terminals = self.level2nodes.pop();
+
         // Fill newly created space:
-        let mut y = old_size;
         for x in old_size..self.var2level.len() {
-            // var2level[x] = x
-            self.var2level[x] = y;
-            y += 1;
+            self.var2level[x] = x;
             // Add newly created level to level2nodes
-            while self.level2nodes.len() <= y {
+            while self.level2nodes.len() <= x {
                 self.level2nodes.push(HashSet::default());
             }
         }
 
         // VarID 0 (terminal nodes) at the very bottom of the tree
-        self.var2level[0] = y;
+        self.var2level[0] = self.var2level.len();
+        if let Some(terminals) = terminals {
+            self.level2nodes.push(terminals);
+        } else {
+            self.level2nodes.push(HashSet::default());
+        }
     }
 
     /// Insert Node. ID is assigned for nonterminal nodes (var != 0).
@@ -275,6 +281,27 @@ impl DDManager {
             Some(stuff) => stuff.id,      // An existing node was found
             None => self.add_node(*node), // No existing node found -> create new
         }
+    }
+
+    /// Search for Node, create if it doesn't exist
+    pub(crate) fn find_node(&self, node: &DDNode) -> Option<NodeID> {
+        // If both child nodes are the same, this node must be replaced by its child node to get a
+        // reduced BDD.
+        if node.low == node.high {
+            return Some(node.low);
+        }
+
+        if self.var2level.len() <= node.var.0 {
+            // Unique table does not contain any entries for this variable.
+            return None;
+        }
+
+        // Lookup in variable-specific unique-table
+        let res = self.level2nodes[self.var2level[node.var.0]].get(node);
+        return match res {
+            Some(stuff) => Some(stuff.id), // An existing node was found
+            _ => None,                     // No existing node found
+        };
     }
 
     //------------------------------------------------------------------------//
