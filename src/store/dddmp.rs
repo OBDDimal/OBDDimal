@@ -96,6 +96,16 @@ impl DDManager {
                 Ok(value[0].parse::<usize>().map_err(|e| e.to_string())?)
             }
         }?;
+        let varcount_with_free = {
+            let Some(value) = header.get(".nvars") else {
+                return Err(".nvars missing!".to_string());
+            };
+            if value.len() != 1 {
+                Err(".nvars line invalid!".to_string())
+            } else {
+                Ok(value[0].parse::<usize>().map_err(|e| e.to_string())?)
+            }
+        }?;
 
         // Parse variable ordering
         let varorder: Vec<usize> = {
@@ -120,11 +130,26 @@ impl DDManager {
                 return Err(".permids line invalid!".to_string());
             };
 
-            let mut order: Vec<usize> = vec![0; ids.iter().max().unwrap() + 2usize];
+            let mut order: Vec<usize> = vec![0; varcount_with_free + 1usize];
+            let mut free_vars: HashSet<usize> = (1..(varcount_with_free + 1usize)).collect();
+            let mut free_levels: HashSet<usize> = (1..(varcount_with_free + 1usize)).collect();
             permids.iter().enumerate().for_each(|(i, permid)| {
-                order[ids[i] + 1usize] = *permid + 1;
+                let var_id = ids[i] + 1usize;
+                let level = *permid + 1;
+                order[var_id] = level;
+                free_vars.remove(&var_id);
+                free_levels.remove(&level);
             });
-            order[0] = permids.iter().max().unwrap() + 2usize;
+            order[0] = varcount_with_free + 1usize;
+
+            // Add levels to free variables
+            free_vars
+                .iter()
+                .zip(free_levels.iter())
+                .for_each(|(var_id, level)| {
+                    order[*var_id] = *level;
+                });
+
             Ok::<Vec<usize>, String>(order)
         }?;
 
