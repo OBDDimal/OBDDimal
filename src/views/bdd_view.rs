@@ -102,12 +102,14 @@ impl BddView {
 
     /// Returns a [BddView] for a BDD which represents the function which is constant 0.
     pub fn zero(manager: Arc<RwLock<DDManager>>) -> Arc<BddView> {
-        Self::new(manager.clone().read().unwrap().zero(), manager)
+        let root = manager.clone().read().unwrap().zero();
+        Self::new(root, manager)
     }
 
     /// Returns a [BddView] for a BDD which represents the function which is constant 1.
     pub fn one(manager: Arc<RwLock<DDManager>>) -> Arc<BddView> {
-        Self::new(manager.clone().read().unwrap().one(), manager)
+        let root = manager.clone().read().unwrap().one();
+        Self::new(root, manager)
     }
 
     /// Build a bdd from dimacs. The BDD is stored in a new DDManager created by this function.
@@ -129,10 +131,8 @@ impl BddView {
         manager: Arc<RwLock<DDManager>>,
         without_vars: &HashSet<VarID>,
     ) -> Arc<BddView> {
-        Self::new(
-            manager.clone().write().unwrap().xor_prim(without_vars),
-            manager,
-        )
+        let root = manager.clone().write().unwrap().xor_prim(without_vars);
+        Self::new(root, manager)
     }
 
     //------------------------------------------------------------------------//
@@ -140,11 +140,8 @@ impl BddView {
 
     /// Returns a (new) view on a BDD which represents the inverse of the function of the BDD.
     pub fn not(&self) -> Arc<Self> {
-        Self::new_with_removed_vars(
-            self.man.write().unwrap().not(self.root),
-            self.man.clone(),
-            self.removed_vars.clone(),
-        )
+        let root = self.man.write().unwrap().not(self.root);
+        Self::new_with_removed_vars(root, self.man.clone(), self.removed_vars.clone())
     }
 
     //------------------------------------------------------------------------//
@@ -155,11 +152,8 @@ impl BddView {
     pub fn exists(&self, vars: &HashSet<VarID>) -> Arc<Self> {
         assert!(self.atomic_sets.is_none());
 
-        Self::new_with_removed_vars(
-            self.man.write().unwrap().exists(self.root, vars),
-            self.man.clone(),
-            self.removed_vars.clone(),
-        )
+        let root = self.man.write().unwrap().exists(self.root, vars);
+        Self::new_with_removed_vars(root, self.man.clone(), self.removed_vars.clone())
     }
 
     /// Returns a (new) view on the BDD resulting from applying forall with the given variables to
@@ -167,11 +161,8 @@ impl BddView {
     pub fn forall(&self, vars: &HashSet<VarID>) -> Arc<Self> {
         assert!(self.atomic_sets.is_none());
 
-        Self::new_with_removed_vars(
-            self.man.write().unwrap().forall(self.root, vars),
-            self.man.clone(),
-            self.removed_vars.clone(),
-        )
+        let root = self.man.write().unwrap().forall(self.root, vars);
+        Self::new_with_removed_vars(root, self.man.clone(), self.removed_vars.clone())
     }
 
     //------------------------------------------------------------------------//
@@ -184,11 +175,8 @@ impl BddView {
         assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
         assert!(self.atomic_sets.is_none() && other.atomic_sets.is_none());
 
-        Self::new_with_removed_vars(
-            self.man.write().unwrap().and(self.root, other.root),
-            self.man.clone(),
-            self.removed_vars.clone(),
-        )
+        let root = self.man.write().unwrap().and(self.root, other.root);
+        Self::new_with_removed_vars(root, self.man.clone(), self.removed_vars.clone())
     }
 
     /// Returns a (new) view on the BDD resulting from connecting this views' BDD and another one
@@ -198,11 +186,8 @@ impl BddView {
         assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
         assert!(self.atomic_sets.is_none() && other.atomic_sets.is_none());
 
-        Self::new_with_removed_vars(
-            self.man.write().unwrap().or(self.root, other.root),
-            self.man.clone(),
-            self.removed_vars.clone(),
-        )
+        let root = self.man.write().unwrap().or(self.root, other.root);
+        Self::new_with_removed_vars(root, self.man.clone(), self.removed_vars.clone())
     }
 
     /// Returns a (new) view on the BDD resulting from connecting this views' BDD and another one
@@ -212,11 +197,8 @@ impl BddView {
         assert!(self.man.read().unwrap().eq(&other.man.read().unwrap()));
         assert!(self.atomic_sets.is_none() && other.atomic_sets.is_none());
 
-        Self::new_with_removed_vars(
-            self.man.write().unwrap().xor(self.root, other.root),
-            self.man.clone(),
-            self.removed_vars.clone(),
-        )
+        let root = self.man.write().unwrap().xor(self.root, other.root);
+        Self::new_with_removed_vars(root, self.man.clone(), self.removed_vars.clone())
     }
 
     //------------------------------------------------------------------------//
@@ -315,8 +297,8 @@ impl BddView {
 
         let reachable = node_to_sat_count.keys().cloned().collect::<HashSet<_>>();
 
-        let mut paths_to_node: HashMap<NodeID, usize> =
-            reachable.iter().map(|node| (*node, 0usize)).collect();
+        let mut paths_to_node: HashMap<NodeID, BigUint> =
+            reachable.iter().map(|node| (*node, Zero::zero())).collect();
 
         let mut models_by_variable: HashMap<VarID, BigUint> = varids
             .iter()
@@ -326,9 +308,16 @@ impl BddView {
         let root_var = man.nodes.get(&self.root).unwrap().var;
         let top_jump =
             man.var2level[root_var.0] - 1 - count_removed_vars_between(&varids[0], &root_var);
-        paths_to_node.insert(self.root, 2usize.pow(top_jump as u32));
+        paths_to_node.insert(
+            self.root,
+            BigUint::parse_bytes(b"2", 10).unwrap().pow(top_jump as u32),
+        );
 
         for var_id in varids.iter() {
+            if *var_id == VarID(0) {
+                continue;
+            }
+
             man.level2nodes[man.var2level[var_id.0]]
                 .iter()
                 .filter(|node| reachable.contains(&node.id))
@@ -365,8 +354,11 @@ impl BddView {
                         {
                             let child_jump = *child_jump;
 
-                            *paths_to_node.get_mut(child_id).unwrap() +=
-                                paths_to_node.get(node_id).unwrap() * 2usize.pow(child_jump as u32);
+                            let paths_to_current_node = paths_to_node.get(node_id).unwrap().clone();
+                            *paths_to_node.get_mut(child_id).unwrap() += paths_to_current_node
+                                * BigUint::parse_bytes(b"2", 10)
+                                    .unwrap()
+                                    .pow(child_jump as u32);
 
                             if child_jump > 0 {
                                 ((man.var2level[var_id.0] + 1)..(man.var2level[child_var.0] - 1))
@@ -381,7 +373,7 @@ impl BddView {
                                                     // to the paths, the nodes below add *2 to the
                                                     // sat count below, the current node only uses
                                                     // its high edge… => * 2^(child_jump-1)
-                                                * 2usize.pow((child_jump - 1) as u32)
+                                                * BigUint::parse_bytes(b"2", 10).unwrap().pow((child_jump - 1) as u32)
                                                 * node_to_sat_count.get(child_id).unwrap();
                                     });
                             }
@@ -436,16 +428,16 @@ impl BddView {
                     let mut inserted = false;
                     for set in result_sets.iter_mut() {
                         let (a, b) = (candidate_var, set.iter().next().unwrap());
-                        let a_xor_b = Self::xor_prim(
-                            self.man.clone(),
-                            &var2level_to_ordered_varids(&self.man.read().unwrap().var2level)
+                        let without_vars =
+                            var2level_to_ordered_varids(&self.man.read().unwrap().var2level)
                                 .into_iter()
                                 .filter(|var| var != a && var != b)
-                                .collect(),
-                        );
+                                .collect();
+                        let a_xor_b = Self::xor_prim(self.man.clone(), &without_vars);
                         let a_xor_b = a_xor_b.as_ref();
 
-                        if !(a_xor_b & self)
+                        let a_xor_b_and_self = a_xor_b & self;
+                        if !a_xor_b_and_self
                             .exists(&vec![*a, *b].into_iter().collect())
                             .is_sat()
                         {
@@ -535,6 +527,11 @@ impl BddView {
 
         atomic_sets_check && self.man.read().unwrap().evaluate(self.root, trues)
     }
+
+    /// Counts how many nodes the BDD consists of.
+    pub fn count_nodes(&self) -> usize {
+        self.man.read().unwrap().count_active(self.root)
+    }
 }
 
 impl ops::Not for &BddView {
@@ -576,5 +573,75 @@ impl fmt::Debug for BddView {
             "BDD_View [Root Node: {:?}, Manager: {:?}, removed variables: {:?}, atomic set optimizations: {:?}]",
             self.root, self.man, self.removed_vars, self.atomic_sets,
         )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::views::bdd_view::BddView;
+
+    #[test]
+    fn t01_optimizations_sandwich() {
+        comparison_with_without_optimization("examples/sandwich.dimacs.dddmp".to_string());
+    }
+
+    #[test]
+    fn t02_optimizations_berkeleydb() {
+        comparison_with_without_optimization("examples/berkeleydb.dimacs-nce.dddmp".to_string());
+    }
+
+    #[test]
+    fn t03_optimizations_embtoolkit() {
+        comparison_with_without_optimization("examples/embtoolkit.dimacs.dddmp".to_string());
+    }
+
+    #[test]
+    fn t04_optimizations_busybox() {
+        comparison_with_without_optimization("examples/busybox_1.18.0.dimacs.dddmp".to_string());
+    }
+
+    #[test]
+    fn t05_optimizations_finanzialservices01() {
+        comparison_with_without_optimization(
+            "examples/financialservices01.dimacs.dddmp".to_string(),
+        );
+    }
+
+    #[test]
+    fn t06_optimizations_automotive_02_v1() {
+        comparison_with_without_optimization("examples/automotive02_v1.dimacs.dddmp".to_string());
+    }
+
+    #[test]
+    fn t07_optimizations_automotive_02_v2() {
+        comparison_with_without_optimization("examples/automotive02_v2.dimacs.dddmp".to_string());
+    }
+
+    #[test]
+    fn t08_optimizations_automotive_02_v3() {
+        comparison_with_without_optimization("examples/automotive02_v3.dimacs.dddmp".to_string());
+    }
+
+    #[test]
+    fn t09_optimizations_automotive_02_v4() {
+        comparison_with_without_optimization("examples/automotive02_v4.dimacs.dddmp".to_string());
+    }
+
+    #[test]
+    fn t10_optimizations_automotive_01() {
+        comparison_with_without_optimization("examples/automotive01.dimacs.dddmp".to_string());
+    }
+
+    #[inline]
+    fn comparison_with_without_optimization(dddmp_file: String) {
+        let bdd_views = BddView::load_from_dddmp_file(dddmp_file).unwrap();
+
+        for bdd in bdd_views.iter() {
+            let optimized_bdd = bdd.optimize_through_atomic_sets().unwrap();
+
+            assert!(bdd.count_nodes() >= optimized_bdd.count_nodes());
+
+            assert_eq!(bdd.sat_count(), optimized_bdd.sat_count());
+        }
     }
 }
