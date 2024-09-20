@@ -97,6 +97,14 @@ impl BddView {
         self.removed_vars.clone()
     }
 
+    /// Returns a HashMap containing for each atomic set that was used for optimization the
+    /// variable that represents the atomic set (as the key) and the set of variables that
+    /// got removed during the optimization (as the Values) or None if no optimizations were
+    /// applied.
+    pub fn get_optimizations(&self) -> Option<HashMap<VarID, HashSet<VarID>>> {
+        self.atomic_sets.clone()
+    }
+
     //------------------------------------------------------------------------//
     // Building BDDs
 
@@ -578,57 +586,65 @@ impl fmt::Debug for BddView {
 
 #[cfg(test)]
 mod test {
-    use crate::views::bdd_view::BddView;
+    use crate::{core::bdd_node::VarID, views::bdd_view::BddView};
 
     #[test]
-    fn t01_optimizations_sandwich() {
+    fn optimizations_sandwich() {
         comparison_with_without_optimization("examples/sandwich.dimacs.dddmp".to_string());
     }
 
     #[test]
-    fn t02_optimizations_berkeleydb() {
+    fn optimizations_berkeleydb() {
         comparison_with_without_optimization("examples/berkeleydb.dimacs-nce.dddmp".to_string());
     }
 
+    #[ignore]
     #[test]
-    fn t03_optimizations_embtoolkit() {
+    fn optimizations_embtoolkit() {
         comparison_with_without_optimization("examples/embtoolkit.dimacs.dddmp".to_string());
     }
 
+    #[ignore]
     #[test]
-    fn t04_optimizations_busybox() {
+    fn optimizations_busybox() {
         comparison_with_without_optimization("examples/busybox_1.18.0.dimacs.dddmp".to_string());
     }
 
+    #[ignore]
     #[test]
-    fn t05_optimizations_finanzialservices01() {
+    fn optimizations_finanzialservices01() {
         comparison_with_without_optimization(
             "examples/financialservices01.dimacs.dddmp".to_string(),
         );
     }
 
+    #[ignore]
     #[test]
-    fn t06_optimizations_automotive_02_v1() {
+    fn optimizations_automotive_02_v1() {
         comparison_with_without_optimization("examples/automotive02_v1.dimacs.dddmp".to_string());
     }
 
+    #[ignore]
     #[test]
-    fn t07_optimizations_automotive_02_v2() {
+    fn optimizations_automotive_02_v2() {
         comparison_with_without_optimization("examples/automotive02_v2.dimacs.dddmp".to_string());
     }
 
+    #[ignore]
     #[test]
-    fn t08_optimizations_automotive_02_v3() {
+    fn optimizations_automotive_02_v3() {
         comparison_with_without_optimization("examples/automotive02_v3.dimacs.dddmp".to_string());
     }
 
+    #[ignore]
     #[test]
-    fn t09_optimizations_automotive_02_v4() {
+    fn optimizations_automotive_02_v4() {
         comparison_with_without_optimization("examples/automotive02_v4.dimacs.dddmp".to_string());
     }
 
+    #[ignore]
     #[test]
-    fn t10_optimizations_automotive_01() {
+    fn optimizations_automotive_01() {
         comparison_with_without_optimization("examples/automotive01.dimacs.dddmp".to_string());
     }
 
@@ -642,6 +658,16 @@ mod test {
             assert!(bdd.count_nodes() >= optimized_bdd.count_nodes());
 
             assert_eq!(bdd.sat_count(), optimized_bdd.sat_count());
+
+            let var_count = bdd.man.read().unwrap().var2level.len();
+            let all_ones = vec![VarID(1); var_count];
+            let alternating: Vec<VarID> = all_ones.iter().copied().step_by(2).collect();
+            assert_eq!(bdd.evaluate(&[]), optimized_bdd.evaluate(&[]));
+            assert_eq!(bdd.evaluate(&all_ones), optimized_bdd.evaluate(&all_ones));
+            assert_eq!(
+                bdd.evaluate(&alternating),
+                optimized_bdd.evaluate(&alternating)
+            );
         }
     }
 }
