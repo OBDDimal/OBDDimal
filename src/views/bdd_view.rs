@@ -294,10 +294,14 @@ impl BddView {
 
         let varids = var2level_to_ordered_varids(&man.var2level);
         let count_removed_vars_between = |first: &VarID, last: &VarID| -> usize {
-            ((man.var2level[first.0])..(man.var2level[last.0]))
-                .map(|level| varids[level])
-                .filter(|var_id| self.removed_vars.contains(var_id))
-                .count()
+            if self.removed_vars.is_empty() {
+                0
+            } else {
+                ((man.var2level[first.0])..(man.var2level[last.0]))
+                    .map(|level| varids[level])
+                    .filter(|var_id| self.removed_vars.contains(var_id))
+                    .count()
+            }
         };
 
         let mut node_to_sat_count = HashMap::default();
