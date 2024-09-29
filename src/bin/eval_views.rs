@@ -45,7 +45,7 @@ pub fn main() {
 #[derive(serde::Serialize)]
 struct SlicingMeasurement {
     sliced_variable: VarID,
-    time: Duration,
+    time_in_seconds: f64,
     size_before: usize,
     size_after: usize,
 }
@@ -62,7 +62,7 @@ fn evaluate_slicing(folder_path: &str) {
                 var2level_to_ordered_varids(&bdd.get_manager().read().unwrap().var2level);
             varids.shuffle(&mut thread_rng());
             let mut result_writer =
-                Writer::from_path(format!("{}/slicing-{}-{:04}.csv", folder_path, example, n))
+                Writer::from_path(format!("{}/slicing-{}-{:03}.csv", folder_path, example, n))
                     .unwrap();
             // Measure
             for var_id in varids.iter() {
@@ -76,7 +76,7 @@ fn evaluate_slicing(folder_path: &str) {
                 result_writer
                     .serialize(SlicingMeasurement {
                         sliced_variable: *var_id,
-                        time: elapsed,
+                        time_in_seconds: elapsed.as_secs_f64(),
                         size_before,
                         size_after,
                     })

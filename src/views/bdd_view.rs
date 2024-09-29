@@ -231,16 +231,19 @@ impl BddView {
     /// * `remove` - The variables to remove
     pub fn create_slice_without_vars(&self, remove: &HashSet<VarID>) -> Arc<Self> {
         assert!(self.atomic_sets.is_none());
-        let mut man = self.man.write().unwrap();
+        let root = self
+            .man
+            .write()
+            .unwrap()
+            .create_slice_without_vars(self.root, remove);
         let sliced = Self::new_with_removed_vars(
-            man.create_slice_without_vars(self.root, remove),
+            root,
             self.man.clone(),
             remove
                 .union(&self.removed_vars)
                 .copied()
                 .collect::<HashSet<_>>(),
         );
-        man.clean();
         sliced
     }
 
