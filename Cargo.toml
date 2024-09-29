@@ -22,7 +22,7 @@ bench = false
 
 [[bin]]
 name = "testcase_generation"
-path = "src/testcase_generation.rs"
+path = "src/bin/testcase_generation.rs"
 bench = false
 
 [[bench]]
