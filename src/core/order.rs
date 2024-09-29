@@ -63,7 +63,7 @@ pub(crate) fn check_order(cnf: &Instance, order: &[usize]) -> Result<(), String>
 }
 
 /// Returns the variable order as list of VarID top to bottom
-pub(crate) fn var2level_to_ordered_varids(order: &[usize]) -> Vec<VarID> {
+pub fn var2level_to_ordered_varids(order: &[usize]) -> Vec<VarID> {
     let mut res = vec![VarID(0); order[0]];
     for (var_num, var_pos) in order.iter().enumerate() {
         res[*var_pos - 1] = VarID(var_num);

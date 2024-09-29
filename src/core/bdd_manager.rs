@@ -33,7 +33,7 @@ pub struct DDManager {
     /// Node List
     pub nodes: HashMap<NodeID, DDNode>,
     /// Variable ordering: var2level[v.0] is the depth of variable v in the tree
-    pub(crate) var2level: Vec<usize>,
+    pub var2level: Vec<usize>,
     /// Unique Table for each variable. Note that the indices into this table are the depths of the
     /// variables, not their IDs. The depth of a variable can be determined through
     /// [var2level](`DDManager::var2level`)!

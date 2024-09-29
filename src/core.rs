@@ -5,7 +5,7 @@ pub mod dvo;
 pub mod ite;
 pub mod modify_var_nodes;
 pub mod options;
-pub(crate) mod order;
+pub mod order;
 mod reduce;
 pub mod slicing;
 mod swap;

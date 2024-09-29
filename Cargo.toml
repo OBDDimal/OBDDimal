@@ -25,6 +25,11 @@ name = "testcase_generation"
 path = "src/bin/testcase_generation.rs"
 bench = false
 
+[[bin]]
+name = "eval_views"
+path = "src/bin/eval_views.rs"
+bench = false
+
 [[bench]]
 name = "obddimal_benches"
 harness = false
@@ -53,6 +58,7 @@ serde = { version = "1.0.195", features = ["derive"] }
 weak-table = "0.3.2"
 serde_json = "1.0.115"
 serde-xml-rs = "0.6.0"
+csv = "1.3.0"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
