@@ -3,7 +3,7 @@ use std::{
     env, fs,
     path::Path,
     process,
-    time::{Duration, Instant, SystemTime},
+    time::{Instant, SystemTime},
 };
 
 use csv::Writer;
@@ -89,7 +89,7 @@ fn evaluate_slicing(folder_path: &str) {
 #[derive(serde::Serialize)]
 struct AtomicSetsMeasurement {
     bdd: String,
-    time: Duration,
+    time_in_seconds: f64,
     size_before: usize,
     size_after: usize,
 }
@@ -129,7 +129,7 @@ fn evaluate_atomic_sets(folder_path: &str) {
             result_writer
                 .serialize(AtomicSetsMeasurement {
                     bdd: bdd_name,
-                    time: elapsed,
+                    time_in_seconds: elapsed.as_secs_f64(),
                     size_before,
                     size_after,
                 })
