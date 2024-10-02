@@ -8,8 +8,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use num_bigint::BigUint;
-use num_traits::Zero;
+use malachite::{num::arithmetic::traits::Pow, Natural};
 
 use crate::{
     core::{
@@ -272,7 +271,7 @@ impl BddView {
     }
 
     /// Returns the #SAT result for the function represented by this BDD.
-    pub fn sat_count(&self) -> BigUint {
+    pub fn sat_count(&self) -> Natural {
         self.man.read().unwrap().sat_count(self.root)
             >> (self.removed_vars.len()
                 + if self.atomic_sets.is_some() {
@@ -290,7 +289,7 @@ impl BddView {
     //------------------------------------------------------------------------//
     // Atomic Sets
 
-    fn count_models_by_variable(&self) -> (BigUint, HashMap<VarID, BigUint>) {
+    fn count_models_by_variable(&self) -> (Natural, HashMap<VarID, Natural>) {
         assert!(self.atomic_sets.is_none());
 
         let man = self.man.read().unwrap();
@@ -312,21 +311,20 @@ impl BddView {
 
         let reachable = node_to_sat_count.keys().cloned().collect::<HashSet<_>>();
 
-        let mut paths_to_node: HashMap<NodeID, BigUint> =
-            reachable.iter().map(|node| (*node, Zero::zero())).collect();
-
-        let mut models_by_variable: HashMap<VarID, BigUint> = varids
+        let mut paths_to_node: HashMap<NodeID, Natural> = reachable
             .iter()
-            .map(|var| -> (VarID, BigUint) { (*var, Zero::zero()) })
+            .map(|node| (*node, Natural::from(0usize)))
+            .collect();
+
+        let mut models_by_variable: HashMap<VarID, Natural> = varids
+            .iter()
+            .map(|var| -> (VarID, Natural) { (*var, Natural::from(0usize)) })
             .collect();
 
         let root_var = man.nodes.get(&self.root).unwrap().var;
         let top_jump =
             man.var2level[root_var.0] - 1 - count_removed_vars_between(&varids[0], &root_var);
-        paths_to_node.insert(
-            self.root,
-            BigUint::parse_bytes(b"2", 10).unwrap().pow(top_jump as u32),
-        );
+        paths_to_node.insert(self.root, Natural::from(2usize).pow(top_jump as u64));
 
         for var_id in varids.iter() {
             if *var_id == VarID(0) {
@@ -357,9 +355,7 @@ impl BddView {
 
                         // Calculate this node's model count for the current variable
                         let high_models = node_to_sat_count.get(high_id).unwrap()
-                            * BigUint::parse_bytes(b"2", 10)
-                                .unwrap()
-                                .pow(high_jump as u32);
+                            * Natural::from(2usize).pow(high_jump as u64);
                         *models_by_variable.get_mut(var_id).unwrap() +=
                             paths_to_node.get(node_id).unwrap() * high_models;
 
@@ -371,9 +367,7 @@ impl BddView {
 
                             let paths_to_current_node = paths_to_node.get(node_id).unwrap().clone();
                             *paths_to_node.get_mut(child_id).unwrap() += paths_to_current_node
-                                * BigUint::parse_bytes(b"2", 10)
-                                    .unwrap()
-                                    .pow(child_jump as u32);
+                                * Natural::from(2usize).pow(child_jump as u64);
 
                             if child_jump > 0 {
                                 ((man.var2level[var_id.0] + 1)..(man.var2level[child_var.0] - 1))
@@ -388,7 +382,7 @@ impl BddView {
                                                     // to the paths, the nodes below add *2 to the
                                                     // sat count below, the current node only uses
                                                     // its high edge… => * 2^(child_jump-1)
-                                                * BigUint::parse_bytes(b"2", 10).unwrap().pow((child_jump - 1) as u32)
+                                                * Natural::from(2usize).pow((child_jump - 1) as u64)
                                                 * node_to_sat_count.get(child_id).unwrap();
                                     });
                             }
@@ -421,7 +415,7 @@ impl BddView {
         }
 
         // Identify candidates for atomic sets using commonalities:
-        let mut candidates: HashMap<BigUint, HashSet<VarID>> = HashMap::default();
+        let mut candidates: HashMap<Natural, HashSet<VarID>> = HashMap::default();
         let (sat_count, models_by_variable) = self.count_models_by_variable();
         models_by_variable.iter().for_each(|(var, model_count)| {
             // Exclude free variables

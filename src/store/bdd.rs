@@ -95,6 +95,8 @@ mod test {
         sync::{Arc, RwLock},
     };
 
+    use malachite::Natural;
+
     use crate::{
         core::{
             bdd_manager::DDManager,
@@ -117,12 +119,24 @@ mod test {
         assert_eq!(statistics_4.count.unwrap(), 10usize);
         assert!(!statistics_2.void.unwrap());
 
-        assert_eq!(man.read().unwrap().sat_count(bdds[0]), 10usize.into());
-        assert_eq!(man.read().unwrap().sat_count(bdds[1]), 8usize.into());
+        assert_eq!(
+            man.read().unwrap().sat_count(bdds[0]),
+            Natural::from(10usize)
+        );
+        assert_eq!(
+            man.read().unwrap().sat_count(bdds[1]),
+            Natural::from(8usize)
+        );
 
-        assert_eq!(views.as_ref().unwrap()[0].sat_count(), 8usize.into());
-        assert_eq!(views.as_ref().unwrap()[1].sat_count(), 10usize.into());
-        assert_eq!(views.unwrap()[2].sat_count(), 5usize.into());
+        assert_eq!(
+            views.as_ref().unwrap()[0].sat_count(),
+            Natural::from(8usize)
+        );
+        assert_eq!(
+            views.as_ref().unwrap()[1].sat_count(),
+            Natural::from(10usize)
+        );
+        assert_eq!(views.unwrap()[2].sat_count(), Natural::from(5usize));
     }
 
     #[test]

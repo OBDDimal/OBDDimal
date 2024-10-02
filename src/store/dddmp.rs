@@ -428,7 +428,7 @@ impl DDManager {
 
 #[cfg(test)]
 mod test {
-    use num_bigint::BigUint;
+    use malachite::Natural;
 
     use crate::core::bdd_manager::DDManager;
 
@@ -472,7 +472,7 @@ mod test {
     fn dddmp_file_read_compare_with_add(
         dddmp_file: String,
         dddmp_add_file: String,
-        ssat_expected: Option<BigUint>,
+        ssat_expected: Option<Natural>,
     ) {
         let (man_complemented, bdds_complemented) =
             DDManager::load_from_dddmp_file(dddmp_file).unwrap();
@@ -517,7 +517,7 @@ mod test {
     }
 
     #[inline]
-    fn dddmp_file_read_verify_ssat(dddmp_file: String, ssat_expected: BigUint) {
+    fn dddmp_file_read_verify_ssat(dddmp_file: String, ssat_expected: Natural) {
         let (man, bdds) = DDManager::load_from_dddmp_file(dddmp_file).unwrap();
         let root = bdds[0];
         assert_eq!(man.sat_count(root), ssat_expected);

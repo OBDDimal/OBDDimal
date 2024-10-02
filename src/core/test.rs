@@ -2,7 +2,7 @@
 pub mod tests {
     use std::fs;
 
-    use num_bigint::BigUint;
+    use malachite::Natural;
 
     use crate::{
         core::bdd_node::{NodeID, VarID, ONE, ZERO},
@@ -243,7 +243,7 @@ pub mod tests {
                 }
             }
 
-            if other_man.sat_count(other_f) != self.ones.len().into() {
+            if other_man.sat_count(other_f) != self.ones.len() {
                 eprintln!(
                     "Sat count is {}, but should be {}",
                     other_man.sat_count(other_f),
@@ -291,6 +291,6 @@ pub mod tests {
     #[test]
     fn truthtable_satcount_random1() {
         let testcase = TestCase::random_1();
-        assert_eq!(testcase.man.sat_count(testcase.f), BigUint::from(132usize));
+        assert_eq!(testcase.man.sat_count(testcase.f), Natural::from(132usize));
     }
 }
