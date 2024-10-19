@@ -48,30 +48,49 @@ struct SlicingMeasurement {
     time_in_seconds: f64,
     size_before: usize,
     size_after: usize,
+    nodes_in_manager_before: usize,
+    nodes_in_manager_after: usize,
 }
 
 fn evaluate_slicing(folder_path: &str) {
-    for example in ["automotive01", "automotive02v4"].iter() {
-        for n in 0..1000 {
+    for example in [
+        "automotive01",
+        "automotive02_v4",
+        //"sandwich",
+    ]
+    .iter()
+    {
+        const ITERATION_COUNT: usize = 1000;
+        for n in 0..ITERATION_COUNT {
+            println!(
+                "Slicing {} (iteration {}/{}).",
+                example,
+                n + 1,
+                ITERATION_COUNT
+            );
             // Prepare
-            let mut bdd =
-                BddView::load_from_dddmp_file(format!("examples/{}.dimacs.dddmp", example))
-                    .unwrap()[0]
-                    .clone();
+            let mut bdds =
+                vec![
+                    BddView::load_from_dddmp_file(format!("examples/{}.dimacs.dddmp", example))
+                        .unwrap()[0]
+                        .clone(),
+                ];
             let mut varids =
-                var2level_to_ordered_varids(&bdd.get_manager().read().unwrap().var2level);
+                var2level_to_ordered_varids(&bdds[0].get_manager().read().unwrap().var2level);
             varids.shuffle(&mut thread_rng());
             let mut result_writer =
                 Writer::from_path(format!("{}/slicing-{}-{:03}.csv", folder_path, example, n))
                     .unwrap();
             // Measure
             for var_id in varids.iter() {
-                let size_before = bdd.count_nodes();
+                let size_before = bdds[bdds.len() - 1].count_nodes();
+                let nodes_in_manager_before = bdds[0].get_manager().read().unwrap().nodes.len();
                 let remove_vars = [*var_id].into_iter().collect::<HashSet<_>>();
                 let time = Instant::now();
-                bdd = bdd.create_slice_without_vars(&remove_vars);
+                bdds.push(bdds[bdds.len() - 1].create_slice_without_vars(&remove_vars));
                 let elapsed = time.elapsed();
-                let size_after = bdd.count_nodes();
+                let size_after = bdds[bdds.len() - 1].count_nodes();
+                let nodes_in_manager_after = bdds[0].get_manager().read().unwrap().nodes.len();
                 // Store result
                 result_writer
                     .serialize(SlicingMeasurement {
@@ -79,6 +98,8 @@ fn evaluate_slicing(folder_path: &str) {
                         time_in_seconds: elapsed.as_secs_f64(),
                         size_before,
                         size_after,
+                        nodes_in_manager_before,
+                        nodes_in_manager_after,
                     })
                     .unwrap();
             }
@@ -103,13 +124,14 @@ fn evaluate_atomic_sets(folder_path: &str) {
         "busybox_1.18.0",
         "financialservices01",
         "automotive01",
-        "automotive02v1",
-        "automotive02v2",
-        "automotive02v3",
-        "automotive02v4",
+        "automotive02_v1",
+        "automotive02_v2",
+        "automotive02_v3",
+        "automotive02_v4",
     ]
     .iter()
     {
+        println!("Optimizing {}.", example);
         let bdds =
             BddView::load_from_dddmp_file(format!("examples/{}.dimacs.dddmp", example)).unwrap();
         for i in 0..bdds.len() {
