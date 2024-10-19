@@ -510,8 +510,7 @@ impl DDManager {
             self.nodes.remove(x.0);
         }
 
-        self.ite_c_table.retain(|_, x| keep.contains(x));
-        self.apply_c_table.retain(|_, x| keep.contains(x));
+        self.retain_c_table(keep);
     }
 
     /// Removes nodes which do not belong to any of the BDDs for which views exist from the
@@ -519,6 +518,23 @@ impl DDManager {
     pub fn clean(&mut self) {
         self.views.remove_expired();
         self.purge_retain_multi(&self.get_roots());
+    }
+
+    /// Does the same as clear_c_table, but keeps entries that only reference the nodes given in
+    /// `keep`.
+    pub fn retain_c_table(&mut self, keep: HashSet<NodeID>) {
+        self.ite_c_table
+            .retain(|(node_id_1, node_id_2, node_id_3), node_id_4| {
+                keep.is_superset(
+                    &[*node_id_1, *node_id_2, *node_id_3, *node_id_4]
+                        .into_iter()
+                        .collect(),
+                )
+            });
+        self.apply_c_table
+            .retain(|(_, node_id_1, node_id_2), node_id_3| {
+                keep.is_superset(&[*node_id_1, *node_id_2, *node_id_3].into_iter().collect())
+            });
     }
 
     pub fn clear_c_table(&mut self) {
@@ -531,11 +547,12 @@ impl fmt::Debug for DDManager {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "DDManager [{} nodes, unique table size {}, cache sizes: {} (ite), {} (apply)]",
+            "DDManager [{} nodes, unique table size {}, cache sizes: {} (ite), {} (apply); Views: {}]",
             self.nodes.len(),
             self.level2nodes.iter().map(|s| s.len()).sum::<usize>(),
             self.ite_c_table.len(),
             self.apply_c_table.len(),
+            self.views.len(),
         )
     }
 }
