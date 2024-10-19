@@ -160,7 +160,10 @@ impl BddView {
         assert!(self.atomic_sets.is_none());
 
         let root = self.man.write().unwrap().exists(self.root, vars);
-        Self::new_with_removed_vars(root, self.man.clone(), self.removed_vars.clone())
+        let result = Self::new_with_removed_vars(root, self.man.clone(), self.removed_vars.clone());
+        self.man.write().unwrap().clean();
+
+        result
     }
 
     /// Returns a (new) view on the BDD resulting from applying forall with the given variables to
@@ -169,7 +172,10 @@ impl BddView {
         assert!(self.atomic_sets.is_none());
 
         let root = self.man.write().unwrap().forall(self.root, vars);
-        Self::new_with_removed_vars(root, self.man.clone(), self.removed_vars.clone())
+        let result = Self::new_with_removed_vars(root, self.man.clone(), self.removed_vars.clone());
+        self.man.write().unwrap().clean();
+
+        result
     }
 
     //------------------------------------------------------------------------//
@@ -243,6 +249,7 @@ impl BddView {
                 .copied()
                 .collect::<HashSet<_>>(),
         );
+        self.man.write().unwrap().clean();
         sliced
     }
 
@@ -496,12 +503,15 @@ impl BddView {
                 .collect::<HashSet<VarID>>(),
         );
 
-        Some(Self::new_with_atomic_sets(
+        let optimized = Self::new_with_atomic_sets(
             root,
             self.man.clone(),
             self.removed_vars.clone(),
             Some(atomic_sets),
-        ))
+        );
+        self.man.write().unwrap().clean();
+
+        Some(optimized)
     }
 
     //------------------------------------------------------------------------//
