@@ -501,13 +501,16 @@ impl DDManager {
     pub fn purge_retain_multi(&mut self, roots: &[NodeID]) {
         let keep = self.get_reachable(roots);
 
-        let mut garbage = self.nodes.clone();
-
-        garbage.retain(|&x, _| !keep.contains(&x) && x.0 > 1);
-
-        for x in &garbage {
-            self.level2nodes[self.var2level[x.1.var.0]].remove(x.1);
-            self.nodes.remove(x.0);
+        let garbage: Vec<_> = self
+            .nodes
+            .keys()
+            .filter(|&node_id| !keep.contains(node_id) && *node_id > NodeID(1))
+            .cloned()
+            .collect();
+        for node_id in &garbage {
+            let node = self.nodes.get(node_id).unwrap();
+            self.level2nodes[self.var2level[node.var.0]].remove(node);
+            self.nodes.remove(node_id);
         }
 
         self.retain_c_table(keep);
