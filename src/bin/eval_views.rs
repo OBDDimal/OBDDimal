@@ -1,6 +1,6 @@
 //! Some Benchmarks to evaluate some usecases of Views.
 use std::{
-    env, fs,
+    cmp, env, fs,
     path::Path,
     process,
     time::{Instant, SystemTime},
@@ -61,6 +61,8 @@ fn evaluate_slicing(folder_path: &str) {
     .iter()
     {
         const ITERATION_COUNT: usize = 1000;
+        //const MAX_BDDS_TO_KEEP: usize = isize::MAX as usize;
+        const MAX_BDDS_TO_KEEP: usize = 2usize;
         for n in 0..ITERATION_COUNT {
             println!(
                 "Slicing {} (iteration {}/{}).",
@@ -69,28 +71,82 @@ fn evaluate_slicing(folder_path: &str) {
                 ITERATION_COUNT
             );
             // Prepare
-            let mut bdds =
-                vec![
-                    BddView::load_from_dddmp_file(format!("examples/{}.dimacs.dddmp", example))
-                        .unwrap()[0]
-                        .clone(),
-                ];
-            let mut varids =
-                var2level_to_ordered_varids(&bdds[0].get_manager().read().unwrap().var2level);
+            let mut bdds = vec![Some(
+                BddView::load_from_dddmp_file(format!("examples/{}.dimacs.dddmp", example))
+                    .unwrap()[0]
+                    .clone(),
+            )];
+            bdds.resize(
+                cmp::min(
+                    bdds[0]
+                        .as_ref()
+                        .unwrap()
+                        .get_manager()
+                        .read()
+                        .unwrap()
+                        .var2level
+                        .len(),
+                    MAX_BDDS_TO_KEEP,
+                ),
+                None,
+            );
+            let mut last_bdd_pos = 0usize;
+            let mut varids = var2level_to_ordered_varids(
+                &bdds[0]
+                    .as_ref()
+                    .unwrap()
+                    .get_manager()
+                    .read()
+                    .unwrap()
+                    .var2level,
+            );
             varids.shuffle(&mut thread_rng());
             let mut result_writer =
                 Writer::from_path(format!("{}/slicing-{}-{:03}.csv", folder_path, example, n))
                     .unwrap();
             // Measure
             for var_id in varids.iter() {
-                let size_before = bdds[bdds.len() - 1].count_nodes();
-                let nodes_in_manager_before = bdds[0].get_manager().read().unwrap().nodes.len();
+                // Calculate new bdd pos
+                let new_bdd_pos = (last_bdd_pos + 1) % bdds.len();
+                // Clean up potential removed bdds
+                bdds[last_bdd_pos]
+                    .as_ref()
+                    .unwrap()
+                    .get_manager()
+                    .write()
+                    .unwrap()
+                    .clean();
+                println!("{:?}", bdds);
+                // Do measurements before
+                let size_before = bdds[last_bdd_pos].as_ref().unwrap().count_nodes();
+                let nodes_in_manager_before = bdds[last_bdd_pos]
+                    .as_ref()
+                    .unwrap()
+                    .get_manager()
+                    .read()
+                    .unwrap()
+                    .nodes
+                    .len();
+                // Do slicing
                 let remove_vars = [*var_id].into_iter().collect::<HashSet<_>>();
                 let time = Instant::now();
-                bdds.push(bdds[bdds.len() - 1].create_slice_without_vars(&remove_vars));
+                bdds[new_bdd_pos] = Some(
+                    bdds[last_bdd_pos]
+                        .as_ref()
+                        .unwrap()
+                        .create_slice_without_vars(&remove_vars),
+                );
                 let elapsed = time.elapsed();
-                let size_after = bdds[bdds.len() - 1].count_nodes();
-                let nodes_in_manager_after = bdds[0].get_manager().read().unwrap().nodes.len();
+                // Do measurements after
+                let size_after = bdds[new_bdd_pos].as_ref().unwrap().count_nodes();
+                let nodes_in_manager_after = bdds[new_bdd_pos]
+                    .as_ref()
+                    .unwrap()
+                    .get_manager()
+                    .read()
+                    .unwrap()
+                    .nodes
+                    .len();
                 // Store result
                 result_writer
                     .serialize(SlicingMeasurement {
@@ -102,7 +158,9 @@ fn evaluate_slicing(folder_path: &str) {
                         nodes_in_manager_after,
                     })
                     .unwrap();
-                result_writer.flush();
+                result_writer.flush().unwrap();
+                // Update old bdd pos
+                last_bdd_pos = new_bdd_pos;
             }
         }
     }
@@ -157,7 +215,7 @@ fn evaluate_atomic_sets(folder_path: &str) {
                     size_after,
                 })
                 .unwrap();
-            result_writer.flush();
+            result_writer.flush().unwrap();
         }
     }
 }
