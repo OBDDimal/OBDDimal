@@ -116,7 +116,6 @@ fn evaluate_slicing(folder_path: &str) {
                     .write()
                     .unwrap()
                     .clean();
-                println!("{:?}", bdds);
                 // Do measurements before
                 let size_before = bdds[last_bdd_pos].as_ref().unwrap().count_nodes();
                 let nodes_in_manager_before = bdds[last_bdd_pos]
