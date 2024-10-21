@@ -7,6 +7,7 @@ use std::{
 };
 
 use csv::Writer;
+use humantime::format_rfc3339_millis;
 use obddimal::{
     core::{bdd_node::VarID, order::var2level_to_ordered_varids},
     misc::hash_select::HashSet,
@@ -18,10 +19,7 @@ pub fn main() {
     // Create place to store the results:
     let folder_path = format!(
         "eval_views/results-{}",
-        SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
+        format_rfc3339_millis(SystemTime::now()),
     );
     if Path::new(&folder_path).exists() {
         println!("Results folder already exists?!");
