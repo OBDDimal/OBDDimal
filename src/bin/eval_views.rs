@@ -7,7 +7,7 @@ use std::{
 };
 
 use csv::Writer;
-use humantime::format_rfc3339_millis;
+use humantime::format_rfc3339_seconds;
 use obddimal::{
     core::{bdd_node::VarID, order::var2level_to_ordered_varids},
     misc::hash_select::HashSet,
@@ -17,9 +17,14 @@ use rand::{seq::SliceRandom, thread_rng};
 
 pub fn main() {
     // Create place to store the results:
-    let folder_path = format!(
-        "eval_views/results-{}",
-        format_rfc3339_millis(SystemTime::now()),
+    let folder_path = str::replace(
+        &format!(
+            "eval_views/results-{}",
+            format_rfc3339_seconds(SystemTime::now()),
+        )
+        .to_string(),
+        ":",
+        "-",
     );
     if Path::new(&folder_path).exists() {
         println!("Results folder already exists?!");
