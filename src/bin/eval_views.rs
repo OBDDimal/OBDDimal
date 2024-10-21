@@ -102,6 +102,7 @@ fn evaluate_slicing(folder_path: &str) {
                         nodes_in_manager_after,
                     })
                     .unwrap();
+                result_writer.flush();
             }
         }
     }
@@ -156,6 +157,7 @@ fn evaluate_atomic_sets(folder_path: &str) {
                     size_after,
                 })
                 .unwrap();
+            result_writer.flush();
         }
     }
 }
