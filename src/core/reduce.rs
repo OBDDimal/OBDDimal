@@ -21,7 +21,7 @@ impl DDManager {
     pub(crate) fn reduce(&mut self, v: NodeID) -> NodeID {
         log::debug!("reducing");
 
-        let mut vlist: Vec<Vec<NodeID>> = vec![Vec::new(); self.var2level[0]];
+        let mut vlist: Vec<Vec<NodeID>> = vec![Vec::new(); self.var2level[0] + 1];
 
         for (id, node) in self.nodes.iter() {
             vlist[node.var.0].push(*id);

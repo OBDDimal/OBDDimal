@@ -234,12 +234,10 @@ impl DDManager {
             convert_node_id(&-bcdd.terminal_id),
         );
 
-        DDManager::default().load_bdd_from_nodelist(
-            bdd_nodes,
-            bcdd.varorder.clone(),
-            roots,
-            terminals,
-        )
+        let mut varorder = bcdd.varorder.clone();
+        varorder[0] += 1;
+
+        DDManager::default().load_bdd_from_nodelist(bdd_nodes, varorder, roots, terminals)
     }
 
     /// Creates a HashMap containing information about the parents of each node and the edges

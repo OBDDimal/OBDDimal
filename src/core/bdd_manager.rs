@@ -565,7 +565,8 @@ impl DDManager {
         garbage.retain(|&x, _| !keep.contains(&x) && x.0 > 1);
 
         for x in &garbage {
-            self.level2nodes[self.var2level[x.1.var.0]].remove(x.1);
+            // self.level2nodes[self.var2level[x.1.var.0]].remove(x.1);
+            self.level2nodes[self.var2level[x.1.var.0]].retain(|&node| x.0 != &node.id);
             self.nodes.remove(x.0);
         }
 

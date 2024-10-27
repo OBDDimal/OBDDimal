@@ -1,11 +1,14 @@
 //! Implementation of BDD layer swap
 
+use core::fmt;
 use std::{
     borrow::Borrow,
     collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
     sync::{Arc, RwLock},
 };
+
+use itertools::Itertools;
 
 use crate::core::{
     bdd_manager::DDManager,
@@ -15,16 +18,16 @@ use crate::core::{
 
 // Stores temporary nodes during swap, which are then inserted into the unique-table
 #[derive(Debug, PartialEq, Eq)]
-struct TempNode {
+struct AsyncTempNode {
     id: NodeID,
     var: VarID,
-    low: ChildEnum,
-    high: ChildEnum,
+    low: AsyncChildEnum,
+    high: AsyncChildEnum,
 }
 
 // Stores temporary children during swap, which are then inserted into the unique-table
 #[derive(Debug, PartialEq, Eq)]
-struct TempChild {
+struct AsyncTempChild {
     id: NodeID,
     var: VarID,
     low: NodeID,
@@ -33,20 +36,44 @@ struct TempChild {
 
 // Enum to store either a new child or an existing child
 #[derive(Debug, PartialEq, Eq)]
-enum ChildEnum {
-    NewChild(TempChild),
+enum AsyncChildEnum {
+    NewChild(AsyncTempChild),
     OldChild(NodeID),
 }
-
-// todo comments
-#[derive(Default, Debug)]
+/// Holds the context of multiple swap operations
+/// This allows to calculate the effect of multiple swaps without actually executing them
+///
+/// # Fields
+/// * `all_swaps_in_result` - All swap pairs that have been executed
+/// * `new_nodes` - New nodes that have been created during the swaps
+/// * `new_level2nodes` - New level2nodes that have been created during the swaps
+/// * `node_id_counter` - Counter for new node IDs
+///
+#[derive(Debug, Clone)]
 pub struct SwapContext {
     all_swaps_in_result: Vec<(VarID, VarID)>,
-    new_nodes: HashSet<NewTempNode>,
+    new_nodes: HashSet<TempNode>,
     new_level2nodes: HashMap<VarID, HashSet<NodeEnum>>,
+    node_id_counter: usize,
+}
+
+impl Default for SwapContext {
+    fn default() -> Self {
+        SwapContext {
+            all_swaps_in_result: Vec::new(),
+            new_nodes: HashSet::new(),
+            new_level2nodes: HashMap::new(),
+            node_id_counter: 2,
+        }
+    }
 }
 
 impl SwapContext {
+    /// get from original var2level to the var2level after all swaps
+    ///
+    /// # Arguments
+    ///
+    /// * `v2l` - The original var2level
     pub fn permute_swaps(&self, v2l: &Vec<usize>) -> Vec<usize> {
         let mut v2l = v2l.clone();
         self.all_swaps_in_result.iter().for_each(|(a, b)| {
@@ -55,45 +82,79 @@ impl SwapContext {
         v2l
     }
 
-    pub fn var_at_level(&self, level: usize, v2l: &Vec<usize>) -> Option<VarID> {
-        self.var_at_level_pre_calc(level, &self.permute_swaps(v2l))
+    pub fn get_swaps_in_result(&self) -> Vec<(VarID, VarID)> {
+        self.all_swaps_in_result.clone()
     }
 
-    pub fn var_at_level_pre_calc(&self, level: usize, v2l: &Vec<usize>) -> Option<VarID> {
+    /// get var at level after all swaps
+    ///
+    /// # Arguments
+    ///
+    /// * `level` - The level
+    /// * `v2l` - The original var2level
+    pub fn var_at_level(&self, level: usize, v2l: &Vec<usize>) -> Option<VarID> {
+        self.var_at_level_post_calc(level, &self.permute_swaps(v2l))
+    }
+
+    /// get var at level for current v2l
+    ///
+    /// # Arguments
+    ///
+    /// * `level` - The level
+    /// * `v2l` - The current var2level
+    pub fn var_at_level_post_calc(&self, level: usize, v2l: &Vec<usize>) -> Option<VarID> {
         v2l.iter()
             .enumerate()
             .find(|(_, &l)| l == level)
             .map(|(v, _)| VarID(v))
     }
 
+    /// get level of variable after all swaps
+    ///
+    /// # Arguments
+    ///
+    /// * `var` - The variable
+    /// * `v2l` - The original var2level
     pub fn var2level(&self, v2l: &Vec<usize>, var: usize) -> usize {
         self.permute_swaps(v2l)[var]
     }
+
+    /// get new SwapContext
+    pub fn new() -> Self {
+        Default::default()
+    }
 }
 
-// todo comments
+/// Holds ids for either TempNodes or DDNodes
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 enum IDEnum {
     NewID(usize),
     OldID(NodeID),
 }
 
-impl Borrow<IDEnum> for NewTempNode {
-    fn borrow(&self) -> &IDEnum {
-        &self.id
-    }
-}
-
-// todo comments
+/// Holds a new temporary node
 #[derive(Debug, Eq, Copy, Clone)]
-pub struct NewTempNode {
+pub struct TempNode {
     id: IDEnum,
     var: VarID,
     low: IDEnum,
     high: IDEnum,
 }
 
-impl std::fmt::Display for NewTempNode {
+/// Enum to store either a new node or an existing "old" node
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+enum NodeEnum {
+    NewNode(TempNode),
+    OldNode(DDNode),
+}
+
+impl Borrow<IDEnum> for TempNode {
+    fn borrow(&self) -> &IDEnum {
+        &self.id
+    }
+}
+
+impl std::fmt::Display for TempNode {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
@@ -103,25 +164,26 @@ impl std::fmt::Display for NewTempNode {
     }
 }
 
-// todo comments
+impl std::fmt::Display for IDEnum {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            IDEnum::NewID(id) => write!(f, "NewID({})", id),
+            IDEnum::OldID(id) => write!(f, "OldID({})", id.0),
+        }
+    }
+}
+
 /// Test equality of two nodes, not considering the ID!
-impl PartialEq for NewTempNode {
+impl PartialEq for TempNode {
     fn eq(&self, that: &Self) -> bool {
         self.var == that.var && self.low == that.low && self.high == that.high
     }
 }
 
-impl Hash for NewTempNode {
+impl Hash for TempNode {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
-}
-
-// todo comments
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
-enum NodeEnum {
-    NewNode(NewTempNode),
-    OldNode(DDNode),
 }
 
 impl Into<NodeEnum> for &DDNode {
@@ -130,9 +192,9 @@ impl Into<NodeEnum> for &DDNode {
     }
 }
 
-impl Into<NewTempNode> for DDNode {
-    fn into(self) -> NewTempNode {
-        NewTempNode {
+impl Into<TempNode> for DDNode {
+    fn into(self) -> TempNode {
+        TempNode {
             id: IDEnum::OldID(self.id),
             var: self.var,
             low: IDEnum::OldID(self.low),
@@ -141,9 +203,9 @@ impl Into<NewTempNode> for DDNode {
     }
 }
 
-impl Into<NewTempNode> for &DDNode {
-    fn into(self) -> NewTempNode {
-        NewTempNode {
+impl Into<TempNode> for &DDNode {
+    fn into(self) -> TempNode {
+        TempNode {
             id: IDEnum::OldID(self.id),
             var: self.var,
             low: IDEnum::OldID(self.low),
@@ -152,8 +214,8 @@ impl Into<NewTempNode> for &DDNode {
     }
 }
 
-impl Into<NewTempNode> for NodeEnum {
-    fn into(self) -> NewTempNode {
+impl Into<TempNode> for NodeEnum {
+    fn into(self) -> TempNode {
         match self {
             NodeEnum::NewNode(node) => node,
             NodeEnum::OldNode(node) => node.into(),
@@ -161,28 +223,53 @@ impl Into<NewTempNode> for NodeEnum {
     }
 }
 
-impl Into<NodeEnum> for NewTempNode {
+impl Into<TempNode> for &NodeEnum {
+    fn into(self) -> TempNode {
+        match self {
+            NodeEnum::NewNode(node) => node.clone(),
+            NodeEnum::OldNode(node) => node.into(),
+        }
+    }
+}
+
+impl Into<NodeEnum> for TempNode {
     fn into(self) -> NodeEnum {
         NodeEnum::NewNode(self)
     }
 }
 
-// todo comment
-fn save_node(new_nodes: &mut HashSet<NewTempNode>, new_node: NewTempNode) -> NewTempNode {
+impl NodeEnum {
+    fn get_var(&self) -> VarID {
+        match self {
+            NodeEnum::NewNode(node) => node.var,
+            NodeEnum::OldNode(node) => node.var,
+        }
+    }
+}
+
+/// Saves a new node in new_nodes or replaces existing node
+/// # Arguments
+/// * `new_nodes` - HashSet of new nodes
+/// * `new_node` - New node to save
+/// * `counter` - Counter for new node IDs
+fn save_node(
+    new_nodes: &mut HashSet<TempNode>,
+    new_node: TempNode,
+    counter: &mut usize,
+) -> TempNode {
     // check that children are different
     assert_ne!(new_node.low, new_node.high);
 
     // check if id already exists in new_nodes -> Replace Node
     if let Some(_) = new_nodes.get(&new_node.id) {
-        // Node already exists, replace it
-        new_nodes.remove(&new_node.id);
-        new_nodes.insert(new_node.clone());
-        return new_node;
-    }
+        assert!(new_nodes.remove(&new_node.id));
 
-    // check if new_node has a OldId -> Replace Node
-    if let IDEnum::OldID(_) = new_node.id {
-        new_nodes.insert(new_node.clone());
+        // check that node does not exist any more
+        assert!(new_nodes.get(&new_node.id).is_none());
+        assert!(new_nodes.get(&new_node).is_none());
+        assert!(!new_nodes.contains(&new_node));
+
+        assert!(new_nodes.insert(new_node.clone()));
         return new_node;
     }
 
@@ -190,17 +277,24 @@ fn save_node(new_nodes: &mut HashSet<NewTempNode>, new_node: NewTempNode) -> New
     match new_nodes.iter().filter(|node| node == &&new_node).next() {
         Some(node) => node.clone(),
         None => {
-            let id = IDEnum::NewID(new_nodes.len() + 2); // no NodeId(0)
-            let inserted = new_nodes.insert(NewTempNode {
+            // check if new_node has a OldId -> Replace Node
+            if let IDEnum::OldID(_) = new_node.id {
+                new_nodes.insert(new_node.clone());
+                return new_node;
+            }
+
+            // create new node
+            *counter = *counter + 1;
+            let id = IDEnum::NewID(*counter);
+
+            assert!(new_nodes.insert(TempNode {
                 id,
                 var: new_node.var,
                 low: new_node.low,
                 high: new_node.high,
-            });
-            assert!(inserted);
-            let new_node = new_nodes.get(&id);
-            // println!("Added new node: {}", new_node.unwrap().clone());
-            new_node.unwrap().clone()
+            }));
+
+            new_nodes.get(&id).unwrap().clone()
         }
     }
 }
@@ -208,8 +302,9 @@ fn save_node(new_nodes: &mut HashSet<NewTempNode>, new_node: NewTempNode) -> New
 impl DDManager {
     fn temp_node_get_or_create(
         &self,
-        new_nodes: &mut HashSet<NewTempNode>,
-        node: &NewTempNode,
+        new_nodes: &mut HashSet<TempNode>,
+        node: &TempNode,
+        counter: &mut usize,
     ) -> (IDEnum, NodeEnum) {
         if node.low == node.high {
             match self.get_node(&node.low, new_nodes) {
@@ -217,45 +312,55 @@ impl DDManager {
                     return (IDEnum::OldID(node.id), NodeEnum::OldNode(node.clone()))
                 }
                 Some(NodeEnum::NewNode(node)) => return (node.id, NodeEnum::NewNode(node)),
-                None => {
-                    println!("FUUUUCK");
-                }
+                None => panic!("Node not found!"),
             }
         }
+
+        // check again if node exists
+        match new_nodes.iter().filter(|n| n == &node).next() {
+            Some(n) => {
+                return (n.id, NodeEnum::NewNode(n.clone()));
+            }
+            None => (),
+        }
+
         // check if there is an old node representing the new node
         if let (IDEnum::OldID(low_id), IDEnum::OldID(high_id)) = (node.low, node.high) {
-            let node_id = self.find_node(&DDNode {
+            match self.find_node(&DDNode {
                 id: NodeID(0),
                 var: node.var,
                 high: high_id,
                 low: low_id,
-            });
-            match node_id {
+            }) {
                 Some(id) => {
                     let old_node = self.nodes.get(&id).unwrap();
-                    if old_node
-                        == &(DDNode {
+                    assert_eq!(
+                        old_node,
+                        &DDNode {
                             id: NodeID(0),
                             var: node.var,
                             high: high_id,
                             low: low_id,
-                        })
-                    {
-                        return (IDEnum::OldID(id), NodeEnum::OldNode(old_node.clone()));
-                    }
-                    ()
+                        }
+                    );
+                    return (IDEnum::OldID(id), NodeEnum::OldNode(old_node.clone()));
                 }
                 None => (),
             }
         }
         // No old node exists, create new node
-        let new_node = save_node(new_nodes, node.clone());
+        let new_node = save_node(new_nodes, node.clone(), counter);
         // println!("Created new node in save_node: {} -> {}", node, new_node);
         (new_node.id, NodeEnum::NewNode(new_node))
     }
 
-    /// Get node from new_nodes or nodes
-    fn get_node(&self, id: &IDEnum, new_nodes: &HashSet<NewTempNode>) -> Option<NodeEnum> {
+    /// Get a node from new_nodes or nodes
+    /// # Arguments
+    /// * `id` - ID of the node
+    /// * `new_nodes` - HashSet of new nodes
+    /// # Returns
+    /// Returns the node if it exists in new_nodes or nodes
+    fn get_node(&self, id: &IDEnum, new_nodes: &HashSet<TempNode>) -> Option<NodeEnum> {
         match new_nodes.get(id) {
             Some(node) => Some(NodeEnum::NewNode(node.clone())),
             None => match id {
@@ -264,14 +369,15 @@ impl DDManager {
             },
         }
     }
-
+}
+impl DDManager {
     /// Swaps two levels of the BDD partially, in the sense, that it does not execute the swap, but returns the necessary changes to the BDD.
     /// This allows to calculate the effect of a swap without actually executing it, thus allowing to calculate the effect of multiple swaps.
     ///
     /// # Arguments
-    /// a - Variable a to swap
-    /// b - Variable b to swap
-    /// prev_swap - Previous swap result, which is used to calculate the effect of the previous swaps and continue from there.
+    /// * `a` - Variable a to swap
+    /// * `b` - Variable b to swap
+    /// * `prev_swap` - Previous swap result, which is used to calculate the effect of the previous swaps and continue from there.
     ///
     /// # Returns
     /// Returns a tuple of the difference in size of the BDD after the swap and the new swap context.
@@ -279,6 +385,7 @@ impl DDManager {
     pub fn partial_swap(&self, a: VarID, b: VarID, prev_swap: SwapContext) -> (isize, SwapContext) {
         // Reconstruct current var2level (with previous swaps)
         let mut v2l = self.var2level.clone();
+        let mut node_id_counter = prev_swap.node_id_counter;
         prev_swap.all_swaps_in_result.iter().for_each(|(a, b)| {
             v2l.swap(a.0, b.0);
         });
@@ -291,22 +398,27 @@ impl DDManager {
         let mut new_nodes = prev_swap.new_nodes.clone();
 
         // get upper & lower level + their ids
-        let (upper_level_id, lower_level_id) = if v2l[b.0] < v2l[a.0] { (b, a) } else { (a, b) };
-        let upper_level = v2l[upper_level_id.0];
-        let lower_level = v2l[lower_level_id.0];
+        let (upper_level_var, lower_level_var) = if v2l[b.0] < v2l[a.0] { (b, a) } else { (a, b) };
+        let upper_level = v2l[upper_level_var.0];
+        let lower_level = v2l[lower_level_var.0];
+
+        if upper_level_var == lower_level_var {
+            // BIG PROBLEM
+            panic!("Same variable!");
+        }
 
         // current nodes on upper and lower level (either from previous swap or level2nodes)
-        let current_upper_level_nodes = match prev_swap.new_level2nodes.get(&upper_level_id) {
+        let current_upper_level_nodes = match prev_swap.new_level2nodes.get(&upper_level_var) {
             Some(set) => set,
-            None => &self.level2nodes[self.var2level[upper_level_id.0]]
+            None => &self.level2nodes[self.var2level[upper_level_var.0]]
                 .iter()
                 .map(|n| n.into())
                 .collect::<HashSet<NodeEnum>>(),
         };
 
-        let current_lower_level_nodes = match prev_swap.new_level2nodes.get(&lower_level_id) {
+        let current_lower_level_nodes = match prev_swap.new_level2nodes.get(&lower_level_var) {
             Some(set) => set,
-            None => &self.level2nodes[self.var2level[lower_level_id.0]]
+            None => &self.level2nodes[self.var2level[lower_level_var.0]]
                 .iter()
                 .map(|n| n.into())
                 .collect::<HashSet<NodeEnum>>(),
@@ -315,8 +427,8 @@ impl DDManager {
         {
             log::info!(
                 "Swapping variables {:?} and {:?} (layers {}({}) and {}({}))",
-                upper_level_id,
-                lower_level_id,
+                upper_level_var,
+                lower_level_var,
                 upper_level,
                 current_upper_level_nodes.len(),
                 lower_level,
@@ -332,7 +444,7 @@ impl DDManager {
             //     current_lower_level_nodes.len()
             // );
 
-            assert!(upper_level_id.0 != 0 && lower_level_id.0 != 0);
+            assert!(upper_level_var.0 != 0 && lower_level_var.0 != 0);
             assert_eq!(
                 lower_level,
                 upper_level + 1,
@@ -344,19 +456,16 @@ impl DDManager {
         // todo comment
         for current_node in current_upper_level_nodes {
             // Convert node to NewTempNode
-            let old_node = match current_node {
-                NodeEnum::NewNode(temp_node) => temp_node,
-                NodeEnum::OldNode(temp_node) => &temp_node.into(),
-            };
+            let old_node: TempNode = current_node.into();
 
             // Get Child nodes + IDs
             let child_1_id = old_node.high;
             let child_0_id = old_node.low;
 
-            let child_1_node: NewTempNode = self.get_node(&child_1_id, &new_nodes).unwrap().into();
-            let child_0_node: NewTempNode = self.get_node(&child_0_id, &new_nodes).unwrap().into();
+            let child_1_node: TempNode = self.get_node(&child_1_id, &new_nodes).unwrap().into();
+            let child_0_node: TempNode = self.get_node(&child_0_id, &new_nodes).unwrap().into();
 
-            if child_0_node.var != lower_level_id && child_1_node.var != lower_level_id {
+            if child_0_node.var != lower_level_var && child_1_node.var != lower_level_var {
                 // current_node does not have connections to level directly below, we leave it as it is.
                 // current_node is note effected by swap -> just add to new lower level
                 log::debug!(
@@ -365,9 +474,10 @@ impl DDManager {
                 );
 
                 assert_ne!(old_node.high, old_node.low);
-                let (_, node) = self.temp_node_get_or_create(&mut new_nodes, old_node);
+                let (_, node) =
+                    self.temp_node_get_or_create(&mut new_nodes, &old_node, &mut node_id_counter);
 
-                assert_eq!(upper_level_id, old_node.var);
+                assert_eq!(upper_level_var, old_node.var);
                 new_lower_level.insert(node);
                 continue;
             }
@@ -376,12 +486,12 @@ impl DDManager {
             log::debug!("Replacing node {:?} old_f_node={:?}", old_node.id, old_node);
 
             // Get Grandchildren IDs
-            let (child_0_1_id, child_0_0_id) = if child_0_node.var == lower_level_id {
+            let (child_0_1_id, child_0_0_id) = if child_0_node.var == lower_level_var {
                 (child_0_node.high, child_0_node.low)
             } else {
                 (child_0_id, child_0_id)
             };
-            let (child_1_1_id, child_1_0_id) = if child_1_node.var == lower_level_id {
+            let (child_1_1_id, child_1_0_id) = if child_1_node.var == lower_level_var {
                 (child_1_node.high, child_1_node.low)
             } else {
                 (child_1_id, child_1_id)
@@ -390,60 +500,48 @@ impl DDManager {
             // Calculate new children IDs
             let (new_then_id, new_then_node) = self.temp_node_get_or_create(
                 &mut new_nodes,
-                &NewTempNode {
+                &TempNode {
                     id: IDEnum::NewID(0),
-                    var: upper_level_id,
+                    var: upper_level_var,
                     low: child_0_1_id,
                     high: child_1_1_id,
                 },
+                &mut node_id_counter,
             );
-            // todo maybe if varId == don't add
-            match new_then_node {
-                NodeEnum::NewNode(node) => {
-                    if upper_level_id == node.var {
-                        assert_eq!(upper_level_id, node.var);
-                        new_lower_level.insert(new_then_node);
-                    }
-                }
-                NodeEnum::OldNode(node) => {
-                    if upper_level_id == node.var {
-                        assert_eq!(upper_level_id, node.var);
-                        new_lower_level.insert(new_then_node);
-                    }
-                }
+
+            // when new node is right var, so it is in the new lower level, then add to new lower level
+            if new_then_node.get_var() == upper_level_var {
+                assert_eq!(upper_level_var, new_then_node.get_var());
+                new_lower_level.insert(new_then_node);
             }
 
             let (new_else_id, new_else_node) = self.temp_node_get_or_create(
                 &mut new_nodes,
-                &NewTempNode {
+                &TempNode {
                     id: IDEnum::NewID(0),
-                    var: upper_level_id,
+                    var: upper_level_var,
                     low: child_0_0_id,
                     high: child_1_0_id,
                 },
+                &mut node_id_counter,
             );
-            match new_else_node {
-                NodeEnum::NewNode(node) => {
-                    if upper_level_id == node.var {
-                        new_lower_level.insert(new_else_node);
-                    }
-                }
-                NodeEnum::OldNode(node) => {
-                    if upper_level_id == node.var {
-                        new_lower_level.insert(new_else_node);
-                    }
-                }
+
+            // when new node is right var, so it is in the new lower level, then add to new lower level
+            if new_else_node.get_var() == upper_level_var {
+                assert_eq!(upper_level_var, new_else_node.get_var());
+                new_lower_level.insert(new_else_node);
             }
 
             // Generate new node + replace it in new_nodes
             let new_node = save_node(
                 &mut new_nodes,
-                NewTempNode {
+                TempNode {
                     id: old_node.id,
-                    var: lower_level_id,
+                    var: lower_level_var,
                     low: new_else_id,
                     high: new_then_id,
                 },
+                &mut node_id_counter,
             );
             new_upper_level.insert(NodeEnum::NewNode(new_node));
 
@@ -455,7 +553,7 @@ impl DDManager {
         // This swap generates some dangling nodes, which are stored in nodes and are referenced by other nodes, but not stored in the new level2nodes.
         // This causes the swap to be incorrect in certain cases without the reduce function.
         // To fix this we search for nodes that have references to the lower_level nodes and add those referenced lower_level nodes to the new upper level.
-        let lower_level_ids = current_lower_level_nodes
+        let mut lower_level_ids = current_lower_level_nodes
             .iter()
             .map(|node| match node {
                 NodeEnum::NewNode(temp_node) => temp_node.id,
@@ -466,7 +564,6 @@ impl DDManager {
         // If a node has no reference above at all, it is a root node
         // let mut lower_level_root = vec![true; lower_level_ids.len()];
 
-        // todo maybe find new way to iterate over calculated levels
         // Pre calculate levels to new nodes
         let level2new_nodes: HashMap<usize, &HashSet<NodeEnum>> = prev_swap
             .new_level2nodes
@@ -493,45 +590,44 @@ impl DDManager {
                     NodeEnum::OldNode(node) => IDEnum::OldID(node.low),
                     NodeEnum::NewNode(node) => node.low,
                 };
-                // // if it is referenced, it is not a root node
-                // if lower_level_ids.contains(&high_id) {
-                //     lower_level_root[lower_level_ids.iter().position(|&x| x == high_id).unwrap()] =
-                //         false;
-                // }
-                // if lower_level_ids.contains(&low_id) {
-                //     lower_level_root[lower_level_ids.iter().position(|&x| x == low_id).unwrap()] =
-                //         false;
-                // }
 
                 // todo geht besser!!!
                 // if node is referenced by a node above, add it to new upper level
                 // if level < upper_level {
                 if lower_level_ids.contains(&high_id) {
                     let node = self.get_node(&high_id, &new_nodes).unwrap();
+                    match node {
+                        NodeEnum::OldNode(node) => {
+                            assert_eq!(node.var, lower_level_var);
+                        }
+                        NodeEnum::NewNode(node) => {
+                            assert_eq!(node.var, lower_level_var);
+                        }
+                    }
+                    lower_level_ids.retain(|&id| id != high_id);
                     new_upper_level.insert(node);
                 }
                 if lower_level_ids.contains(&low_id) {
                     let node = self.get_node(&low_id, &new_nodes).unwrap();
+                    match node {
+                        NodeEnum::OldNode(node) => {
+                            assert_eq!(node.var, lower_level_var);
+                        }
+                        NodeEnum::NewNode(node) => {
+                            assert_eq!(node.var, lower_level_var);
+                        }
+                    }
+
+                    lower_level_ids.retain(|&id| id != low_id);
                     new_upper_level.insert(node);
                 }
-                // }
             });
         }
 
-        // lower_level_ids
-        //     .iter()
-        //     .enumerate()
-        //     .filter(|(i, _)| lower_level_root[*i])
-        //     .for_each(|(_, id)| {
-        //         let node = self.get_node(id, &new_nodes);
-        //         match node {
-        //             Some(node) => {
-        //                 new_upper_level.insert(node);
-        //                 ()
-        //             }
-        //             None => panic!("Node not found!"),
-        //         }
-        //     });
+        // remove nodes without references from new_nodes
+        for id in lower_level_ids {
+            new_nodes.remove(&id);
+        }
 
         // Prepare return type
         let mut all_swaps_in_result = prev_swap.all_swaps_in_result.clone();
@@ -540,21 +636,10 @@ impl DDManager {
         let difference: isize = (new_upper_level.len() + new_lower_level.len()) as isize
             - (current_upper_level_nodes.len() + current_lower_level_nodes.len()) as isize;
 
-        // println!(
-        //     "Upper Level: {} (old: {} new: {}) - Lower Level: {} (old: {} new: {}) => {}",
-        //     upper_level,
-        //     current_upper_level_nodes.len(),
-        //     new_upper_level.len(),
-        //     lower_level,
-        //     current_lower_level_nodes.len(),
-        //     new_lower_level.len(),
-        //     difference
-        // );
-
         let new_level2nodes = {
             let mut map = prev_swap.new_level2nodes.clone();
-            map.insert(upper_level_id, new_lower_level);
-            map.insert(lower_level_id, new_upper_level);
+            map.insert(upper_level_var, new_lower_level);
+            map.insert(lower_level_var, new_upper_level);
             map
         };
 
@@ -564,11 +649,12 @@ impl DDManager {
                 all_swaps_in_result: all_swaps_in_result,
                 new_nodes,
                 new_level2nodes,
+                node_id_counter,
             },
         );
     }
 
-    pub fn resolve_swap(&mut self, par_swap: SwapContext) {
+    pub fn persist_swap(&mut self, par_swap: SwapContext) {
         // println!("########## RESOLVE ##########");
 
         self.clear_c_table();
@@ -665,7 +751,7 @@ impl DDManager {
         let mut additional_v2l_upper = HashSet::<DDNode>::new();
         let mut new_v2l_lower = HashSet::<DDNode>::new();
 
-        let mut new_nodes: Vec<TempNode> = vec![];
+        let mut new_nodes: Vec<AsyncTempNode> = vec![];
 
         let (upper_level, lower_level, size_before) = {
             let manager = manager.read().unwrap();
@@ -683,15 +769,15 @@ impl DDManager {
                 manager.var2level[b.0],
                 manager.level2nodes[manager.var2level[b.0]].len()
             );
-            println!(
-                "Swapping variables {:?} and {:?} (layers {}({}) and {}({}))",
-                a,
-                b,
-                manager.var2level[a.0],
-                manager.level2nodes[manager.var2level[a.0]].len(),
-                manager.var2level[b.0],
-                manager.level2nodes[manager.var2level[b.0]].len()
-            );
+            // println!(
+            //     "Swapping variables {:?} and {:?} (layers {}({}) and {}({}))",
+            //     a,
+            //     b,
+            //     manager.var2level[a.0],
+            //     manager.level2nodes[manager.var2level[a.0]].len(),
+            //     manager.var2level[b.0],
+            //     manager.level2nodes[manager.var2level[b.0]].len()
+            // );
             assert!(a.0 != 0 && b.0 != 0);
             let upper_level = manager.var2level[a.0];
             let lower_level = manager.var2level[b.0];
@@ -746,7 +832,7 @@ impl DDManager {
 
                 {
                     let new_then_child = if f_01_id == f_11_id {
-                        ChildEnum::OldChild(f_01_id)
+                        AsyncChildEnum::OldChild(f_01_id)
                     } else {
                         // self.level2nodes[self.var2level[node.var.0]].get(node)
                         let maybe_node = manager.level2nodes[upper_level].get(&DDNode {
@@ -757,9 +843,9 @@ impl DDManager {
                         });
                         if let Some(node) = maybe_node {
                             new_v2l_lower.insert(node.clone());
-                            ChildEnum::OldChild(node.id)
+                            AsyncChildEnum::OldChild(node.id)
                         } else {
-                            ChildEnum::NewChild(TempChild {
+                            AsyncChildEnum::NewChild(AsyncTempChild {
                                 id: NodeID(0),
                                 var: a,
                                 high: f_11_id,
@@ -769,7 +855,7 @@ impl DDManager {
                     };
 
                     let new_else_child = if f_00_id == f_10_id {
-                        ChildEnum::OldChild(f_00_id)
+                        AsyncChildEnum::OldChild(f_00_id)
                     } else {
                         let maybe_node = manager.level2nodes[upper_level].get(&DDNode {
                             id: NodeID(0),
@@ -779,9 +865,9 @@ impl DDManager {
                         });
                         if let Some(node) = maybe_node {
                             new_v2l_lower.insert(node.clone());
-                            ChildEnum::OldChild(node.id)
+                            AsyncChildEnum::OldChild(node.id)
                         } else {
-                            ChildEnum::NewChild(TempChild {
+                            AsyncChildEnum::NewChild(AsyncTempChild {
                                 id: NodeID(0),
                                 var: a,
                                 high: f_10_id,
@@ -792,7 +878,7 @@ impl DDManager {
 
                     assert_ne!(new_then_child, new_else_child);
 
-                    let new_f_node = TempNode {
+                    let new_f_node = AsyncTempNode {
                         id: f_id,
                         var: b,
                         high: new_then_child,
@@ -863,17 +949,17 @@ impl DDManager {
 
         manager.level2nodes[lower_level].extend(new_v2l_lower.iter());
         manager.level2nodes[upper_level].extend(additional_v2l_upper.iter());
-        println!(
-            "new_v2l_lower: {:?}, additional_v2l_upper: {:?}",
-            new_v2l_lower.len(),
-            additional_v2l_upper.len()
-        );
+        // println!(
+        //     "new_v2l_lower: {:?}, additional_v2l_upper: {:?}",
+        //     new_v2l_lower.len(),
+        //     additional_v2l_upper.len()
+        // );
 
         // Add new nodes
         for node in new_nodes {
             let new_then_id = match node.high {
-                ChildEnum::OldChild(id) => id,
-                ChildEnum::NewChild(temp) => manager.node_get_or_create(&DDNode {
+                AsyncChildEnum::OldChild(id) => id,
+                AsyncChildEnum::NewChild(temp) => manager.node_get_or_create(&DDNode {
                     id: NodeID(0),
                     var: temp.var,
                     high: temp.high,
@@ -882,8 +968,8 @@ impl DDManager {
             };
 
             let new_else_id = match node.low {
-                ChildEnum::OldChild(id) => id,
-                ChildEnum::NewChild(temp) => manager.node_get_or_create(&DDNode {
+                AsyncChildEnum::OldChild(id) => id,
+                AsyncChildEnum::NewChild(temp) => manager.node_get_or_create(&DDNode {
                     id: NodeID(0),
                     var: temp.var,
                     high: temp.high,
@@ -922,11 +1008,21 @@ impl DDManager {
         let size_after_up = manager.level2nodes[upper_level].len();
         let size_after_low = manager.level2nodes[lower_level].len();
         let size_after = size_after_up + size_after_low;
-        println!(
-            "finished Swapping variables {:?} and {:?} - before: {:?}, after: {:?}({:?}/{:?}) => {:?}",
-            a, b, size_before, size_after, size_after_up, size_after_low, (size_before as i32 - size_after as i32) as i32
-        );
+        // println!(
+        //     "finished Swapping variables {:?} and {:?} - before: {:?}, after: {:?}({:?}/{:?}) => {:?}",
+        //     a, b, size_before, size_after, size_after_up, size_after_low, (size_before as i32 - size_after as i32) as i32
+        // );
         (size_before as i32 - size_after as i32) as i32
+    }
+
+    /// Swaps graph layers of variables a and b. Requires a to be directly above b or vice versa.
+    /// Performs reduction which may change NodeIDs. Returns new NodeID of f.
+    #[allow(unused)]
+    #[must_use]
+    pub fn direct_swap(&mut self, a: VarID, b: VarID, f: NodeID) -> isize {
+        let result = self.partial_swap(a, b, SwapContext::default());
+        self.persist_swap(result.1);
+        result.0
     }
 
     /// Swaps graph layers of variables a and b. Requires a to be directly above b or vice versa.
@@ -1048,11 +1144,11 @@ impl DDManager {
         // Clear ITE cache
         self.clear_c_table();
 
-        log::debug!(
-            "Order is now: {:?} (layers: {:?})",
-            self.var2level,
-            var2level_to_ordered_varids(&self.var2level)
-        );
+        // log::debug!(
+        //     "Order is now: {:?} (layers: {:?})",
+        //     self.var2level,
+        //     var2level_to_ordered_varids(&self.var2level)
+        // );
 
         self.reduce(f)
     }
@@ -1091,14 +1187,14 @@ mod test_par_swap {
 
         // one way
         let result = man.partial_swap(VarID(2), VarID(3), SwapContext::default());
-        man.resolve_swap(result.1);
+        man.persist_swap(result.1);
         assert_eq!(man.sat_count(root), expected);
         assert!(testcase.verify_against(&man, root));
         println!("result: {}", result.0);
 
         // other way
         let result2 = man.partial_swap(VarID(2), VarID(3), SwapContext::default());
-        man.resolve_swap(result2.1);
+        man.persist_swap(result2.1);
         println!("result: {}", result2.0);
 
         let width_after = man.level2nodes[man.var2level[VarID(2).0]].len()
@@ -1128,7 +1224,7 @@ mod test_par_swap {
         let result = man.partial_swap(VarID(a), VarID(b), SwapContext::default());
         println!("result: {}", result.0);
         let result2 = man.partial_swap(VarID(a), VarID(b), result.1);
-        man.resolve_swap(result2.1);
+        man.persist_swap(result2.1);
         println!("result: {}", result2.0);
         assert_eq!(man.sat_count(root), expected);
         assert!(testcase.verify_against(&man, root));
@@ -1159,11 +1255,11 @@ mod test_par_swap {
             let mut man = man.clone();
             for i in 1..(levels - 2) / 2 {
                 let result1 = man.partial_swap(VarID(i), VarID(i + 1), SwapContext::default());
-                man.resolve_swap(result1.1);
+                man.persist_swap(result1.1);
                 assert!(testcase.verify_against(&man, bdd));
                 // assert_eq!(man.sat_count(bdd), expected);
                 let result2 = man.partial_swap(VarID(i), VarID(i + 1), SwapContext::default());
-                man.resolve_swap(result2.1);
+                man.persist_swap(result2.1);
                 assert_eq!(abs(result1.0), abs(result2.0), "i: {}", i);
                 assert_eq!(man.sat_count(bdd), expected);
                 assert!(testcase.verify_against(&man, bdd));
@@ -1183,7 +1279,7 @@ mod test_par_swap {
                 let result1 = man.partial_swap(VarID(i), VarID(i + 1), SwapContext::default());
                 // assert_eq!(man.sat_count(bdd), expected);
                 let result2 = man.partial_swap(VarID(i), VarID(i + 1), result1.1);
-                man.resolve_swap(result2.1);
+                man.persist_swap(result2.1);
                 assert_eq!(abs(result1.0), abs(result2.0));
                 assert_eq!(man.sat_count(bdd), expected);
                 assert!(testcase.verify_against(&man, bdd));
@@ -1226,10 +1322,10 @@ mod test_par_swap {
             let mut man = man.clone();
             for i in 1..(levels - 2) / 2 {
                 let result1 = man.partial_swap(VarID(i), VarID(i + 1), SwapContext::default());
-                man.resolve_swap(result1.1);
+                man.persist_swap(result1.1);
                 // assert_eq!(man.sat_count(bdd), expected);
                 let result2 = man.partial_swap(VarID(i), VarID(i + 1), SwapContext::default());
-                man.resolve_swap(result2.1);
+                man.persist_swap(result2.1);
                 assert_eq!(abs(result1.0), abs(result2.0));
                 assert_eq!(man.sat_count(bdd), expected);
             }
@@ -1247,7 +1343,7 @@ mod test_par_swap {
                 let result1 = man.partial_swap(VarID(i), VarID(i + 1), SwapContext::default());
                 // assert_eq!(man.sat_count(bdd), expected);
                 let result2 = man.partial_swap(VarID(i), VarID(i + 1), result1.1);
-                man.resolve_swap(result2.1);
+                man.persist_swap(result2.1);
                 assert_eq!(abs(result1.0), abs(result2.0));
                 assert_eq!(man.sat_count(bdd), expected);
             }
@@ -1286,7 +1382,7 @@ mod test_par_swap {
                 result = man.partial_swap(VarID(v), VarID(i + 1), result.1);
                 println!("result: {}", result.0);
             }
-            man.resolve_swap(result.1);
+            man.persist_swap(result.1);
             // Use sat_count as sanity check that the BDD isn't completely broken
             assert_eq!(man.sat_count(bdd), expected);
         }
@@ -1298,7 +1394,7 @@ mod test_par_swap {
 
         // Build BDD
         let mut instance = dimacs::parse_dimacs(
-            &fs::read_to_string("examples/JHipster.dimacs").expect("Failed to read dimacs file."),
+            &fs::read_to_string("examples/berkeleydb.dimacs").expect("Failed to read dimacs file."),
         )
         .expect("Failed to parse dimacs file.");
         let (mut man, bdd) =
@@ -1320,7 +1416,7 @@ mod test_par_swap {
             let mut man = man.clone();
             for i in v..num_vars {
                 let result = man.partial_swap(VarID(v), VarID(i + 1), SwapContext::default());
-                man.resolve_swap(result.1);
+                man.persist_swap(result.1);
             }
         }
 
@@ -1337,7 +1433,7 @@ mod test_par_swap {
             for i in v..num_vars {
                 result = man.partial_swap(VarID(v), VarID(i + 1), result.1);
             }
-            man.resolve_swap(result.1);
+            man.persist_swap(result.1);
         }
 
         println!("partial_swap - later resolve: {:?}", start.elapsed());
@@ -1389,10 +1485,10 @@ mod test_par_swap {
             let mut man = man.clone();
             for i in 1..(levels - 2) / 2 {
                 let result = man.partial_swap(VarID(i), VarID(i + 1), SwapContext::default());
-                man.resolve_swap(result.1);
+                man.persist_swap(result.1);
                 // assert_eq!(man.sat_count(bdd), expected);
                 let result = man.partial_swap(VarID(i), VarID(i + 1), SwapContext::default());
-                man.resolve_swap(result.1);
+                man.persist_swap(result.1);
                 // assert_eq!(man.sat_count(bdd), expected);
             }
         }
@@ -1409,7 +1505,7 @@ mod test_par_swap {
                 let result = man.partial_swap(VarID(i), VarID(i + 1), SwapContext::default());
                 // assert_eq!(man.sat_count(bdd), expected);
                 let result = man.partial_swap(VarID(i), VarID(i + 1), result.1);
-                man.resolve_swap(result.1);
+                man.persist_swap(result.1);
                 // assert_eq!(man.sat_count(bdd), expected);
             }
         }
@@ -1856,5 +1952,511 @@ mod tests_async {
     #[tokio::test]
     async fn swap_multiple_noop_random1_par() {
         swap_multiple_noop_par(TestCase::random_1()).await;
+    }
+}
+
+#[cfg(test)]
+mod test_comparions {
+    use crate::core::{
+        bdd_manager::DDManager,
+        swap::{self, SwapContext},
+    };
+
+    #[test]
+    fn comparison() {
+        let (mut man, nodes) =
+            DDManager::load_from_dddmp_file("examples/berkeleydb.dimacs.dddmp".to_string())
+                .unwrap();
+        let bdd = nodes[0];
+        man.purge_retain(bdd);
+        let expected = man.sat_count(bdd);
+        assert_eq!(man.sat_count(bdd), expected);
+
+        // partial swap
+        let mut man = man.clone();
+        let mut swap_man = man.clone();
+        let mut swap_bdd = bdd.clone();
+        for level in 3..man.level2nodes.len() - 2 {
+            let a = man.var_at_level(level).unwrap();
+            let b = man.var_at_level(level + 1).unwrap();
+
+            let _ = man.direct_swap(a, b, bdd);
+            swap_bdd = swap_man.swap(a, b, swap_bdd);
+            swap_man.purge_retain(swap_bdd);
+
+            assert_eq!(man.sat_count(bdd), expected);
+            assert_eq!(swap_man.sat_count(swap_bdd), expected);
+
+            assert_eq!(
+                man.level2nodes[level].len(),
+                swap_man.level2nodes[level].len()
+            );
+            assert_eq!(
+                man.level2nodes[level + 1].len(),
+                swap_man.level2nodes[level + 1].len()
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod evaluation_swap {
+
+    use std::sync::Arc;
+
+    use futures::future;
+    use rayon::iter::{IntoParallelIterator, ParallelIterator};
+    use tokio::{runtime::Runtime, task::JoinHandle};
+
+    use crate::core::{
+        bdd_manager::DDManager,
+        dvo::{
+            area_generation::{AreaSelection, ThresholdMethod},
+            dvo_strategies::{gen_permutation, median},
+        },
+        swap::SwapContext,
+    };
+
+    static N: u32 = 10;
+    static PATH: &str = "examples/financialServices01.dimacs.dddmp";
+    // static PATH: &str = "examples/berkeleydb.dimacs.dddmp";
+
+    #[test]
+    fn info() {
+        let (mut man, nodes) = DDManager::load_from_dddmp_file(PATH.to_string()).unwrap();
+        let bdd = nodes[0];
+
+        man.purge_retain(bdd);
+
+        let nodes = man
+            .level2nodes
+            .clone()
+            .into_iter()
+            .map(|level| level.len())
+            .collect::<Vec<usize>>();
+
+        println!("Model: {}", PATH);
+        println!("Level: {}", nodes.len());
+        println!("Nodes: {}", nodes.into_iter().sum::<usize>());
+        println!("N times: {}", N);
+    }
+
+    #[test]
+    fn swap_eval_pairs() {
+        // Build BDD
+        let (mut man, nodes) = DDManager::load_from_dddmp_file(PATH.to_string()).unwrap();
+        let bdd = nodes[0];
+
+        man.purge_retain(bdd);
+        let start_level = man.var2level[man.nodes.get(&bdd).unwrap().var.0] + 1;
+
+        println!("Swap pairs");
+
+        // swap count
+        let mut count = 0;
+        for _ in 0..N {
+            for _ in start_level..man.level2nodes.len() - 2 {
+                count += 2;
+            }
+        }
+        println!("swap count: {}", count / N);
+
+        // regular swap
+        let start = std::time::Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+            let mut bdd = bdd.clone();
+            for level in start_level..man.level2nodes.len() - 2 {
+                let a = man.var_at_level(level).unwrap();
+                let b = man.var_at_level(level + 1).unwrap();
+                bdd = man.swap(a, b, bdd);
+                bdd = man.swap(a, b, bdd);
+            }
+        }
+        println!("Regular swap took {:?}", start.elapsed() / N);
+
+        // // async swap
+        // let start = std::time::Instant::now();
+        // for _ in 0..N {
+        //     let manager = Arc::new(RwLock::new(man.clone()));
+        //     for level in start_level..man.level2nodes.len() - 2 {
+        //         let a = man.var_at_level(level).unwrap();
+        //         let b = man.var_at_level(level + 1).unwrap();
+
+        //         let _: Result<i32, tokio::task::JoinError> =
+        //             tokio::spawn(DDManager::async_swap(manager.clone(), a, b)).await;
+        //         let _ = tokio::spawn(DDManager::async_swap(manager.clone(), a, b)).await;
+        //     }
+        // }
+        // println!("async swap took {:?}", start.elapsed() / N);
+
+        // partial swap instant resolve
+        let start = std::time::Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+            for level in start_level..man.level2nodes.len() - 2 {
+                let a = man.var_at_level(level).unwrap();
+                let b = man.var_at_level(level + 1).unwrap();
+                let swap_context = DDManager::partial_swap(&man, a, b, SwapContext::default());
+                man.persist_swap(swap_context.1);
+                let swap_context = DDManager::partial_swap(&man, a, b, SwapContext::default());
+                man.persist_swap(swap_context.1);
+            }
+        }
+        println!(
+            "Partial swap instant resolve took {:?}",
+            start.elapsed() / N
+        );
+
+        // partial swap
+        let start = std::time::Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+            for level in start_level..man.level2nodes.len() - 2 {
+                let a = man.var_at_level(level).unwrap();
+                let b = man.var_at_level(level + 1).unwrap();
+                let swap_context = DDManager::partial_swap(&man, a, b, SwapContext::default());
+                let swap_context = DDManager::partial_swap(&man, a, b, swap_context.1);
+                man.persist_swap(swap_context.1);
+            }
+        }
+        println!("Partial swap took {:?}", start.elapsed() / N);
+
+        // partial swap
+        let start = std::time::Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+
+            let runtime = Runtime::new().unwrap();
+
+            let manager = Arc::new(man.clone());
+            let first_batch_futures = (start_level..man.level2nodes.len() - 2)
+                .step_by(2)
+                .into_iter()
+                .map(|level| {
+                    let man = manager.clone();
+                    runtime.spawn_blocking(move || {
+                        let a = man.var_at_level(level).unwrap();
+                        let b = man.var_at_level(level + 1).unwrap();
+                        let swap_context =
+                            DDManager::partial_swap(&man, a, b, SwapContext::default());
+                        let swap_context = DDManager::partial_swap(&man, a, b, swap_context.1);
+                        swap_context.1
+                    })
+                })
+                .collect::<Vec<JoinHandle<SwapContext>>>();
+
+            let results = runtime.block_on(future::join_all(first_batch_futures));
+            for result in results {
+                let result = result.unwrap();
+                man.persist_swap(result);
+            }
+
+            let manager = Arc::new(man.clone());
+            let second_batch_futures = ((start_level + 1)..man.level2nodes.len() - 2)
+                .step_by(2)
+                .into_iter()
+                .map(|level| {
+                    let man = manager.clone();
+                    runtime.spawn_blocking(move || {
+                        let a = man.var_at_level(level).unwrap();
+                        let b = man.var_at_level(level + 1).unwrap();
+                        let swap_context =
+                            DDManager::partial_swap(&man, a, b, SwapContext::default());
+                        let swap_context = DDManager::partial_swap(&man, a, b, swap_context.1);
+                        swap_context.1
+                    })
+                })
+                .collect::<Vec<JoinHandle<SwapContext>>>();
+
+            let results = runtime.block_on(future::join_all(second_batch_futures));
+            for result in results {
+                let result = result.unwrap();
+                man.persist_swap(result);
+            }
+        }
+        println!("Partial swap async took {:?}", start.elapsed() / N);
+
+        // partial swap
+        let start = std::time::Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+
+            let manager = Arc::new(man.clone());
+            let results = (start_level..man.level2nodes.len() - 2)
+                .step_by(2)
+                .collect::<Vec<usize>>()
+                .into_par_iter()
+                .map(|level| {
+                    let man = manager.clone();
+
+                    let a = man.var_at_level(level).unwrap();
+                    let b = man.var_at_level(level + 1).unwrap();
+                    let swap_context = DDManager::partial_swap(&man, a, b, SwapContext::default());
+                    let swap_context = DDManager::partial_swap(&man, a, b, swap_context.1);
+                    swap_context.1
+                })
+                .collect::<Vec<SwapContext>>();
+
+            for result in results {
+                man.persist_swap(result);
+            }
+
+            let manager = Arc::new(man.clone());
+            let results = ((start_level + 1)..man.level2nodes.len() - 2)
+                .step_by(2)
+                .collect::<Vec<usize>>()
+                .into_par_iter()
+                .map(|level| {
+                    let man = manager.clone();
+
+                    let a = man.var_at_level(level).unwrap();
+                    let b = man.var_at_level(level + 1).unwrap();
+                    let swap_context = DDManager::partial_swap(&man, a, b, SwapContext::default());
+                    let swap_context = DDManager::partial_swap(&man, a, b, swap_context.1);
+                    swap_context.1
+                })
+                .collect::<Vec<SwapContext>>();
+
+            for result in results {
+                man.persist_swap(result);
+            }
+        }
+        println!("Partial swap async 2 took {:?}", start.elapsed() / N);
+    }
+
+    #[tokio::test]
+    async fn swap_eval_top_to_bottom() {
+        // Build BDD
+        let (mut man, nodes) = DDManager::load_from_dddmp_file(PATH.to_string()).unwrap();
+        let bdd = nodes[0];
+        let start_level = man.var2level[man.nodes.get(&bdd).unwrap().var.0] + 1;
+
+        man.purge_retain(bdd);
+
+        // // Build BDD
+        // let mut instance = dimacs::parse_dimacs(
+        //     &fs::read_to_string("examples/berkeleydb.dimacs").expect("Failed to read dimacs file."),
+        // )
+        // .expect("Failed to parse dimacs file.");
+        // let (mut man, bdd) =
+        //     DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
+        // man.purge_retain(bdd);
+
+        println!("Swap top to bottom");
+
+        // swap count
+        let mut count = 0;
+        for _ in 0..N {
+            for _ in start_level..man.level2nodes.len() - 2 {
+                count += 1;
+            }
+        }
+        println!("swap count: {}", count / N);
+
+        // regular swap
+        let start = std::time::Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+            let mut bdd = bdd.clone();
+
+            for level in start_level..man.level2nodes.len() - 2 {
+                let a = man.var_at_level(level);
+                let b = man.var_at_level(level + 1);
+                if let (Some(a), Some(b)) = (a, b) {
+                    bdd = man.swap(a, b, bdd);
+                }
+            }
+        }
+        println!("Regular swap took {:?}", start.elapsed() / N);
+
+        // partial swap
+        let start = std::time::Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+            for level in start_level..man.level2nodes.len() - 2 {
+                let a = man.var_at_level(level);
+                let b = man.var_at_level(level + 1);
+                if let (Some(a), Some(b)) = (a, b) {
+                    let swap_context = DDManager::partial_swap(&man, a, b, SwapContext::default());
+                    man.persist_swap(swap_context.1);
+                }
+            }
+        }
+        println!(
+            "Partial swap instant resolve took {:?}",
+            start.elapsed() / N
+        );
+
+        // partial swap
+        let start = std::time::Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+            let mut swap_context = (0, SwapContext::default());
+            for level in start_level..man.level2nodes.len() - 2 {
+                let a = swap_context.1.var_at_level(level, &man.var2level);
+                let b = swap_context.1.var_at_level(level + 1, &man.var2level);
+
+                if let (Some(a), Some(b)) = (a, b) {
+                    swap_context = DDManager::partial_swap(&man, a, b, swap_context.1);
+                }
+            }
+            man.persist_swap(swap_context.1);
+        }
+        println!("Partial swap took {:?}", start.elapsed() / N);
+    }
+
+    #[test]
+    fn swap_eval_window() {
+        // Build BDD
+        let (mut man, nodes) = DDManager::load_from_dddmp_file(PATH.to_string()).unwrap();
+        let bdd = nodes[0];
+        let start_level = man.var2level[man.nodes.get(&bdd).unwrap().var.0] + 1;
+
+        man.purge_retain(bdd);
+
+        let l2n: Vec<usize> = man
+            .level2nodes
+            .clone()
+            .into_iter()
+            .map(|level| level.len())
+            .collect();
+
+        // let threshold = l2n.iter().max().unwrap() / 3;
+        let threshold = median(&l2n);
+        let ranges = ThresholdMethod::default().generate_area(
+            l2n,
+            Some(4),
+            Some(threshold),
+            Some(start_level),
+        );
+        let window_swaps = ranges
+            .into_iter()
+            .map(|(a, b)| gen_permutation(a, b))
+            .collect::<Vec<Vec<(usize, usize)>>>();
+
+        println!("Swap window Permutation");
+
+        let count: usize = window_swaps.clone().into_iter().map(|x| x.len()).sum();
+        println!("swap count: {}", count);
+
+        // regular swap
+        let start = std::time::Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+            let mut bdd = bdd.clone();
+
+            for window in window_swaps.clone() {
+                for (from, to) in window {
+                    let a = man.var_at_level(from).unwrap();
+                    let b = man.var_at_level(to).unwrap();
+                    bdd = man.swap(a, b, bdd);
+                }
+            }
+        }
+        println!("Regular swap took {:?}", start.elapsed() / N);
+
+        // partial swap
+        let start = std::time::Instant::now();
+        // Create the runtime
+        // let runtime = Runtime::new().unwrap();
+        for _ in 0..N {
+            let manager = Arc::new(man.clone());
+
+            let runtime = Runtime::new().unwrap();
+
+            let futures = window_swaps
+                .clone()
+                .into_iter()
+                .map(|window| {
+                    let man = manager.clone();
+                    runtime.spawn_blocking(move || {
+                        let mut swap_context = (0, SwapContext::default());
+                        for (from, to) in window {
+                            let a = swap_context.1.var_at_level(from, &man.var2level).unwrap();
+                            let b = swap_context.1.var_at_level(to, &man.var2level).unwrap();
+
+                            swap_context =
+                                DDManager::partial_swap(&man.clone(), a, b, swap_context.1);
+                        }
+                        swap_context.1
+                    })
+                })
+                .collect::<Vec<JoinHandle<SwapContext>>>();
+
+            let results = runtime.block_on(future::join_all(futures));
+            for result in results {
+                let result = result.unwrap();
+                man.persist_swap(result);
+            }
+        }
+        println!("Partial swap async took {:?}", start.elapsed() / N);
+
+        // partial swap
+        let start = std::time::Instant::now();
+        // Create the runtime
+        // let runtime = Runtime::new().unwrap();
+        for _ in 0..N {
+            let manager = Arc::new(man.clone());
+
+            let results = window_swaps
+                .clone()
+                .into_par_iter()
+                .map(|window| {
+                    let mut swap_context = (0, SwapContext::default());
+                    let man = manager.clone();
+                    for (from, to) in window {
+                        let a = swap_context.1.var_at_level(from, &man.var2level).unwrap();
+                        let b = swap_context.1.var_at_level(to, &man.var2level).unwrap();
+
+                        swap_context = DDManager::partial_swap(&man.clone(), a, b, swap_context.1);
+                    }
+                    swap_context.1
+                })
+                .collect::<Vec<SwapContext>>();
+
+            for result in results {
+                man.persist_swap(result);
+            }
+        }
+        println!("Partial swap async 2 took {:?}", start.elapsed() / N);
+
+        // partial swap
+        let start = std::time::Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+
+            for window in window_swaps.clone() {
+                for (from, to) in window {
+                    let a = man.var_at_level(from).unwrap();
+                    let b = man.var_at_level(to).unwrap();
+
+                    let swap_context = DDManager::partial_swap(&man, a, b, SwapContext::default());
+                    man.persist_swap(swap_context.1);
+                }
+            }
+        }
+        println!(
+            "Partial swap instant resolve took {:?}",
+            start.elapsed() / N
+        );
+
+        // partial swap
+        let start = std::time::Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+
+            for window in window_swaps.clone() {
+                let mut swap_context = (0, SwapContext::default());
+                for (from, to) in window {
+                    let a = swap_context.1.var_at_level(from, &man.var2level).unwrap();
+                    let b = swap_context.1.var_at_level(to, &man.var2level).unwrap();
+
+                    swap_context = DDManager::partial_swap(&man, a, b, swap_context.1);
+                }
+                man.persist_swap(swap_context.1);
+            }
+        }
+        println!("Partial swap took {:?}", start.elapsed() / N);
     }
 }
