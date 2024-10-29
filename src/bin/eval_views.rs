@@ -114,7 +114,7 @@ fn evaluate_slicing(folder_path: &str, simple: bool) {
                 varids.shuffle(&mut thread_rng());
             }
             let mut result_writer = Writer::from_path(if simple {
-                format!("{}/slicing-{}-simple", folder_path, example)
+                format!("{}/slicing-{}-simple.csv", folder_path, example)
             } else {
                 format!("{}/slicing-{}-{:02}.csv", folder_path, example, n)
             })
