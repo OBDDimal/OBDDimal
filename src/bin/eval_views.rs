@@ -37,7 +37,7 @@ pub fn main() {
     let all = cmd_args.contains("--all") || cmd_args.len() == 1;
 
     if all || cmd_args.contains("--slicing") {
-        evaluate_slicing(&folder_path);
+        evaluate_slicing(&folder_path, cmd_args.contains("--simple"));
     }
 
     if all || cmd_args.contains("--atomic-sets") {
@@ -55,23 +55,30 @@ struct SlicingMeasurement {
     nodes_in_manager_after: usize,
 }
 
-fn evaluate_slicing(folder_path: &str) {
+fn evaluate_slicing(folder_path: &str, simple: bool) {
     for example in [
+        "sandwich",
+        "berkeleydb",
+        "embtoolkit",
+        "busybox_1.18.0",
+        "financialservices01",
         "automotive01",
+        "automotive02_v1",
+        "automotive02_v2",
+        "automotive02_v3",
         "automotive02_v4",
-        //"sandwich",
     ]
     .iter()
     {
-        const ITERATION_COUNT: usize = 1000;
+        let iteration_count: usize = if simple { 1 } else { 100 };
         //const MAX_BDDS_TO_KEEP: usize = isize::MAX as usize;
         const MAX_BDDS_TO_KEEP: usize = 2usize;
-        for n in 0..ITERATION_COUNT {
+        for n in 0..iteration_count {
             println!(
                 "Slicing {} (iteration {}/{}).",
                 example,
                 n + 1,
-                ITERATION_COUNT
+                iteration_count
             );
             // Prepare
             let mut bdds = vec![Some(
@@ -103,14 +110,20 @@ fn evaluate_slicing(folder_path: &str) {
                     .unwrap()
                     .var2level,
             );
-            varids.shuffle(&mut thread_rng());
-            let mut result_writer =
-                Writer::from_path(format!("{}/slicing-{}-{:03}.csv", folder_path, example, n))
-                    .unwrap();
+            if !simple {
+                varids.shuffle(&mut thread_rng());
+            }
+            let mut result_writer = Writer::from_path(if simple {
+                format!("{}/slicing-{}-simple", folder_path, example)
+            } else {
+                format!("{}/slicing-{}-{:02}.csv", folder_path, example, n)
+            })
+            .unwrap();
             // Measure
             for var_id in varids.iter() {
                 // Calculate new bdd pos
                 let new_bdd_pos = (last_bdd_pos + 1) % bdds.len();
+
                 // Clean up potential removed bdds
                 bdds[last_bdd_pos]
                     .as_ref()
@@ -161,8 +174,14 @@ fn evaluate_slicing(folder_path: &str) {
                     })
                     .unwrap();
                 result_writer.flush().unwrap();
-                // Update old bdd pos
-                last_bdd_pos = new_bdd_pos;
+
+                if simple {
+                    // Remove new BDD
+                    bdds[new_bdd_pos] = None;
+                } else {
+                    // Update old bdd pos
+                    last_bdd_pos = new_bdd_pos;
+                }
             }
         }
     }
@@ -185,10 +204,10 @@ fn evaluate_atomic_sets(folder_path: &str) {
         "busybox_1.18.0",
         "financialservices01",
         "automotive01",
-        "automotive02_v1",
-        "automotive02_v2",
-        "automotive02_v3",
-        "automotive02_v4",
+        //"automotive02_v1",
+        //"automotive02_v2",
+        //"automotive02_v3",
+        //"automotive02_v4",
     ]
     .iter()
     {
