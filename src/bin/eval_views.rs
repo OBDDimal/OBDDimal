@@ -43,6 +43,10 @@ pub fn main() {
     if all || cmd_args.contains("--atomic-sets") {
         evaluate_atomic_sets(&folder_path);
     }
+
+    if all || cmd_args.contains("--var_nodecount") {
+        evaluate_var_nodecount(&folder_path);
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -121,6 +125,10 @@ fn evaluate_slicing(folder_path: &str, simple: bool) {
             .unwrap();
             // Measure
             for var_id in varids.iter() {
+                if *var_id == VarID(0) {
+                    continue;
+                }
+
                 // Calculate new bdd pos
                 let new_bdd_pos = (last_bdd_pos + 1) % bdds.len();
 
@@ -234,6 +242,53 @@ fn evaluate_atomic_sets(folder_path: &str) {
                     time_in_seconds: elapsed.as_secs_f64(),
                     size_before,
                     size_after,
+                })
+                .unwrap();
+            result_writer.flush().unwrap();
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+struct Var2NodeCount {
+    variable: VarID,
+    nodes_count: usize,
+}
+
+fn evaluate_var_nodecount(folder_path: &str) {
+    for example in [
+        "sandwich",
+        "berkeleydb",
+        "embtoolkit",
+        "busybox_1.18.0",
+        "financialservices01",
+        "automotive01",
+        "automotive02_v1",
+        "automotive02_v2",
+        "automotive02_v3",
+        "automotive02_v4",
+    ]
+    .iter()
+    {
+        let bdd = BddView::load_from_dddmp_file(format!("examples/{}.dimacs.dddmp", example))
+            .unwrap()[0]
+            .clone();
+        let varids = var2level_to_ordered_varids(&bdd.get_manager().read().unwrap().var2level);
+        let mut result_writer =
+            Writer::from_path(format!("{}/var2nodecount-{}.csv", folder_path, example)).unwrap();
+        for var_id in varids.iter() {
+            if *var_id == VarID(0) {
+                continue;
+            }
+
+            let man = bdd.get_manager().clone();
+            let man = man.read().unwrap();
+            let nodes_count = man.level2nodes[man.var2level[var_id.0]].len();
+
+            result_writer
+                .serialize(Var2NodeCount {
+                    variable: *var_id,
+                    nodes_count,
                 })
                 .unwrap();
             result_writer.flush().unwrap();

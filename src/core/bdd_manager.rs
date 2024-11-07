@@ -37,7 +37,7 @@ pub struct DDManager {
     /// Unique Table for each variable. Note that the indices into this table are the depths of the
     /// variables, not their IDs. The depth of a variable can be determined through
     /// [var2level](`DDManager::var2level`)!
-    pub(crate) level2nodes: Vec<HashSet<DDNode>>,
+    pub level2nodes: Vec<HashSet<DDNode>>,
     /// Computed Table for ITE: maps (f,g,h) to ite(f,g,h)
     pub(super) ite_c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
     /// Computed Table for Apply: maps (op,u,v) to apply(op,u,v)
