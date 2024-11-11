@@ -10,6 +10,7 @@ use super::area_generation::{AreaSelection, AreaSelectionEnum};
 use crate::core::{
     bdd_manager::DDManager,
     bdd_node::{NodeID, VarID},
+    dvo::area_generation::merge_ranges,
     order::var2level_to_ordered_varids,
     swap::SwapContext,
 };
@@ -97,6 +98,7 @@ fn find_best_position_in_range<R: RangeBounds<usize> + IntoIterator<Item = usize
             best_graphsize = current_size;
         } else if let Some(max) = max_increase {
             if current_size > best_graphsize + (max as isize) {
+                // println!("Max increase reached");
                 // Do not continue moving downwards, because the graph has grown too much
                 return (best_graphsize, best_context);
             }
@@ -357,7 +359,7 @@ impl ConcurrentDVOStrategie for Sifting {
         let vars: Vec<VarID> = level_range
             .clone()
             .into_iter()
-            .map(|level| man.var_at_level(level).unwrap())
+            .filter_map(|level| man.var_at_level(level))
             .collect();
 
         let mut result = swap_context;
@@ -400,7 +402,19 @@ impl ConcurrentDVOStrategie for SiftingTwo {
         let vars: Vec<VarID> = level_range
             .clone()
             .into_iter()
-            .map(|level| man.var_at_level(level).unwrap())
+            .filter_map(|level| man.var_at_level(level))
+            .collect();
+
+        let _: Vec<()> = level_range
+            .clone()
+            .into_iter()
+            .map(|level| match man.var_at_level(level) {
+                Some(var) => (),
+                None => {
+                    println!("No variable at level {}", level);
+                    println!("max level: {}", man.level2nodes.len());
+                }
+            })
             .collect();
 
         let mut result = swap_context;
@@ -488,7 +502,8 @@ impl ConcurrentDVOStrategie for WindowPermutation {
             } else if let Some(max) = max_increase {
                 if current_size > best_size + (max as isize) {
                     // Do not continue moving upwards, because the graph has grown too much
-                    return SwapContext::default();
+                    // return SwapContext::default();
+                    break;
                 }
             }
         }
@@ -514,6 +529,76 @@ impl ConcurrentDVOStrategie for WindowPermutation {
         // println!("Best size: {}", best_size);
 
         result.1
+    }
+}
+
+#[derive(Default, Clone, Debug, PartialEq)]
+pub struct SecondWindowPermutation {}
+
+impl ConcurrentDVOStrategie for SecondWindowPermutation {
+    fn compute_concurrent_dvo<R: RangeBounds<usize> + Clone + IntoIterator<Item = usize>>(
+        &self,
+        man: Arc<DDManager>,
+        max_increase: Option<usize>,
+        level_range: R,
+        swap_context: SwapContext,
+    ) -> SwapContext {
+        let man = man.clone();
+
+        let end_level = match level_range.end_bound() {
+            std::ops::Bound::Included(&x) => x,
+            std::ops::Bound::Excluded(&x) => x - 1,
+            std::ops::Bound::Unbounded => panic!("Unbounded range."),
+        };
+
+        let start_level = match level_range.start_bound() {
+            std::ops::Bound::Included(&x) => x,
+            std::ops::Bound::Excluded(&x) => x + 1,
+            std::ops::Bound::Unbounded => panic!("Unbounded range."),
+        };
+
+        if end_level - start_level > 6 {
+            return swap_context;
+        }
+
+        // println!("Start level: {}, End level: {}", start_level, end_level);
+
+        let mut current_permutation: Vec<usize> = (start_level..=end_level).collect();
+        let mut current_size = 0;
+        let mut best_size = 0;
+        let mut result = (0, swap_context.clone());
+        let mut best_swap: SwapContext = swap_context.clone();
+
+        for (from, to) in gen_permutation(start_level, end_level) {
+            // println!(
+            //     "Swapping {} ({:?}) and {}({:?})",
+            //     from,
+            //     result.1.var_at_level(from, &man.var2level).unwrap(),
+            //     to,
+            //     result.1.var_at_level(to, &man.var2level).unwrap()
+            // );
+            let a = result.1.var_at_level(from, &man.var2level).unwrap();
+            let b = result.1.var_at_level(to, &man.var2level).unwrap();
+
+            result = man.partial_swap(a, b, result.1);
+            current_size += result.0;
+            current_permutation.swap(from - start_level, to - start_level);
+            // println!("current_permutation: {:?}", current_permutation);
+
+            if current_size < best_size {
+                log::info!(" New optimum found with order {:?}", current_permutation);
+                // println!(" New optimum found with order {:?}", current_permutation);
+                // self.purge_retain(root);
+                best_size = current_size;
+                best_swap = result.1.clone();
+            } else if let Some(max) = max_increase {
+                if current_size > best_size + (max as isize) {
+                    // Do not continue moving upwards, because the graph has grown too much
+                    return best_swap;
+                }
+            }
+        }
+        best_swap
     }
 }
 
@@ -564,28 +649,37 @@ impl DVOStrategie for ConcurrentDVO {
         let root_var = manager.nodes.get(&f).unwrap().var;
         let root_level = manager.var2level[root_var.0];
 
-        let l2n: Vec<usize> = manager
-            .level2nodes
-            .clone()
-            .into_iter()
-            .map(|level| level.len())
-            .collect();
+        let node_distribution: Vec<usize> = manager.calculate_node_count();
+        let threshold_node_dist = self.threshold.unwrap_or(median(&node_distribution));
 
-        let threshold = self.threshold.unwrap_or(median(&l2n));
-
-        let ranges = self.area_selection.generate_area(
-            l2n,
+        let ranges_node_dist = self.area_selection.generate_area(
+            node_distribution,
             self.area_size,
-            Some(threshold),
+            Some(threshold_node_dist),
             Some(root_level),
         );
+
+        // let connection_distance = manager.calculate_connection_distance();
+        // let threshold_connection_dist = self.threshold.unwrap_or(median(&connection_distance));
+
+        // let mut ranges_connection_dist = self.area_selection.generate_area(
+        //     connection_distance,
+        //     None,
+        //     Some(threshold_connection_dist),
+        //     Some(root_level),
+        // );
+
+        // ranges_node_dist.append(&mut ranges_connection_dist);
+        // let ranges = merge_ranges(&ranges_node_dist);
+
+        println!("Ranges: {:?}", ranges_node_dist);
 
         let man = Arc::new(manager.clone());
 
         let runtime = Runtime::new().unwrap();
 
-        let futures = ranges
-            .par_iter()
+        let futures = ranges_node_dist
+            .iter()
             .map(|(start, end)| {
                 let start = *start;
                 let end = *end;
@@ -607,6 +701,23 @@ impl DVOStrategie for ConcurrentDVO {
             let result = result.unwrap();
             manager.persist_swap(result);
         }
+
+        // let results = ranges_node_dist
+        //     .par_iter()
+        //     .map(|(start, end)| {
+        //         self.strategy.compute_concurrent_dvo(
+        //             man.clone(),
+        //             max_increase,
+        //             *start..=*end,
+        //             SwapContext::new(),
+        //         )
+        //     })
+        //     .collect::<Vec<SwapContext>>();
+
+        // for result in results {
+        //     manager.persist_swap(result);
+        // }
+
         f
     }
 }
@@ -771,21 +882,6 @@ pub trait DVOStrategie {
     fn run_dvo(&self, manager: &mut DDManager, f: NodeID, max_increase: Option<usize>) -> NodeID;
 }
 
-/// This contains all available DVO implementations
-#[enum_dispatch(ConcurrentDVOStrategie)]
-#[derive(Clone, Debug, PartialEq)]
-pub enum ConcurrentDVOStrategieEnum {
-    WindowPermutation,
-    Sifting,
-    SiftingTwo,
-}
-
-impl Default for ConcurrentDVOStrategieEnum {
-    fn default() -> Self {
-        SiftingTwo::default().into()
-    }
-}
-
 /// Implements generate_area()
 #[enum_dispatch(ConcurrentDVOStrategie)]
 pub trait ConcurrentDVOStrategie {
@@ -797,6 +893,22 @@ pub trait ConcurrentDVOStrategie {
         level_range: R,
         swap_context: SwapContext,
     ) -> SwapContext;
+}
+
+/// This contains all available DVO implementations
+#[enum_dispatch(ConcurrentDVOStrategie)]
+#[derive(Clone, Debug, PartialEq)]
+pub enum ConcurrentDVOStrategieEnum {
+    WindowPermutation,
+    SecondWindowPermutation,
+    Sifting,
+    SiftingTwo,
+}
+
+impl Default for ConcurrentDVOStrategieEnum {
+    fn default() -> Self {
+        SiftingTwo::default().into()
+    }
 }
 
 #[cfg(test)]
@@ -916,7 +1028,7 @@ mod tests {
 
 #[cfg(test)]
 mod dvo_evaluation {
-    use std::{fs, io::Write, time::Instant};
+    use std::{fs, io::Write, thread::available_parallelism, time::Instant};
 
     use super::{
         ConcurrentDVO, ConcurrentDVOStrategieEnum, DVOStrategie, Sifting, SiftingTwo,
@@ -924,12 +1036,18 @@ mod dvo_evaluation {
     };
     use crate::core::{
         bdd_manager::DDManager,
-        dvo::area_generation::{AreaSelection, ThresholdMethod},
+        bdd_node::VarID,
+        dvo::{
+            area_generation::{AreaSelection, EqualSplitMethod, HotspotMethod, ThresholdMethod},
+            dvo_strategies::SecondWindowPermutation,
+        },
     };
 
     static N: u32 = 1;
     // static PATH: &str = "examples/financialServices01.dimacs.dddmp";
-    static PATH: &str = "examples/berkeleydb.dimacs.dddmp";
+    // static PATH: &str = "examples/berkeleydb.dimacs.dddmp";
+    // static PATH: &str = "examples/automotive02v4.dimacs.dddmp";
+    static PATH: &str = "examples/automotive01.dimacs.dddmp";
 
     #[test]
     fn info() {
@@ -944,6 +1062,7 @@ mod dvo_evaluation {
             .map(|level| level.len())
             .collect::<Vec<usize>>();
 
+        println!("Threads: {}", available_parallelism().unwrap().get());
         println!("Model: {}", PATH);
         println!("Level: {}", nodes.len());
         println!("Nodes: {}", nodes.into_iter().sum::<usize>());
@@ -1425,5 +1544,369 @@ mod dvo_evaluation {
             .zip(b.iter())
             .map(|(x, y)| x.abs_diff(*y))
             .collect()
+    }
+
+    #[test]
+    fn diff_after_concurrent_sifting() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let (mut man, nodes) = DDManager::load_from_dddmp_file(PATH.to_string()).unwrap();
+        let bdd = nodes[0];
+        man.purge_retain(bdd);
+        let start_order = man.var2level.clone();
+        let mut current = man.count_active(bdd);
+        let expected = man.sat_count(bdd);
+        // 51695
+        let nodes_before = man.calculate_node_count();
+
+        let dvo_one = ConcurrentDVO::new(
+            Some(50),
+            Box::new(SiftingTwo::default().into()),
+            Box::new(ThresholdMethod::new(None).into()),
+            None,
+        );
+        let dvo_two = ConcurrentDVO::new(
+            Some(5),
+            Box::new(SecondWindowPermutation::default().into()),
+            Box::new(EqualSplitMethod::default().into()),
+            None,
+        );
+        let dvo_three = ConcurrentDVO::new(
+            Some(50),
+            Box::new(SiftingTwo::default().into()),
+            Box::new(HotspotMethod::default().into()),
+            Some(0),
+        );
+        let dvo_four = ConcurrentDVO::new(
+            Some(70),
+            Box::new(SiftingTwo::default().into()),
+            Box::new(EqualSplitMethod::default().into()),
+            None,
+        );
+        let start = Instant::now();
+        loop {
+            println!("Current: {}", current);
+            dvo_two.run_dvo(&mut man, bdd, None);
+            dvo_one.run_dvo(&mut man, bdd, None);
+            dvo_three.run_dvo(&mut man, bdd, None);
+            dvo_four.run_dvo(&mut man, bdd, None);
+            let new_count = man.count_active(bdd);
+            if current <= new_count {
+                break;
+            }
+            current = new_count;
+            break;
+        }
+        println!("Time: {}ms", start.elapsed().as_millis());
+        //58691ms
+        //59597ms
+
+        println!("Current: {}", current);
+        let distance = var2level_distance(&start_order, &man.var2level);
+        // println!("Diff: {:?}", distance);
+        assert_eq!(expected, man.sat_count(bdd));
+
+        // println!("v2l before: {:?}", start_order);
+        // println!("v2l after: {:?}", man.var2level);
+
+        // println!(
+        //     "root level {}",
+        //     man.var2level[man.nodes.get(&bdd).unwrap().var.0]
+        // );
+
+        let nodes = man.calculate_node_count();
+        // println!("Nodes: {:?}", nodes);
+
+        let mut file = fs::File::create(format!("berkeleydb_after_dvo_sifting.csv")).unwrap();
+
+        let mut wtr = csv::Writer::from_writer(vec![]);
+        wtr.write_record(vec!["layer", "nodes", "nodes_after", "distance"])
+            .unwrap();
+        for i in 0..nodes.len() - 1 {
+            wtr.write_record(vec![
+                i.to_string(),
+                nodes_before[i].to_string(),
+                nodes[i].to_string(),
+                distance[man.var_at_level(i).unwrap_or(VarID(0)).0].to_string(),
+            ])
+            .unwrap();
+        }
+
+        let data = String::from_utf8(wtr.into_inner().unwrap()).unwrap();
+        file.write_all(data.as_bytes()).unwrap();
+    }
+
+    #[test]
+    fn diff_after_sifting() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let (mut man, nodes) = DDManager::load_from_dddmp_file(PATH.to_string()).unwrap();
+        let mut bdd = nodes[0];
+        man.purge_retain(bdd);
+        let start_order = man.var2level.clone();
+        let mut current = man.count_active(bdd);
+        let expected = man.sat_count(bdd);
+
+        let nodes_before = man.calculate_node_count();
+        let connection_distance_before = man.calculate_connection_distance();
+
+        let start = Instant::now();
+        loop {
+            println!("Current: {}", current);
+            bdd = man.sift_all_vars(bdd, true, None);
+            let new_count = man.count_active(bdd);
+            if current <= new_count {
+                break;
+            }
+            current = new_count;
+        }
+        println!("Time: {}s", start.elapsed().as_secs());
+        println!("Current: {}", current);
+        let distance = var2level_distance(&start_order, &man.var2level);
+        // println!("Diff: {:?}", distance);
+        println!(
+            "avg Diff: {}",
+            distance.iter().sum::<usize>() / distance.len()
+        );
+        assert_eq!(expected, man.sat_count(bdd));
+
+        // println!("v2l before: {:?}", start_order);
+        // println!("v2l after: {:?}", man.var2level);
+
+        println!(
+            "root level {}",
+            man.var2level[man.nodes.get(&bdd).unwrap().var.0]
+        );
+
+        let nodes = man.calculate_node_count();
+        // println!("Nodes: {:?}", nodes);
+
+        let connection_distance_after = man.calculate_connection_distance();
+
+        println! {"#Nodes before: {:?}", nodes_before.iter().sum::<usize>()};
+        println! {"#Nodes after: {:?}", nodes.iter().sum::<usize>()};
+
+        let mut file = fs::File::create(format!("berkeleydb_after_sifting.csv")).unwrap();
+
+        let mut wtr = csv::Writer::from_writer(vec![]);
+        wtr.write_record(vec![
+            "layer",
+            "nodes",
+            "connection_distance",
+            "nodes_after",
+            "connection_distance_after",
+            "distance",
+        ])
+        .unwrap();
+        for i in 0..nodes.len() - 1 {
+            wtr.write_record(vec![
+                i.to_string(),
+                nodes_before[i].to_string(),
+                connection_distance_before[i].to_string(),
+                nodes[i].to_string(),
+                connection_distance_after[i].to_string(),
+                distance[man.var_at_level(i).unwrap_or(VarID(0)).0].to_string(),
+            ])
+            .unwrap();
+        }
+
+        let data = String::from_utf8(wtr.into_inner().unwrap()).unwrap();
+        file.write_all(data.as_bytes()).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod evaluation {
+
+    use std::sync::Arc;
+
+    use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+
+    use super::{SecondWindowPermutation, SiftingTwo};
+    use crate::core::{
+        bdd_manager::DDManager,
+        dvo::{
+            area_generation::{AreaSelection, EqualSplitMethod},
+            dvo_strategies::{
+                ConcurrentDVOStrategie, ConcurrentDVOStrategieEnum, Sifting, WindowPermutation,
+            },
+        },
+        swap::SwapContext,
+    };
+
+    static MODELS: [&str; 2] = [
+        "examples/berkeleydb.dimacs.dddmp",
+        "examples/financialServices01.dimacs.dddmp",
+        // "examples/automotive02v4.dimacs.dddmp",
+        // "examples/automotive01.dimacs.dddmp",
+    ];
+
+    #[test]
+    fn concurrent_vs_sequential() {
+        let strategies: Vec<ConcurrentDVOStrategieEnum> = vec![
+            Sifting::default().into(),
+            WindowPermutation::default().into(),
+        ];
+
+        for model in MODELS.iter() {
+            println!("############ Model: {}", model);
+
+            let (mut man, nodes) = DDManager::load_from_dddmp_file(model.to_string()).unwrap();
+            let bdd = nodes[0];
+            man.purge_retain(bdd);
+            let start_level = man.var2level[man.nodes.get(&bdd).unwrap().var.0];
+            let nodes = man.calculate_node_count();
+            let max_increase = man
+                .level2nodes
+                .iter()
+                .map(|level| level.len())
+                .max()
+                .unwrap();
+
+            let before = man.count_active(bdd);
+
+            let ranges =
+                EqualSplitMethod::default().generate_area(nodes, Some(5), None, Some(start_level));
+            // println!("{:?}", ranges);
+
+            // // Sequential
+            // for strategy in strategies.clone() {
+            //     let start = std::time::Instant::now();
+
+            //     let mut man = man.clone();
+            //     let manager = Arc::new(man.clone());
+
+            //     let results = ranges
+            //         .clone()
+            //         .into_iter()
+            //         .map(|(from, to)| {
+            //             let mut swap_context = SwapContext::new();
+            //             swap_context.precalc_references(&manager.clone(), from, to);
+            //             strategy.compute_concurrent_dvo(
+            //                 manager.clone(),
+            //                 None,
+            //                 from..=to,
+            //                 swap_context,
+            //             )
+            //         })
+            //         .collect::<Vec<SwapContext>>();
+            //     for result in results {
+            //         man.persist_swap(result);
+            //     }
+
+            //     let after = man.count_active(bdd);
+
+            //     println!(
+            //         "Sciential Strategy {:?} took {:?} and improved {} to {} which is an improvement of {}%",
+            //         strategy,
+            //         start.elapsed(),
+            //         before,
+            //         after,
+            //         ((before - after) as f64 / before as f64) * 100.0
+            //     );
+            // }
+            // Asynchronous
+            for strategy in strategies.clone() {
+                let start = std::time::Instant::now();
+
+                let mut man = man.clone();
+                let manager = Arc::new(man.clone());
+
+                let results = ranges
+                    .clone()
+                    .into_par_iter()
+                    .map(|(from, to)| {
+                        let mut swap_context = SwapContext::new();
+                        swap_context.precalc_references(&manager.clone(), from, to);
+                        strategy.compute_concurrent_dvo(
+                            manager.clone(),
+                            Some(max_increase),
+                            from..=to,
+                            swap_context,
+                        )
+                    })
+                    .collect::<Vec<SwapContext>>();
+                for result in results {
+                    man.persist_swap(result);
+                }
+
+                let after = man.count_active(bdd);
+
+                println!(
+                    "Asynchronous Strategy {:?} took {:?} and improved {} to {} which is an improvement of {}%",
+                    strategy,
+                    start.elapsed(),
+                    before,
+                    after,
+                    ((before - after) as f64 / before as f64) * 100.0
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn utilize_context() {
+        let strategies: Vec<ConcurrentDVOStrategieEnum> = vec![
+            Sifting::default().into(),
+            SiftingTwo::default().into(),
+            // WindowPermutation::default().into(),
+            // SecondWindowPermutation::default().into(),
+        ];
+
+        for model in MODELS.iter() {
+            println!("############ Model: {}", model);
+
+            let (mut man, nodes) = DDManager::load_from_dddmp_file(model.to_string()).unwrap();
+            let bdd = nodes[0];
+            man.purge_retain(bdd);
+            let start_level = man.var2level[man.nodes.get(&bdd).unwrap().var.0];
+            let nodes = man.calculate_node_count();
+            let max_increase = man
+                .level2nodes
+                .iter()
+                .map(|level| level.len())
+                .max()
+                .unwrap();
+
+            let before = man.count_active(bdd);
+
+            let ranges =
+                EqualSplitMethod::default().generate_area(nodes, Some(10), None, Some(start_level));
+            // println!("{:?}", ranges);
+
+            for strategy in strategies.clone() {
+                let start = std::time::Instant::now();
+
+                let mut man = man.clone();
+                let manager = Arc::new(man.clone());
+
+                let results = ranges
+                    .clone()
+                    .into_iter()
+                    .map(|(from, to)| {
+                        let mut swap_context = SwapContext::new();
+                        swap_context.precalc_references(&manager.clone(), from, to);
+                        strategy.compute_concurrent_dvo(
+                            manager.clone(),
+                            Some(max_increase),
+                            from..=to,
+                            swap_context,
+                        )
+                    })
+                    .collect::<Vec<SwapContext>>();
+                for result in results {
+                    man.persist_swap(result);
+                }
+
+                let after = man.count_active(bdd);
+
+                println!(
+                    "Asynchronous Strategy {:?} took {:?} and improved {} to {} which is an improvement of {}%",
+                    strategy,
+                    start.elapsed(),
+                    before,
+                    after,
+                    ((before - after) as f64 / before as f64) * 100.0
+                );
+            }
+        }
     }
 }

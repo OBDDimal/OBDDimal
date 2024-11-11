@@ -177,7 +177,7 @@ impl DDManager {
         mut f: NodeID,
     ) -> NodeID {
         let starting_pos = self.var2level[var.0];
-        println!("Starting pos: {} for {}", starting_pos, var.0);
+        // println!("Starting pos: {} for {}", starting_pos, var.0);
 
         let mut best_position = starting_pos;
         let mut best_graphsize: isize = 0;
@@ -279,10 +279,10 @@ impl DDManager {
             best_graphsize,
             best_position
         );
-        println!(
-            "The best result was graph size of {} at level {}. Moving there...",
-            best_graphsize, best_position
-        );
+        // println!(
+        //     "The best result was graph size of {} at level {}. Moving there...",
+        //     best_graphsize, best_position
+        // );
 
         for level in current_level + 1..=best_position {
             // Swap var at level-1 (our variable) with var at level
@@ -324,7 +324,7 @@ impl DDManager {
         let root_var = self.nodes.get(&f).unwrap().var;
         let root_level = self.var2level[root_var.0];
 
-        println!("Root level: {} - varId: {:?} ", root_level, root_var);
+        // println!("Root level: {} - varId: {:?} ", root_level, root_var);
 
         for v in (1..self.var2level.len() - 1) {
             if_some!(bar, inc(1));

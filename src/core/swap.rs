@@ -6,6 +6,7 @@ use std::{
     collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
     sync::{Arc, RwLock},
+    thread::panicking,
 };
 
 use itertools::Itertools;
@@ -55,6 +56,7 @@ pub struct SwapContext {
     new_nodes: HashSet<TempNode>,
     new_level2nodes: HashMap<VarID, HashSet<NodeEnum>>,
     node_id_counter: usize,
+    referenced_above: Option<(HashSet<NodeID>, usize)>,
 }
 
 impl Default for SwapContext {
@@ -64,11 +66,33 @@ impl Default for SwapContext {
             new_nodes: HashSet::new(),
             new_level2nodes: HashMap::new(),
             node_id_counter: 2,
+            referenced_above: None,
         }
     }
 }
 
 impl SwapContext {
+    pub fn precalc_references(&mut self, manager: &DDManager, from: usize, to: usize) {
+        let mut referenced_above = HashSet::new();
+        let mut in_range = HashSet::new();
+        for level in from..=to {
+            for node in manager.level2nodes[level].iter() {
+                in_range.insert(node.id);
+            }
+        }
+        for level in 0..from {
+            for node in manager.level2nodes[level].iter() {
+                if in_range.contains(&node.high) {
+                    referenced_above.insert(node.high);
+                }
+                if in_range.contains(&node.low) {
+                    referenced_above.insert(node.low);
+                }
+            }
+        }
+        self.referenced_above = Some((referenced_above, from));
+    }
+
     /// get from original var2level to the var2level after all swaps
     ///
     /// # Arguments
@@ -571,7 +595,32 @@ impl DDManager {
             .map(|(var, set)| (v2l[var.0], set))
             .collect();
 
+        let (referenced_above, from) = prev_swap
+            .referenced_above
+            .clone()
+            .unwrap_or((HashSet::new(), 0));
+
+        for lower_level_id in lower_level_ids.clone().iter().filter(|id| match id {
+            IDEnum::OldID(id) => referenced_above.contains(id),
+            IDEnum::NewID(_) => false,
+        }) {
+            let node = self.get_node(lower_level_id, &new_nodes).unwrap();
+            match node {
+                NodeEnum::OldNode(node) => {
+                    assert_eq!(node.var, lower_level_var);
+                }
+                NodeEnum::NewNode(node) => {
+                    assert_eq!(node.var, lower_level_var);
+                }
+            }
+            lower_level_ids.retain(|&id| id != *lower_level_id);
+            new_upper_level.insert(node);
+        }
+
         for (level, level_nodes) in self.level2nodes[0..upper_level].iter().enumerate() {
+            if level < from {
+                continue;
+            }
             // either get new nodes from previous swap or use current nodes
             let node_list = match level2new_nodes.get(&level) {
                 None => level_nodes
@@ -650,6 +699,7 @@ impl DDManager {
                 new_nodes,
                 new_level2nodes,
                 node_id_counter,
+                referenced_above: prev_swap.referenced_above,
             },
         );
     }
@@ -2458,5 +2508,410 @@ mod evaluation_swap {
             }
         }
         println!("Partial swap took {:?}", start.elapsed() / N);
+    }
+}
+
+#[cfg(test)]
+mod evaluation {
+    use std::{fs, io::Write, sync::Arc, time::Instant};
+
+    use futures::future;
+    use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+    use tokio::{runtime::Runtime, task::JoinHandle};
+
+    use crate::core::{
+        bdd_manager::DDManager,
+        dvo::{
+            area_generation::{
+                merge_ranges, AreaSelection, EqualSplitMethod, HotspotMethod, NSplitMethod,
+                ThresholdMethod,
+            },
+            dvo_strategies::{
+                gen_permutation, median, nth_percentile, ConcurrentDVO, ConcurrentDVOStrategie,
+                Sifting, SiftingTwo,
+            },
+        },
+        swap::SwapContext,
+    };
+
+    // static PATH: &str = "examples/berkeleydb.dimacs.dddmp";
+    // static PATH: &str = "examples/financialServices01.dimacs.dddmp";
+    // static PATH: &str = "examples/automotive02v4.dimacs.dddmp";
+    // static PATH: &str = "examples/automotive01.dimacs.dddmp";
+
+    static MODELS: [&str; 3] = [
+        "examples/berkeleydb.dimacs.dddmp",
+        "examples/financialServices01.dimacs.dddmp",
+        // "examples/automotive02v4.dimacs.dddmp",
+        "examples/automotive01.dimacs.dddmp",
+    ];
+    // static MODELS: [&str; 4] = [
+    //     "examples/berkeleydb.dimacs.dddmp",
+    //     "examples/financialServices01.dimacs.dddmp",
+    //     "examples/automotive02v4.dimacs.dddmp",
+    //     "examples/automotive01.dimacs.dddmp",
+    // ];
+
+    static N: usize = 1;
+
+    fn run_dvo_on(ranges: Vec<(usize, usize)>, manager: &mut DDManager) {
+        let man = Arc::new(manager.clone());
+        let runtime = Runtime::new().unwrap();
+
+        let max_increase = manager
+            .level2nodes
+            .iter()
+            .map(|level| level.len())
+            .max()
+            .unwrap()
+            / 2;
+        println!("Max increase: {}", max_increase);
+        // let ranges = vec![ranges[9]];
+
+        let futures = ranges
+            .iter()
+            .map(|(start, end)| {
+                let start = *start;
+                let end = *end;
+                let man = man.clone();
+                let mut swap_context = SwapContext::new();
+                swap_context.precalc_references(&man.clone(), start, end);
+                runtime.spawn_blocking(move || {
+                    SiftingTwo::default().compute_concurrent_dvo(
+                        man,
+                        Some(max_increase),
+                        start..=end,
+                        swap_context,
+                    )
+                })
+            })
+            .collect::<Vec<JoinHandle<SwapContext>>>();
+
+        let results = runtime.block_on(future::join_all(futures));
+        for result in results {
+            let result = result.unwrap();
+            manager.persist_swap(result);
+        }
+    }
+
+    #[test]
+    fn top_to_bottom() {
+        println!("top_to_bottom. Concurrent vs. Regular");
+        for model in MODELS.iter() {
+            println!("Model: {}", model);
+            let (mut man, nodes) = DDManager::load_from_dddmp_file(model.to_string()).unwrap();
+            let bdd = nodes[0];
+            man.purge_retain(bdd);
+
+            let start_level = man.var2level[man.nodes.get(&bdd).unwrap().var.0] + 2;
+            let end_level = man.level2nodes.len() - 2;
+
+            let start = Instant::now();
+            let mut counter: usize = 0;
+            for _ in 0..N {
+                let mut man = man.clone();
+                let mut bdd = bdd.clone();
+                for level in start_level..end_level {
+                    let from = man.var_at_level(level).unwrap();
+                    let to = man.var_at_level(level + 1).unwrap();
+                    counter += 1;
+                    bdd = man.swap(from, to, bdd);
+                }
+            }
+            println!("Regular Time: {:?}", start.elapsed() / N as u32);
+            println!(
+                "Regular swap Time: {:?}",
+                (start.elapsed() / N as u32) / counter as u32
+            );
+
+            let start = Instant::now();
+            let mut counter: usize = 0;
+            for _ in 0..N {
+                let mut man = man.clone();
+                let bdd = bdd.clone();
+                for level in start_level..end_level {
+                    let from = man.var_at_level(level).unwrap();
+                    let to = man.var_at_level(level + 1).unwrap();
+                    counter += 1;
+                    let _ = man.direct_swap(from, to, bdd);
+                }
+            }
+            println!("Direct Time: {:?}", start.elapsed() / N as u32);
+            println!(
+                "Direct swap Time: {:?}",
+                (start.elapsed() / N as u32) / counter as u32
+            );
+        }
+    }
+    #[test]
+    fn context() {
+        println!("context. Concurrent vs. direct");
+        let (mut man, nodes) = DDManager::load_from_dddmp_file(
+            "examples/financialServices01.dimacs.dddmp".to_string(),
+        )
+        .unwrap();
+        let bdd = nodes[0];
+        man.purge_retain(bdd);
+        let start_level = man.var2level[man.nodes.get(&bdd).unwrap().var.0];
+
+        println!("Scenario 1:");
+        let ranges = EqualSplitMethod::default().generate_area(
+            man.calculate_node_count(),
+            Some(4),
+            None,
+            Some(start_level),
+        );
+
+        let start = Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+
+            let results = ranges
+                .clone()
+                .par_iter()
+                .map(|(start, end)| {
+                    let mut swap_context = SwapContext::new();
+                    swap_context.precalc_references(&man, *start, *end);
+                    let mut result = (0, swap_context);
+                    for (from, to) in gen_permutation(*start, *end) {
+                        let a = result.1.var_at_level(from, &man.var2level).unwrap();
+                        let b = result.1.var_at_level(to, &man.var2level).unwrap();
+                        result = man.partial_swap(a, b, result.1);
+                    }
+                    result.1
+                })
+                .collect::<Vec<SwapContext>>();
+
+            for result in results {
+                man.persist_swap(result);
+            }
+        }
+        println!("Asynchron Time: {:?}", start.elapsed() / N as u32);
+
+        // return ();
+
+        let start = Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+            let bdd = bdd.clone();
+            for (start_level, end_level) in ranges.clone() {
+                for (from, to) in gen_permutation(start_level, end_level) {
+                    let a = man.var_at_level(from).unwrap();
+                    let b = man.var_at_level(to).unwrap();
+                    let _ = man.direct_swap(a, b, bdd);
+                }
+            }
+        }
+        println!("Direct Time: {:?}", start.elapsed() / N as u32);
+
+        let start = Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+            for (start_level, end_level) in ranges.clone() {
+                let mut result = (0, SwapContext::new());
+
+                for (from, to) in gen_permutation(start_level, end_level) {
+                    let a = result.1.var_at_level(from, &man.var2level).unwrap();
+                    let b = result.1.var_at_level(to, &man.var2level).unwrap();
+
+                    result = man.partial_swap(a, b, result.1);
+                }
+                man.persist_swap(result.1);
+            }
+        }
+        println!("Context Time: {:?}", start.elapsed() / N as u32);
+
+        let start = Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+            for (start_level, end_level) in ranges.clone() {
+                let mut swap_context = SwapContext::new();
+                swap_context.precalc_references(&man, start_level, end_level);
+                let mut result = (0, swap_context);
+
+                for (from, to) in gen_permutation(start_level, end_level) {
+                    let a = result.1.var_at_level(from, &man.var2level).unwrap();
+                    let b = result.1.var_at_level(to, &man.var2level).unwrap();
+
+                    result = man.partial_swap(a, b, result.1);
+                }
+                man.persist_swap(result.1);
+            }
+        }
+        println!(
+            "Context with precalculation Time: {:?}",
+            start.elapsed() / N as u32
+        );
+
+        println!("Scenario 2:");
+        let start_level = man.var2level[man.nodes.get(&bdd).unwrap().var.0] + 2;
+        let end_level = man.level2nodes.len() - 2;
+
+        let start = Instant::now();
+        // let mut counter: usize = 0;
+        for _ in 0..N {
+            let mut man = man.clone();
+            let mut context = (0, SwapContext::new());
+            for level in start_level..end_level {
+                let from = context.1.var_at_level(level, &man.var2level).unwrap();
+                let to = context.1.var_at_level(level + 1, &man.var2level).unwrap();
+                // counter += 1;
+                context = man.partial_swap(from, to, context.1);
+            }
+            man.persist_swap(context.1);
+        }
+        println!("Context Time: {:?}", start.elapsed() / N as u32);
+        // println!(
+        //     "Regular swap Time: {:?}",
+        //     (start.elapsed() / N as u32) / counter as u32
+        // );
+
+        let start = Instant::now();
+        // let mut counter: usize = 0;
+        for _ in 0..N {
+            let mut man = man.clone();
+            let bdd = bdd.clone();
+            for level in start_level..end_level {
+                let from = man.var_at_level(level).unwrap();
+                let to = man.var_at_level(level + 1).unwrap();
+                // counter += 1;
+                let _ = man.direct_swap(from, to, bdd);
+            }
+        }
+        println!("Direct Time: {:?}", start.elapsed() / N as u32);
+        // println!(
+        //     "Direct swap Time: {:?}",
+        //     (start.elapsed() / N as u32) / counter as u32
+        // );
+    }
+
+    #[test]
+    fn concurrent() {
+        println!("context. Concurrent vs. direct");
+        let (mut man, nodes) = DDManager::load_from_dddmp_file(
+            "examples/financialServices01.dimacs.dddmp".to_string(),
+        )
+        .unwrap();
+        let bdd = nodes[0];
+        man.purge_retain(bdd);
+        let start_level = man.var2level[man.nodes.get(&bdd).unwrap().var.0];
+
+        println!("Scenario 1:");
+        let ranges = EqualSplitMethod::default().generate_area(
+            man.calculate_node_count(),
+            Some(4),
+            None,
+            Some(start_level),
+        );
+
+        let start = Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+
+            let results = ranges
+                .clone()
+                .iter()
+                .map(|(start, end)| {
+                    let swap_context = SwapContext::new();
+                    // swap_context.precalc_references(&man, *start, *end);
+                    let mut result = (0, swap_context);
+                    for (from, to) in gen_permutation(*start, *end) {
+                        let a = result.1.var_at_level(from, &man.var2level).unwrap();
+                        let b = result.1.var_at_level(to, &man.var2level).unwrap();
+                        result = man.partial_swap(a, b, result.1);
+                    }
+                    result.1
+                })
+                .collect::<Vec<SwapContext>>();
+
+            for result in results {
+                man.persist_swap(result);
+            }
+        }
+        println!("Synchron Time: {:?}", start.elapsed() / N as u32);
+
+        let start = Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+
+            let results = ranges
+                .clone()
+                .iter()
+                .map(|(start, end)| {
+                    let mut swap_context = SwapContext::new();
+                    swap_context.precalc_references(&man, *start, *end);
+                    let mut result = (0, swap_context);
+                    for (from, to) in gen_permutation(*start, *end) {
+                        let a = result.1.var_at_level(from, &man.var2level).unwrap();
+                        let b = result.1.var_at_level(to, &man.var2level).unwrap();
+                        result = man.partial_swap(a, b, result.1);
+                    }
+                    result.1
+                })
+                .collect::<Vec<SwapContext>>();
+
+            for result in results {
+                man.persist_swap(result);
+            }
+        }
+        println!(
+            "Synchron precalculation Time: {:?}",
+            start.elapsed() / N as u32
+        );
+
+        let start = Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+
+            let results = ranges
+                .clone()
+                .par_iter()
+                .map(|(start, end)| {
+                    let swap_context = SwapContext::new();
+                    // swap_context.precalc_references(&man, *start, *end);
+                    let mut result = (0, swap_context);
+                    for (from, to) in gen_permutation(*start, *end) {
+                        let a = result.1.var_at_level(from, &man.var2level).unwrap();
+                        let b = result.1.var_at_level(to, &man.var2level).unwrap();
+                        result = man.partial_swap(a, b, result.1);
+                    }
+                    result.1
+                })
+                .collect::<Vec<SwapContext>>();
+
+            for result in results {
+                man.persist_swap(result);
+            }
+        }
+        println!("Asynchron Time: {:?}", start.elapsed() / N as u32);
+
+        let start = Instant::now();
+        for _ in 0..N {
+            let mut man = man.clone();
+
+            let results = ranges
+                .clone()
+                .par_iter()
+                .map(|(start, end)| {
+                    let mut swap_context = SwapContext::new();
+                    swap_context.precalc_references(&man, *start, *end);
+                    let mut result = (0, swap_context);
+                    for (from, to) in gen_permutation(*start, *end) {
+                        let a = result.1.var_at_level(from, &man.var2level).unwrap();
+                        let b = result.1.var_at_level(to, &man.var2level).unwrap();
+                        result = man.partial_swap(a, b, result.1);
+                    }
+                    result.1
+                })
+                .collect::<Vec<SwapContext>>();
+
+            for result in results {
+                man.persist_swap(result);
+            }
+        }
+        println!(
+            "Asynchron precalculation Time: {:?}",
+            start.elapsed() / N as u32
+        );
     }
 }
