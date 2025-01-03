@@ -126,7 +126,7 @@ fn sift_single_var_in_range(
         .collect::<Vec<(isize, SwapContext)>>();
 
     // go to best position
-    return match par_result
+    match par_result
         .into_iter()
         // .filter(|x| x.is_ok())
         // .map(|x| x.unwrap())
@@ -148,7 +148,7 @@ fn sift_single_var_in_range(
             }
         }
         None => (0, prev_swap),
-    };
+    }
 }
 
 #[derive(Default, Clone, Debug, PartialEq)]
@@ -167,7 +167,6 @@ impl ConcurrentDVOStrategie for Sifting {
 
         let vars: Vec<VarID> = (level_range.0..=level_range.1)
             .clone()
-            .into_iter()
             .filter_map(|level| man.var_at_level(level))
             .collect();
 
@@ -185,7 +184,7 @@ impl ConcurrentDVOStrategie for Sifting {
                 man.clone(),
                 &var,
                 max_increase,
-                level_range.clone(),
+                *level_range,
                 result,
             );
             // self.purge_retain(f);
@@ -266,8 +265,8 @@ pub struct ConcurrentDVO {
 impl ConcurrentDVO {
     pub fn new(strategy: ConcurrentDVOStrategieEnum, area_selection: AreaSelectionEnum) -> Self {
         Self {
-            strategy: strategy,
-            area_selection: area_selection,
+            strategy,
+            area_selection,
         }
     }
 }
@@ -282,7 +281,7 @@ impl DVOStrategie for ConcurrentDVO {
 
         let areas = &self
             .area_selection
-            .select_areas(&manager, (root_level + 1, end_level));
+            .select_areas(manager, (root_level + 1, end_level));
 
         let man = Arc::new(manager.clone());
 
@@ -534,10 +533,7 @@ mod sifting_test {
         let expected = man.sat_count(bdd);
         for range in ranges {
             let vars: Vec<VarID> = (range.0..=range.1)
-                .into_iter()
-                .map(|level| man.var_at_level(level))
-                .filter(|x| x.is_some())
-                .map(|f| f.unwrap())
+                .filter_map(|level| man.var_at_level(level))
                 .collect();
 
             for var in vars {
@@ -571,10 +567,7 @@ mod sifting_test {
 
         let expected = man.sat_count(bdd);
         let vars: Vec<VarID> = (range.0..=range.1)
-            .into_iter()
-            .map(|level| man.var_at_level(level))
-            .filter(|x| x.is_some())
-            .map(|f| f.unwrap())
+            .filter_map(|level| man.var_at_level(level))
             .collect();
         let var = vars[0];
 

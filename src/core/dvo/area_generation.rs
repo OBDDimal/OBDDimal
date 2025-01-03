@@ -23,13 +23,9 @@ impl Default for AreaSelectionEnum {
     }
 }
 
+#[derive(Default)]
 pub struct ThresholdMethod {}
 
-impl Default for ThresholdMethod {
-    fn default() -> Self {
-        ThresholdMethod {}
-    }
-}
 
 impl ThresholdMethod {
     pub fn new() -> Self {
@@ -142,8 +138,8 @@ impl HotspotMethod {
                 ranges.push((i - self.surrounding_area, i + self.surrounding_area));
             }
         }
-        let ranges = merge_ranges(&ranges);
-        ranges
+        
+        merge_ranges(&ranges)
     }
 }
 
@@ -193,7 +189,7 @@ pub(crate) fn split_ranges_by_node_count(
     max_size: Option<usize>,
     node_count: &Vec<usize>,
 ) -> Vec<(usize, usize)> {
-    if let None = max_size {
+    if max_size.is_none() {
         return ranges.clone();
     }
     let area_size = max_size.unwrap();

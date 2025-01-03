@@ -186,49 +186,49 @@ impl From<&DDNode> for NodeEnum {
     }
 }
 
-impl Into<TempNode> for DDNode {
-    fn into(self) -> TempNode {
+impl From<DDNode> for TempNode {
+    fn from(val: DDNode) -> Self {
         TempNode {
-            id: IDEnum::OldID(self.id),
-            var: self.var,
-            low: IDEnum::OldID(self.low),
-            high: IDEnum::OldID(self.high),
+            id: IDEnum::OldID(val.id),
+            var: val.var,
+            low: IDEnum::OldID(val.low),
+            high: IDEnum::OldID(val.high),
         }
     }
 }
 
-impl Into<TempNode> for &DDNode {
-    fn into(self) -> TempNode {
+impl From<&DDNode> for TempNode {
+    fn from(val: &DDNode) -> Self {
         TempNode {
-            id: IDEnum::OldID(self.id),
-            var: self.var,
-            low: IDEnum::OldID(self.low),
-            high: IDEnum::OldID(self.high),
+            id: IDEnum::OldID(val.id),
+            var: val.var,
+            low: IDEnum::OldID(val.low),
+            high: IDEnum::OldID(val.high),
         }
     }
 }
 
-impl Into<TempNode> for NodeEnum {
-    fn into(self) -> TempNode {
-        match self {
+impl From<NodeEnum> for TempNode {
+    fn from(val: NodeEnum) -> Self {
+        match val {
             NodeEnum::NewNode(node) => node,
             NodeEnum::OldNode(node) => node.into(),
         }
     }
 }
 
-impl Into<TempNode> for &NodeEnum {
-    fn into(self) -> TempNode {
-        match self {
-            NodeEnum::NewNode(node) => node.clone(),
+impl From<&NodeEnum> for TempNode {
+    fn from(val: &NodeEnum) -> Self {
+        match val {
+            NodeEnum::NewNode(node) => *node,
             NodeEnum::OldNode(node) => node.into(),
         }
     }
 }
 
-impl Into<NodeEnum> for TempNode {
-    fn into(self) -> NodeEnum {
-        NodeEnum::NewNode(self)
+impl From<TempNode> for NodeEnum {
+    fn from(val: TempNode) -> Self {
+        NodeEnum::NewNode(val)
     }
 }
 
@@ -255,7 +255,7 @@ fn save_node(
     assert_ne!(new_node.low, new_node.high);
 
     // check if id already exists in new_nodes -> Replace Node
-    if let Some(_) = new_nodes.get(&new_node.id) {
+    if new_nodes.get(&new_node.id).is_some() {
         assert!(new_nodes.remove(&new_node.id));
 
         // check that node does not exist any more
@@ -263,22 +263,22 @@ fn save_node(
         assert!(new_nodes.get(&new_node).is_none());
         assert!(!new_nodes.contains(&new_node));
 
-        assert!(new_nodes.insert(new_node.clone()));
+        assert!(new_nodes.insert(new_node));
         return new_node;
     }
 
     // check if new_node already exists
-    match new_nodes.iter().filter(|node| node == &&new_node).next() {
-        Some(node) => node.clone(),
+    match new_nodes.iter().find(|node| node == &&new_node) {
+        Some(node) => *node,
         None => {
             // check if new_node has a OldId -> Replace Node
             if let IDEnum::OldID(_) = new_node.id {
-                new_nodes.insert(new_node.clone());
+                new_nodes.insert(new_node);
                 return new_node;
             }
 
             // create new node
-            *counter = *counter + 1;
+            *counter += 1;
             let id = IDEnum::NewID(*counter);
 
             assert!(new_nodes.insert(TempNode {
@@ -288,7 +288,7 @@ fn save_node(
                 high: new_node.high,
             }));
 
-            new_nodes.get(&id).unwrap().clone()
+            *new_nodes.get(&id).unwrap()
         }
     }
 }
@@ -303,7 +303,7 @@ impl DDManager {
         if node.low == node.high {
             match self.get_node(&node.low, new_nodes) {
                 Some(NodeEnum::OldNode(node)) => {
-                    return (IDEnum::OldID(node.id), NodeEnum::OldNode(node.clone()))
+                    return (IDEnum::OldID(node.id), NodeEnum::OldNode(node))
                 }
                 Some(NodeEnum::NewNode(node)) => return (node.id, NodeEnum::NewNode(node)),
                 None => panic!("Node not found!"),
@@ -311,39 +311,33 @@ impl DDManager {
         }
 
         // check again if node exists
-        match new_nodes.iter().filter(|n| n == &node).next() {
-            Some(n) => {
-                return (n.id, NodeEnum::NewNode(n.clone()));
-            }
-            None => (),
+        if let Some(n) = new_nodes.iter().find(|n| n == &node) {
+            return (n.id, NodeEnum::NewNode(*n));
         }
 
         // check if there is an old node representing the new node
         if let (IDEnum::OldID(low_id), IDEnum::OldID(high_id)) = (node.low, node.high) {
-            match self.find_node(&DDNode {
+            if let Some(id) = self.find_node(&DDNode {
                 id: NodeID(0),
                 var: node.var,
                 high: high_id,
                 low: low_id,
             }) {
-                Some(id) => {
-                    let old_node = self.nodes.get(&id).unwrap();
-                    assert_eq!(
-                        old_node,
-                        &DDNode {
-                            id: NodeID(0),
-                            var: node.var,
-                            high: high_id,
-                            low: low_id,
-                        }
-                    );
-                    return (IDEnum::OldID(id), NodeEnum::OldNode(old_node.clone()));
-                }
-                None => (),
+                let old_node = self.nodes.get(&id).unwrap();
+                assert_eq!(
+                    old_node,
+                    &DDNode {
+                        id: NodeID(0),
+                        var: node.var,
+                        high: high_id,
+                        low: low_id,
+                    }
+                );
+                return (IDEnum::OldID(id), NodeEnum::OldNode(*old_node));
             }
         }
         // No old node exists, create new node
-        let new_node = save_node(new_nodes, node.clone(), counter);
+        let new_node = save_node(new_nodes, *node, counter);
         (new_node.id, NodeEnum::NewNode(new_node))
     }
 
@@ -355,9 +349,9 @@ impl DDManager {
     /// Returns the node if it exists in new_nodes or nodes
     fn get_node(&self, id: &IDEnum, new_nodes: &HashSet<TempNode>) -> Option<NodeEnum> {
         match new_nodes.get(id) {
-            Some(node) => Some(NodeEnum::NewNode(node.clone())),
+            Some(node) => Some(NodeEnum::NewNode(*node)),
             None => match id {
-                IDEnum::OldID(id) => Some(NodeEnum::OldNode(self.nodes.get(id).unwrap().clone())),
+                IDEnum::OldID(id) => Some(NodeEnum::OldNode(*self.nodes.get(id).unwrap())),
                 IDEnum::NewID(_) => None,
             },
         }
@@ -446,19 +440,13 @@ impl DDManager {
             let child_1_id = old_node.high;
             let child_0_id = old_node.low;
 
-            match self.get_node(&child_1_id, &new_nodes) {
-                None => {
-                    // child not found
-                    continue;
-                }
-                _ => (),
+            if self.get_node(&child_1_id, &new_nodes).is_none() {
+                // child not found
+                continue;
             }
-            match self.get_node(&child_0_id, &new_nodes) {
-                None => {
-                    // child not found
-                    continue;
-                }
-                _ => (),
+            if self.get_node(&child_0_id, &new_nodes).is_none() {
+                // child not found
+                continue;
             }
 
             let child_1_node: TempNode = self.get_node(&child_1_id, &new_nodes).unwrap().into();
@@ -667,16 +655,16 @@ impl DDManager {
             map
         };
 
-        return (
+        (
             difference,
             SwapContext {
-                all_swaps_in_result: all_swaps_in_result,
+                all_swaps_in_result,
                 new_nodes,
                 new_level2nodes,
                 node_id_counter,
                 referenced_above: prev_swap.referenced_above,
             },
-        );
+        )
     }
 
     pub fn persist_swap(&mut self, par_swap: SwapContext) {
@@ -698,9 +686,9 @@ impl DDManager {
             let level = self.var2level[var.0];
             // todo check if cloning works
             self.level2nodes[level].clear();
-            level_nodes.into_iter().for_each(|node| match node {
+            level_nodes.iter().for_each(|node| match node {
                 NodeEnum::OldNode(node) => {
-                    self.level2nodes[level].insert(node.clone());
+                    self.level2nodes[level].insert(*node);
                 }
                 NodeEnum::NewNode(new_node) => {
                     let mut nothing_found = false;
@@ -753,7 +741,7 @@ impl DDManager {
                                 low: else_id,
                             });
                             id2id.insert(new_node.id, id);
-                            self.level2nodes[level].insert(self.nodes.get(&id).unwrap().clone());
+                            self.level2nodes[level].insert(*self.nodes.get(&id).unwrap());
                         }
                     }
                 }
@@ -1366,7 +1354,7 @@ mod test_comparison {
         // partial swap
         let mut man = man.clone();
         let mut swap_man = man.clone();
-        let mut swap_bdd = bdd.clone();
+        let mut swap_bdd = bdd;
         for level in 3..man.level2nodes.len() - 2 {
             let a = man.var_at_level(level).unwrap();
             let b = man.var_at_level(level + 1).unwrap();

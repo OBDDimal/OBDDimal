@@ -276,10 +276,7 @@ impl DDManager {
 
         // Lookup in variable-specific unique-table
         let res = self.level2nodes[self.var2level[node.var.0]].get(node);
-        return match res {
-            Some(stuff) => Some(stuff.id), // An existing node was found
-            _ => None,                     // No existing node found
-        };
+        res.map(|stuff| stuff.id)
     }
 
     //------------------------------------------------------------------------//
