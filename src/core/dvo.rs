@@ -1,7 +1,9 @@
 //! Implementation of dynamic variable ordering techniques
 #![allow(rustdoc::private_intra_doc_links)]
 
+pub mod area_generation;
 pub mod dvo_schedules;
+pub mod dvo_strategies;
 
 use std::io::stdout;
 
@@ -17,7 +19,7 @@ use crate::if_some;
 
 impl DDManager {
     /// Find the variable at specified level
-    fn var_at_level(&self, level: usize) -> Option<VarID> {
+    pub fn var_at_level(&self, level: usize) -> Option<VarID> {
         self.var2level
             .iter()
             .enumerate()
@@ -39,13 +41,18 @@ impl DDManager {
         let starting_pos = self.var2level[var.0];
 
         let mut best_position = starting_pos;
-        let mut best_graphsize = self.count_active(f);
+        let mut best_graph_size: isize = 0;
+        self.purge_retain(f);
+
+        let mut evaluation: isize = 0;
+
+        let root_level = self.var2level[self.nodes.get(&f).unwrap().var.0];
 
         log::info!(
             "Sifting variable {:?}, starting from level {} (graph size {}).",
             var,
             starting_pos,
-            best_graphsize
+            best_graph_size
         );
 
         // Move variable to the bottom
@@ -55,29 +62,30 @@ impl DDManager {
 
         log::info!("Moving down...");
 
-        for level in starting_pos + 1..terminal_node_level {
+        for level in (starting_pos + 1)..terminal_node_level {
             log::info!("Trying level {}", level);
             // Swap var at level-1 (our variable) with var at level
-            f = self.swap(
-                self.var_at_level(level - 1).unwrap(),
-                self.var_at_level(level).unwrap(),
-                f,
-            );
+
+            let a = self.var_at_level(level - 1);
+            let b = self.var_at_level(level);
+            let (a, b) = match (a, b) {
+                (Some(a), Some(b)) => (a, b),
+                _ => break,
+            };
+            evaluation += self.direct_swap(a, b, f);
             current_level += 1;
 
-            let new_size = self.count_active(f);
-            log::info!(" Size is {}", new_size);
+            log::info!(" Size is {}", evaluation);
 
-            if new_size < best_graphsize {
+            if evaluation < best_graph_size {
                 log::info!(
                     " New optimum found with order {:?}",
                     var2level_to_ordered_varids(&self.var2level)
                 );
-                self.purge_retain(f);
-                best_graphsize = new_size;
+                best_graph_size = evaluation;
                 best_position = level;
             } else if let Some(max) = max_increase {
-                if new_size > best_graphsize + max {
+                if evaluation > best_graph_size + max as isize {
                     // Do not continue moving downwards, because the graph has grown too much
                     break;
                 }
@@ -89,40 +97,44 @@ impl DDManager {
 
         // Swap back to initial position, without calculating size
         for level in (starting_pos..current_level).rev() {
-            f = self.swap(
-                self.var_at_level(level).unwrap(),
-                self.var_at_level(level + 1).unwrap(),
-                f,
-            );
+            let a = self.var_at_level(level);
+            let b = self.var_at_level(level + 1);
+            let (a, b) = match (a, b) {
+                (Some(a), Some(b)) => (a, b),
+                _ => break,
+            };
+
+            evaluation += self.direct_swap(a, b, f);
             current_level -= 1;
         }
 
         assert_eq!(current_level, starting_pos);
+        assert_eq!(evaluation, 0);
 
         // Move variable to the top
-        for level in (1..starting_pos).rev() {
+        for level in ((root_level + 1)..starting_pos).rev() {
             log::info!("Trying level {}", level);
             // Swap var at level+1 (our variable) with var at level
-            f = self.swap(
-                self.var_at_level(level).unwrap(),
-                self.var_at_level(level + 1).unwrap(),
-                f,
-            );
+            let a = self.var_at_level(level);
+            let b = self.var_at_level(level + 1);
+            let (a, b) = match (a, b) {
+                (Some(a), Some(b)) => (a, b),
+                _ => break,
+            };
+            evaluation += self.direct_swap(a, b, f);
             current_level -= 1;
 
-            let new_size = self.count_active(f);
-            log::info!(" Size is {}", new_size);
+            log::info!(" Size is {}", evaluation);
 
-            if new_size < best_graphsize {
+            if evaluation < best_graph_size {
                 log::info!(
                     " New optimum found with order {:?}",
                     var2level_to_ordered_varids(&self.var2level)
                 );
-                self.purge_retain(f);
-                best_graphsize = new_size;
+                best_graph_size = evaluation;
                 best_position = level;
             } else if let Some(max) = max_increase {
-                if new_size > best_graphsize + max {
+                if evaluation > best_graph_size + max as isize {
                     // Do not continue moving upwards, because the graph has grown too much
                     break;
                 }
@@ -133,20 +145,23 @@ impl DDManager {
 
         log::info!(
             "The best result was graph size of {} at level {}. Moving there...",
-            best_graphsize,
+            best_graph_size,
             best_position
         );
 
-        for level in current_level + 1..best_position + 1 {
+        for level in current_level + 1..=best_position {
             // Swap var at level-1 (our variable) with var at level
-            f = self.swap(
-                self.var_at_level(level - 1).unwrap(),
-                self.var_at_level(level).unwrap(),
-                f,
-            );
+            let a = self.var_at_level(level - 1);
+            let b = self.var_at_level(level);
+            let (a, b) = match (a, b) {
+                (Some(a), Some(b)) => (a, b),
+                _ => break,
+            };
+            evaluation += self.direct_swap(a, b, f);
             current_level += 1;
         }
 
+        assert_eq!(evaluation, best_graph_size);
         assert_eq!(current_level, best_position);
 
         log::info!("Size is now  {}", self.count_active(f));
@@ -172,10 +187,21 @@ impl DDManager {
             None
         };
 
-        for v in (1..self.var2level.len()) {
+        let root_var = self.nodes.get(&f).unwrap().var;
+        let root_level = self.var2level[root_var.0];
+
+        for v in (1..self.var2level.len() - 1) {
             if_some!(bar, inc(1));
 
+            if v == root_var.0 {
+                continue;
+            }
+
             if self.level2nodes[self.var2level[v]].is_empty() {
+                continue;
+            }
+
+            if self.var2level[v] <= root_level {
                 continue;
             }
 
@@ -199,9 +225,7 @@ mod tests {
 
     use num_bigint::BigUint;
 
-    use crate::core::{
-        bdd_manager::DDManager, bdd_node::VarID, order::var2level_to_ordered_varids,
-    };
+    use crate::core::{bdd_manager::DDManager, bdd_node::VarID};
 
     #[test]
     fn sift_sandwich_single() {
@@ -219,14 +243,8 @@ mod tests {
         assert_eq!(man.sat_count(bdd), expected);
 
         let size_before = man.count_active(bdd);
-        println!("Size before sifting: {}", size_before);
-        let bdd = man.sift_single_var(VarID(2), None, bdd);
+        let bdd = man.sift_single_var(VarID(7), None, bdd);
         let size_after = man.count_active(bdd);
-        println!("Size after sifting: {}", size_after);
-        println!(
-            "Order after sifting: {:?}",
-            var2level_to_ordered_varids(&man.var2level)
-        );
 
         assert_eq!(man.sat_count(bdd), expected);
         assert!(size_after <= size_before);
@@ -247,19 +265,46 @@ mod tests {
             DDManager::from_instance(&mut instance, None, Default::default()).unwrap();
         assert_eq!(man.sat_count(bdd), expected);
 
+        man.purge_retain(bdd);
+
         let size_before = man.count_active(bdd);
-        println!("Size before sifting: {}", size_before);
         let bdd = man.sift_all_vars(bdd, false, None);
         let size_after = man.count_active(bdd);
-        println!("Size after sifting: {}", size_after);
-        println!(
-            "Order after sifting: {:?}",
-            var2level_to_ordered_varids(&man.var2level)
-        );
-        fs::write("after.dot", man.graphviz(bdd)).unwrap();
 
         assert_eq!(man.sat_count(bdd), expected);
         assert!(size_after <= size_before);
+    }
+
+    #[test]
+    fn sift_automotive_all() {
+        let _ = env_logger::builder().is_test(true).try_init();
+
+        let (mut man, nodes) =
+            DDManager::load_from_dddmp_file("examples/berkeleydb.dimacs.dddmp".to_string())
+                .unwrap();
+        let bdd = nodes[0];
+        let expected = man.sat_count(bdd);
+        assert_eq!(man.sat_count(bdd), expected);
+
+        man.purge_retain(bdd);
+
+        let before = man
+            .clone()
+            .level2nodes
+            .into_iter()
+            .map(|x| x.len())
+            .sum::<usize>();
+        let bdd = man.sift_all_vars(bdd, true, None);
+        let after = man
+            .clone()
+            .level2nodes
+            .into_iter()
+            .map(|x| x.len())
+            .sum::<usize>();
+
+        assert_eq!(man.sat_count(bdd), expected);
+        assert!(after <= before);
+
         // TODO: Check if function is actually the same
     }
 }
