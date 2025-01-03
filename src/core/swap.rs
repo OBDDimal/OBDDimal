@@ -180,9 +180,9 @@ impl Hash for TempNode {
     }
 }
 
-impl Into<NodeEnum> for &DDNode {
-    fn into(self) -> NodeEnum {
-        NodeEnum::OldNode(self.clone())
+impl From<&DDNode> for NodeEnum {
+    fn from(val: &DDNode) -> Self {
+        NodeEnum::OldNode(*val)
     }
 }
 
