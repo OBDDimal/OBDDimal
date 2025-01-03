@@ -73,8 +73,8 @@ impl SwapContext {
     /// # Arguments
     ///
     /// * `v2l` - The original var2level
-    pub fn permute_swaps(&self, v2l: &Vec<usize>) -> Vec<usize> {
-        let mut v2l = v2l.clone();
+    pub fn permute_swaps(&self, v2l: &[usize]) -> Vec<usize> {
+        let mut v2l = v2l.to_vec();
         self.all_swaps_in_result.iter().for_each(|(a, b)| {
             v2l.swap(a.0, b.0);
         });
@@ -91,7 +91,7 @@ impl SwapContext {
     ///
     /// * `level` - The level
     /// * `v2l` - The original var2level
-    pub fn var_at_level(&self, level: usize, v2l: &Vec<usize>) -> Option<VarID> {
+    pub fn var_at_level(&self, level: usize, v2l: &[usize]) -> Option<VarID> {
         self.var_at_level_post_calc(level, &self.permute_swaps(v2l))
     }
 
@@ -101,7 +101,7 @@ impl SwapContext {
     ///
     /// * `level` - The level
     /// * `v2l` - The current var2level
-    pub fn var_at_level_post_calc(&self, level: usize, v2l: &Vec<usize>) -> Option<VarID> {
+    pub fn var_at_level_post_calc(&self, level: usize, v2l: &[usize]) -> Option<VarID> {
         v2l.iter()
             .enumerate()
             .find(|(_, &l)| l == level)
@@ -114,7 +114,7 @@ impl SwapContext {
     ///
     /// * `var` - The variable
     /// * `v2l` - The original var2level
-    pub fn var2level(&self, v2l: &Vec<usize>, var: usize) -> usize {
+    pub fn var2level(&self, v2l: &[usize], var: usize) -> usize {
         self.permute_swaps(v2l)[var]
     }
 }

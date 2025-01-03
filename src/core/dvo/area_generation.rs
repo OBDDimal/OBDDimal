@@ -26,7 +26,6 @@ impl Default for AreaSelectionEnum {
 #[derive(Default)]
 pub struct ThresholdMethod {}
 
-
 impl ThresholdMethod {
     pub fn new() -> Self {
         ThresholdMethod {}
@@ -138,7 +137,7 @@ impl HotspotMethod {
                 ranges.push((i - self.surrounding_area, i + self.surrounding_area));
             }
         }
-        
+
         merge_ranges(&ranges)
     }
 }
@@ -155,10 +154,10 @@ impl AreaSelection for HotspotMethod {
 }
 
 /// Merges overlapping areas
-fn merge_ranges(ranges: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
+fn merge_ranges(ranges: &[(usize, usize)]) -> Vec<(usize, usize)> {
     let mut result = vec![];
     let mut current_range = (0, 0);
-    let mut ranges = ranges.clone();
+    let mut ranges = ranges.to_vec();
     ranges.sort_by_key(|k| k.0);
     for (start, end) in ranges {
         match current_range {
@@ -187,7 +186,7 @@ fn merge_ranges(ranges: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
 pub(crate) fn split_ranges_by_node_count(
     ranges: &Vec<(usize, usize)>,
     max_size: Option<usize>,
-    node_count: &Vec<usize>,
+    node_count: &[usize],
 ) -> Vec<(usize, usize)> {
     if max_size.is_none() {
         return ranges.clone();
@@ -212,8 +211,8 @@ pub(crate) fn split_ranges_by_node_count(
             let mut current_range = 0;
             let mut current_start = *start;
 
-            for i in *start..*end {
-                current_range += node_count[i];
+            for (i, value) in node_count.iter().enumerate().take(*end).skip(*start) {
+                current_range += value;
                 if current_range >= range_count {
                     result.push((current_start, i));
                     current_start = i + 1;

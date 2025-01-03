@@ -180,13 +180,8 @@ impl ConcurrentDVOStrategie for Sifting {
             if man.level2nodes[man.var2level[var.0]].is_empty() {
                 continue;
             }
-            (_, result) = sift_single_var_in_range(
-                man.clone(),
-                &var,
-                max_increase,
-                *level_range,
-                result,
-            );
+            (_, result) =
+                sift_single_var_in_range(man.clone(), &var, max_increase, *level_range, result);
             // self.purge_retain(f);
         }
         result
@@ -341,8 +336,8 @@ pub(crate) fn gen_permutation(from: usize, to: usize) -> Vec<(usize, usize)> {
 }
 
 /// Calculate the median of a list of numbers
-pub(crate) fn median<T: PartialOrd + Clone + Copy>(list: &Vec<T>) -> T {
-    let mut numbers = list.clone();
+pub(crate) fn median<T: PartialOrd + Clone + Copy>(list: &[T]) -> T {
+    let mut numbers = list.to_vec();
     numbers.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let mid = numbers.len() / 2;
     numbers[mid]
@@ -350,9 +345,9 @@ pub(crate) fn median<T: PartialOrd + Clone + Copy>(list: &Vec<T>) -> T {
 
 /// Calculate the nth percentile of a list of numbers
 #[allow(unused)]
-pub(crate) fn nth_percentile<T: PartialOrd + Clone + Copy>(list: &Vec<T>, p: usize) -> T {
+pub(crate) fn nth_percentile<T: PartialOrd + Clone + Copy>(list: &[T], p: usize) -> T {
     assert!(p <= 100);
-    let mut numbers = list.clone();
+    let mut numbers = list.to_vec();
     numbers.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let i = (numbers.len() as f64 * (p as f64 / 100.0)).round() as usize;
     numbers[i]
