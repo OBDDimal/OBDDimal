@@ -1,9 +1,8 @@
 //! All BDD building and manipulation functionality
 
 use std::{
-    fmt, fs,
+    fmt,
     hash::{Hash, Hasher},
-    io::Write,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc, Weak,
@@ -89,27 +88,6 @@ impl Clone for DDManager {
             apply_c_table: self.apply_c_table.clone(),
             views: self.views.clone(),
         }
-    }
-}
-
-impl DDManager {
-    // Print the number of nodes in each level to a CSV file
-    pub fn print_layer_to_csv(&self, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let mut file = fs::File::create(filename).unwrap();
-
-        let mut wtr = csv::Writer::from_writer(vec![]);
-        let l2n: Vec<String> = self
-            .level2nodes
-            .clone()
-            .into_iter()
-            .map(|level| level.len().to_string())
-            .collect();
-        wtr.write_record(&l2n)?;
-
-        let data = String::from_utf8(wtr.into_inner()?)?;
-        file.write_all(data.as_bytes())?;
-
-        Ok(())
     }
 }
 
