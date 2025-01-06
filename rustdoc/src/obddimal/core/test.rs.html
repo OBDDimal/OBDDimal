@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/core/test.rs`."><title>test.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="obddimal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.0-nightly (72fdf913c 2024-06-05)" data-channel="nightly" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/core/test.rs`."><title>test.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="obddimal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (b3b368a18 2025-01-05)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../../../static.files/storage-59e33391.js"></script><script defer src="../../../static.files/src-script-56102188.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">obddimal/core/</div>test.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
+<a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -288,11 +289,16 @@
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
-</pre></div><pre class="rust"><code><span class="attr">#[cfg(test)]
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a></pre></div><pre class="rust"><code><span class="attr">#[cfg(test)]
 </span><span class="kw">pub mod </span>tests {
     <span class="kw">use </span>std::fs;
 
-    <span class="kw">use </span>num_bigint::BigUint;
+    <span class="kw">use </span>malachite::Natural;
 
     <span class="kw">use crate</span>::{
         core::bdd_node::{NodeID, VarID, ONE, ZERO},
@@ -302,7 +308,7 @@
     <span class="doccomment">/// A manually constructed BDD plus truth table, allowing verification of
     /// any other BDD agains it for testing if it represents the same function.
     </span><span class="kw">pub struct </span>TestCase {
-        ones: HashSet&lt;Vec&lt;usize&gt;&gt;,
+        ones: HashSet&lt;Vec&lt;VarID&gt;&gt;,
         <span class="kw">pub </span>man: DDManager,
         <span class="kw">pub </span>f: NodeID,
         <span class="kw">pub </span>nr_variables: usize,
@@ -314,7 +320,13 @@
         /// ~a~b~c + ~abc + a~b~c + a~bc + abc
         /// ~b~c + bc + ac
         </span><span class="kw">pub fn </span>test_trivial() -&gt; TestCase {
-            <span class="kw">let </span>ones = HashSet::from_iter([<span class="macro">vec!</span>[], <span class="macro">vec!</span>[<span class="number">2</span>, <span class="number">3</span>], <span class="macro">vec!</span>[<span class="number">1</span>], <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">3</span>], <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]]);
+            <span class="kw">let </span>ones = HashSet::from_iter([
+                <span class="macro">vec!</span>[],
+                <span class="macro">vec!</span>[VarID(<span class="number">2</span>), VarID(<span class="number">3</span>)],
+                <span class="macro">vec!</span>[VarID(<span class="number">1</span>)],
+                <span class="macro">vec!</span>[VarID(<span class="number">1</span>), VarID(<span class="number">3</span>)],
+                <span class="macro">vec!</span>[VarID(<span class="number">1</span>), VarID(<span class="number">2</span>), VarID(<span class="number">3</span>)],
+            ]);
             <span class="kw">let </span><span class="kw-2">mut </span>man = DDManager::default();
 
             <span class="kw">let </span><span class="kw-2">mut </span>f = ZERO.id;
@@ -324,7 +336,7 @@
             <span class="kw">for </span>clause <span class="kw">in </span>ones.iter() {
                 <span class="kw">let </span><span class="kw-2">mut </span>c = ONE.id;
                 <span class="kw">for </span>var <span class="kw">in </span><span class="number">1</span>..nr_variables + <span class="number">1 </span>{
-                    <span class="kw">let </span>v = <span class="kw">if </span>clause.contains(<span class="kw-2">&amp;</span>var) {
+                    <span class="kw">let </span>v = <span class="kw">if </span>clause.contains(<span class="kw-2">&amp;</span>VarID(var)) {
                         man.ith_var(VarID(var))
                     } <span class="kw">else </span>{
                         man.nith_var(VarID(var))
@@ -480,13 +492,13 @@
         }
 
         <span class="kw">fn </span>from_truthtable&lt;<span class="kw">const </span>N: usize&gt;(table: Vec&lt;[u8; N]&gt;) -&gt; TestCase {
-            <span class="kw">let </span><span class="kw-2">mut </span>clauses: HashSet&lt;Vec&lt;usize&gt;&gt; = HashSet::default();
+            <span class="kw">let </span><span class="kw-2">mut </span>clauses: HashSet&lt;Vec&lt;VarID&gt;&gt; = HashSet::default();
 
             <span class="kw">for </span>line <span class="kw">in </span>table {
                 <span class="kw">let </span><span class="kw-2">mut </span>clause = Vec::new();
                 <span class="kw">for </span>(var, value) <span class="kw">in </span>line.iter().enumerate() {
                     <span class="kw">if </span><span class="kw-2">*</span>value != <span class="number">0 </span>{
-                        clause.push(var + <span class="number">1</span>)
+                        clause.push(VarID(var + <span class="number">1</span>))
                     }
                 }
 
@@ -499,7 +511,7 @@
             <span class="kw">for </span>clause <span class="kw">in </span>clauses.iter() {
                 <span class="kw">let </span><span class="kw-2">mut </span>c = ONE.id;
                 <span class="kw">for </span>var <span class="kw">in </span><span class="number">1</span>..N + <span class="number">1 </span>{
-                    <span class="kw">let </span>v = <span class="kw">if </span>clause.contains(<span class="kw-2">&amp;</span>var) {
+                    <span class="kw">let </span>v = <span class="kw">if </span>clause.contains(<span class="kw-2">&amp;</span>VarID(var)) {
                         man.ith_var(VarID(var))
                     } <span class="kw">else </span>{
                         man.nith_var(VarID(var))
@@ -521,13 +533,13 @@
         </span><span class="attr">#[must_use]
         </span><span class="kw">pub fn </span>verify_against(<span class="kw-2">&amp;</span><span class="self">self</span>, other_man: <span class="kw-2">&amp;</span>DDManager, other_f: NodeID) -&gt; bool {
             <span class="kw">for </span>trues <span class="kw">in </span><span class="self">self</span>.ones.iter() {
-                <span class="kw">if </span>!other_man.verify(other_f, trues) {
+                <span class="kw">if </span>!other_man.evaluate(other_f, trues) {
                     <span class="macro">eprintln!</span>(<span class="string">"f({:?}=1) should be 1, but is not!"</span>, trues);
                     <span class="kw">return </span><span class="bool-val">false</span>;
                 }
             }
 
-            <span class="kw">if </span>other_man.sat_count(other_f) != <span class="self">self</span>.ones.len().into() {
+            <span class="kw">if </span>other_man.sat_count(other_f) != <span class="self">self</span>.ones.len() {
                 <span class="macro">eprintln!</span>(
                     <span class="string">"Sat count is {}, but should be {}"</span>,
                     other_man.sat_count(other_f),
@@ -575,7 +587,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>truthtable_satcount_random1() {
         <span class="kw">let </span>testcase = TestCase::random_1();
-        <span class="macro">assert_eq!</span>(testcase.man.sat_count(testcase.f), BigUint::from(<span class="number">132usize</span>));
+        <span class="macro">assert_eq!</span>(testcase.man.sat_count(testcase.f), Natural::from(<span class="number">132usize</span>));
     }
 }
 </code></pre></div></section></main></body></html>

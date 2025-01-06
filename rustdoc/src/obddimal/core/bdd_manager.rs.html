@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/core/bdd_manager.rs`."><title>bdd_manager.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="obddimal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.0-nightly (72fdf913c 2024-06-05)" data-channel="nightly" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/core/bdd_manager.rs`."><title>bdd_manager.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="obddimal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (b3b368a18 2025-01-05)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../../../static.files/storage-59e33391.js"></script><script defer src="../../../static.files/src-script-56102188.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">obddimal/core/</div>bdd_manager.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
+<a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -584,7 +585,17 @@
 <a href="#584" id="584">584</a>
 <a href="#585" id="585">585</a>
 <a href="#586" id="586">586</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! All BDD building and manipulation functionality
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a></pre></div><pre class="rust"><code><span class="doccomment">//! All BDD building and manipulation functionality
 
 </span><span class="kw">use </span>std::{
     fmt,
@@ -619,11 +630,11 @@
     <span class="doccomment">/// Node List
     </span><span class="kw">pub </span>nodes: HashMap&lt;NodeID, DDNode&gt;,
     <span class="doccomment">/// Variable ordering: var2level[v.0] is the depth of variable v in the tree
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) var2level: Vec&lt;usize&gt;,
+    </span><span class="kw">pub </span>var2level: Vec&lt;usize&gt;,
     <span class="doccomment">/// Unique Table for each variable. Note that the indices into this table are the depths of the
     /// variables, not their IDs. The depth of a variable can be determined through
     /// [var2level](`DDManager::var2level`)!
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) level2nodes: Vec&lt;HashSet&lt;DDNode&gt;&gt;,
+    </span><span class="kw">pub </span>level2nodes: Vec&lt;HashSet&lt;DDNode&gt;&gt;,
     <span class="doccomment">/// Computed Table for ITE: maps (f,g,h) to ite(f,g,h)
     </span><span class="kw">pub</span>(<span class="kw">super</span>) ite_c_table: HashMap&lt;(NodeID, NodeID, NodeID), NodeID&gt;,
     <span class="doccomment">/// Computed Table for Apply: maps (op,u,v) to apply(op,u,v)
@@ -764,20 +775,26 @@
         <span class="comment">// Ensure there is space for var2level[target]
         </span><span class="self">self</span>.var2level.resize(target.<span class="number">0 </span>+ <span class="number">1</span>, <span class="number">0</span>);
 
+        <span class="comment">// Remove terminal nodes if already existent to make sure they end up at the lowest level
+        // after this operation.
+        </span><span class="kw">let </span>terminals = <span class="self">self</span>.level2nodes.pop();
+
         <span class="comment">// Fill newly created space:
-        </span><span class="kw">let </span><span class="kw-2">mut </span>y = old_size;
-        <span class="kw">for </span>x <span class="kw">in </span>old_size..<span class="self">self</span>.var2level.len() {
-            <span class="comment">// var2level[x] = x
-            </span><span class="self">self</span>.var2level[x] = y;
-            y += <span class="number">1</span>;
+        </span><span class="kw">for </span>x <span class="kw">in </span>old_size..<span class="self">self</span>.var2level.len() {
+            <span class="self">self</span>.var2level[x] = x;
             <span class="comment">// Add newly created level to level2nodes
-            </span><span class="kw">while </span><span class="self">self</span>.level2nodes.len() &lt;= y {
+            </span><span class="kw">while </span><span class="self">self</span>.level2nodes.len() &lt;= x {
                 <span class="self">self</span>.level2nodes.push(HashSet::default());
             }
         }
 
         <span class="comment">// VarID 0 (terminal nodes) at the very bottom of the tree
-        </span><span class="self">self</span>.var2level[<span class="number">0</span>] = y;
+        </span><span class="self">self</span>.var2level[<span class="number">0</span>] = <span class="self">self</span>.var2level.len();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(terminals) = terminals {
+            <span class="self">self</span>.level2nodes.push(terminals);
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.level2nodes.push(HashSet::default());
+        }
     }
 
     <span class="doccomment">/// Insert Node. ID is assigned for nonterminal nodes (var != 0).
@@ -863,15 +880,7 @@
             high: NodeID(<span class="number">1</span>),
         };
 
-        <span class="kw">if </span><span class="self">self</span>.var2level.len() &gt; var.<span class="number">0 </span>{
-            <span class="kw">let </span>x = <span class="self">self</span>.level2nodes[<span class="self">self</span>.var2level[var.<span class="number">0</span>]].get(<span class="kw-2">&amp;</span>v);
-
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(x) = x {
-                <span class="kw">return </span>x.id;
-            }
-        }
-
-        <span class="self">self</span>.add_node(v)
+        <span class="self">self</span>.node_get_or_create(<span class="kw-2">&amp;</span>v)
     }
 
     <span class="kw">pub fn </span>nith_var(<span class="kw-2">&amp;mut </span><span class="self">self</span>, var: VarID) -&gt; NodeID {
@@ -882,15 +891,7 @@
             high: NodeID(<span class="number">0</span>),
         };
 
-        <span class="kw">if </span><span class="self">self</span>.var2level.len() &gt; var.<span class="number">0 </span>{
-            <span class="kw">let </span>x = <span class="self">self</span>.level2nodes[<span class="self">self</span>.var2level[var.<span class="number">0</span>]].get(<span class="kw-2">&amp;</span>v);
-
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(x) = x {
-                <span class="kw">return </span>x.id;
-            }
-        }
-
-        <span class="self">self</span>.add_node(v)
+        <span class="self">self</span>.node_get_or_create(<span class="kw-2">&amp;</span>v)
     }
 
     <span class="comment">//------------------------------------------------------------------------//
@@ -1037,11 +1038,11 @@
         zero_side
     }
 
-    <span class="kw">pub fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>, f: NodeID, trues: <span class="kw-2">&amp;</span>[usize]) -&gt; bool {
+    <span class="kw">pub fn </span>evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, f: NodeID, trues: <span class="kw-2">&amp;</span>[VarID]) -&gt; bool {
         <span class="kw">let </span><span class="kw-2">mut </span>values: Vec&lt;bool&gt; = <span class="macro">vec!</span>[<span class="bool-val">false</span>; <span class="self">self</span>.level2nodes.len() + <span class="number">1</span>];
 
         <span class="kw">for </span>x <span class="kw">in </span>trues {
-            <span class="kw">let </span>x: usize = <span class="kw-2">*</span>x;
+            <span class="kw">let </span>x: usize = x.<span class="number">0</span>;
 
             values[x] = x &lt; values.len();
         }
@@ -1097,16 +1098,19 @@
     </span><span class="kw">pub fn </span>purge_retain_multi(<span class="kw-2">&amp;mut </span><span class="self">self</span>, roots: <span class="kw-2">&amp;</span>[NodeID]) {
         <span class="kw">let </span>keep = <span class="self">self</span>.get_reachable(roots);
 
-        <span class="kw">let </span><span class="kw-2">mut </span>garbage = <span class="self">self</span>.nodes.clone();
-
-        garbage.retain(|<span class="kw-2">&amp;</span>x, <span class="kw">_</span>| !keep.contains(<span class="kw-2">&amp;</span>x) &amp;&amp; x.<span class="number">0 </span>&gt; <span class="number">1</span>);
-
-        <span class="kw">for </span>x <span class="kw">in </span><span class="kw-2">&amp;</span>garbage {
-            <span class="self">self</span>.level2nodes[<span class="self">self</span>.var2level[x.<span class="number">1</span>.var.<span class="number">0</span>]].remove(x.<span class="number">1</span>);
-            <span class="self">self</span>.nodes.remove(x.<span class="number">0</span>);
+        <span class="kw">let </span>garbage: Vec&lt;<span class="kw">_</span>&gt; = <span class="self">self
+            </span>.nodes
+            .keys()
+            .filter(|<span class="kw-2">&amp;</span>node_id| !keep.contains(node_id) &amp;&amp; <span class="kw-2">*</span>node_id &gt; NodeID(<span class="number">1</span>))
+            .cloned()
+            .collect();
+        <span class="kw">for </span>node_id <span class="kw">in </span><span class="kw-2">&amp;</span>garbage {
+            <span class="kw">let </span>node = <span class="self">self</span>.nodes.get(node_id).unwrap();
+            <span class="self">self</span>.level2nodes[<span class="self">self</span>.var2level[node.var.<span class="number">0</span>]].remove(node);
+            <span class="self">self</span>.nodes.remove(node_id);
         }
 
-        <span class="self">self</span>.ite_c_table.retain(|<span class="kw">_</span>, x| keep.contains(x));
+        <span class="self">self</span>.retain_c_table(keep);
     }
 
     <span class="doccomment">/// Removes nodes which do not belong to any of the BDDs for which views exist from the
@@ -1114,6 +1118,23 @@
     </span><span class="kw">pub fn </span>clean(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="self">self</span>.views.remove_expired();
         <span class="self">self</span>.purge_retain_multi(<span class="kw-2">&amp;</span><span class="self">self</span>.get_roots());
+    }
+
+    <span class="doccomment">/// Does the same as clear_c_table, but keeps entries that only reference the nodes given in
+    /// `keep`.
+    </span><span class="kw">pub fn </span>retain_c_table(<span class="kw-2">&amp;mut </span><span class="self">self</span>, keep: HashSet&lt;NodeID&gt;) {
+        <span class="self">self</span>.ite_c_table
+            .retain(|(node_id_1, node_id_2, node_id_3), node_id_4| {
+                keep.is_superset(
+                    <span class="kw-2">&amp;</span>[<span class="kw-2">*</span>node_id_1, <span class="kw-2">*</span>node_id_2, <span class="kw-2">*</span>node_id_3, <span class="kw-2">*</span>node_id_4]
+                        .into_iter()
+                        .collect(),
+                )
+            });
+        <span class="self">self</span>.apply_c_table
+            .retain(|(<span class="kw">_</span>, node_id_1, node_id_2), node_id_3| {
+                keep.is_superset(<span class="kw-2">&amp;</span>[<span class="kw-2">*</span>node_id_1, <span class="kw-2">*</span>node_id_2, <span class="kw-2">*</span>node_id_3].into_iter().collect())
+            });
     }
 
     <span class="kw">pub fn </span>clear_c_table(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
@@ -1126,11 +1147,12 @@
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
         <span class="macro">write!</span>(
             f,
-            <span class="string">"DDManager [{} nodes, unique table size {}, cache sizes: {} (ite), {} (apply)]"</span>,
+            <span class="string">"DDManager [{} nodes, unique table size {}, cache sizes: {} (ite), {} (apply); Views: {}]"</span>,
             <span class="self">self</span>.nodes.len(),
             <span class="self">self</span>.level2nodes.iter().map(|s| s.len()).sum::&lt;usize&gt;(),
             <span class="self">self</span>.ite_c_table.len(),
             <span class="self">self</span>.apply_c_table.len(),
+            <span class="self">self</span>.views.len(),
         )
     }
 }

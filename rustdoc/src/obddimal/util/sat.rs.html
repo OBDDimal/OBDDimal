@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/util/sat.rs`."><title>sat.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="obddimal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.0-nightly (72fdf913c 2024-06-05)" data-channel="nightly" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/util/sat.rs`."><title>sat.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="obddimal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (b3b368a18 2025-01-05)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../../../static.files/storage-59e33391.js"></script><script defer src="../../../static.files/src-script-56102188.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">obddimal/util/</div>sat.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
+<a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -63,24 +64,12 @@
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
-<a href="#67" id="67">67</a>
-<a href="#68" id="68">68</a>
-<a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! Satisfyability count, active nodes count
+<a href="#66" id="66">66</a></pre></div><pre class="rust"><code><span class="doccomment">//! Satisfyability count, active nodes count
 
-</span><span class="kw">use </span>num_bigint::BigUint;
-<span class="kw">use </span>num_traits::{One, Zero};
+</span><span class="kw">use </span>malachite::{num::arithmetic::traits::Pow, Natural};
 
 <span class="kw">use crate</span>::{
-    core::{
-        bdd_manager::DDManager,
-        bdd_node::{NodeID, VarID},
-    },
+    core::{bdd_manager::DDManager, bdd_node, bdd_node::NodeID},
     misc::hash_select::HashMap,
 };
 
@@ -89,55 +78,52 @@
         node.<span class="number">0 </span>!= <span class="number">0
     </span>}
 
-    <span class="kw">pub fn </span>sat_count(<span class="kw-2">&amp;</span><span class="self">self</span>, f: NodeID) -&gt; BigUint {
-        <span class="self">self</span>.sat_count_rec(f, <span class="kw-2">&amp;mut </span>HashMap::default())
+    <span class="kw">pub fn </span>sat_count(<span class="kw-2">&amp;</span><span class="self">self</span>, f: NodeID) -&gt; Natural {
+        <span class="self">self</span>.sat_count_with_cache(f, <span class="kw-2">&amp;mut </span>HashMap::default())
     }
 
-    <span class="kw">fn </span>sat_count_rec(<span class="kw-2">&amp;</span><span class="self">self</span>, f: NodeID, cache: <span class="kw-2">&amp;mut </span>HashMap&lt;NodeID, BigUint&gt;) -&gt; BigUint {
-        <span class="kw">let </span><span class="kw-2">mut </span>total: BigUint = Zero::zero();
-        <span class="kw">let </span>node_id = f;
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>sat_count_with_cache(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        f: NodeID,
+        cache: <span class="kw-2">&amp;mut </span>HashMap&lt;NodeID, Natural&gt;,
+    ) -&gt; Natural {
+        <span class="kw">let </span>node_sat = <span class="self">self</span>.sat_count_from(f, cache);
 
-        <span class="kw">if </span>node_id == NodeID(<span class="number">0</span>) {
-            <span class="kw">return </span>Zero::zero();
-        } <span class="kw">else if </span>node_id == NodeID(<span class="number">1</span>) {
-            <span class="kw">return </span>One::one();
-        } <span class="kw">else </span>{
-            <span class="kw">let </span>node = <span class="kw-2">&amp;</span><span class="self">self</span>.nodes.get(<span class="kw-2">&amp;</span>node_id).unwrap();
+        <span class="kw">let </span>jump = <span class="self">self</span>.var2level[<span class="self">self</span>.nodes.get(<span class="kw-2">&amp;</span>f).unwrap().var.<span class="number">0</span>] - <span class="number">1</span>;
+        <span class="kw">let </span>fac = Natural::from(<span class="number">2usize</span>).pow(jump <span class="kw">as </span>u64);
 
-            <span class="kw">let </span>low = <span class="kw-2">&amp;</span><span class="self">self</span>.nodes.get(<span class="kw-2">&amp;</span>node.low).unwrap();
-            <span class="kw">let </span>high = <span class="kw-2">&amp;</span><span class="self">self</span>.nodes.get(<span class="kw-2">&amp;</span>node.high).unwrap();
+        node_sat * fac
+    }
 
-            <span class="kw">let </span>low_jump = <span class="kw">if </span>low.var == VarID(<span class="number">0</span>) {
-                <span class="self">self</span>.var2level.len() - <span class="self">self</span>.var2level[node.var.<span class="number">0</span>] - <span class="number">1
-            </span>} <span class="kw">else </span>{
-                <span class="self">self</span>.var2level[low.var.<span class="number">0</span>] - <span class="self">self</span>.var2level[node.var.<span class="number">0</span>] - <span class="number">1
-            </span>};
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>sat_count_from(<span class="kw-2">&amp;</span><span class="self">self</span>, from_node: NodeID, cache: <span class="kw-2">&amp;mut </span>HashMap&lt;NodeID, Natural&gt;) -&gt; Natural {
+        <span class="kw">let </span>reachable = <span class="self">self</span>.get_reachable(<span class="kw-2">&amp;</span>[from_node]);
 
-            <span class="kw">let </span>high_jump = <span class="kw">if </span>high.var == VarID(<span class="number">0</span>) {
-                <span class="self">self</span>.var2level.len() - <span class="self">self</span>.var2level[node.var.<span class="number">0</span>] - <span class="number">1
-            </span>} <span class="kw">else </span>{
-                <span class="self">self</span>.var2level[high.var.<span class="number">0</span>] - <span class="self">self</span>.var2level[node.var.<span class="number">0</span>] - <span class="number">1
-            </span>};
+        cache.insert(NodeID(<span class="number">0</span>), Natural::from(<span class="number">0usize</span>));
+        cache.insert(NodeID(<span class="number">1</span>), Natural::from(<span class="number">1usize</span>));
 
-            <span class="kw">let </span>low_fac = BigUint::parse_bytes(<span class="string">b"2"</span>, <span class="number">10</span>).unwrap().pow(low_jump <span class="kw">as </span>u32);
-            <span class="kw">let </span>high_fac = BigUint::parse_bytes(<span class="string">b"2"</span>, <span class="number">10</span>)
-                .unwrap()
-                .pow(high_jump <span class="kw">as </span>u32);
+        (<span class="self">self</span>.var2level[<span class="self">self</span>.nodes.get(<span class="kw-2">&amp;</span>from_node).unwrap().var.<span class="number">0</span>]
+            ..<span class="self">self</span>.var2level[bdd_node::ZERO.var.<span class="number">0</span>])
+            .rev()
+            .flat_map(|level| <span class="kw-2">&amp;</span><span class="self">self</span>.level2nodes[level])
+            .filter(|node| reachable.contains(<span class="kw-2">&amp;</span>node.id))
+            .for_each(|node| {
+                <span class="kw">let </span><span class="kw-2">mut </span>total = Natural::from(<span class="number">0usize</span>);
 
-            total += <span class="kw">match </span>cache.get(<span class="kw-2">&amp;</span>node.low) {
-                <span class="prelude-val">Some</span>(x) =&gt; x * low_fac,
-                <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.sat_count_rec(node.low, cache) * low_fac,
-            };
+                <span class="kw">let </span>low_var = <span class="kw-2">&amp;</span><span class="self">self</span>.nodes.get(<span class="kw-2">&amp;</span>node.low).unwrap().var;
+                <span class="kw">let </span>low_jump = <span class="self">self</span>.var2level[low_var.<span class="number">0</span>] - <span class="self">self</span>.var2level[node.var.<span class="number">0</span>] - <span class="number">1</span>;
+                <span class="kw">let </span>low_fac = Natural::from(<span class="number">2usize</span>).pow(low_jump <span class="kw">as </span>u64);
+                total += cache.get(<span class="kw-2">&amp;</span>node.low).unwrap() * low_fac;
 
-            total += <span class="kw">match </span>cache.get(<span class="kw-2">&amp;</span>node.high) {
-                <span class="prelude-val">Some</span>(x) =&gt; x * high_fac,
-                <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.sat_count_rec(node.high, cache) * high_fac,
-            };
-        };
+                <span class="kw">let </span>high_var = <span class="kw-2">&amp;</span><span class="self">self</span>.nodes.get(<span class="kw-2">&amp;</span>node.high).unwrap().var;
+                <span class="kw">let </span>high_jump = <span class="self">self</span>.var2level[high_var.<span class="number">0</span>] - <span class="self">self</span>.var2level[node.var.<span class="number">0</span>] - <span class="number">1</span>;
+                <span class="kw">let </span>high_fac = Natural::from(<span class="number">2usize</span>).pow(high_jump <span class="kw">as </span>u64);
+                total += cache.get(<span class="kw-2">&amp;</span>node.high).unwrap() * high_fac;
 
-        cache.insert(f, total.clone());
+                cache.insert(node.id, total);
+            });
 
-        total
+        cache.get(<span class="kw-2">&amp;</span>from_node).unwrap().clone()
     }
 
     <span class="kw">pub fn </span>count_active(<span class="kw-2">&amp;</span><span class="self">self</span>, f: NodeID) -&gt; usize {

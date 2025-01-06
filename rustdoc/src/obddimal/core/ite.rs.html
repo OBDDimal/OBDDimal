@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/core/ite.rs`."><title>ite.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="obddimal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.0-nightly (72fdf913c 2024-06-05)" data-channel="nightly" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/core/ite.rs`."><title>ite.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="obddimal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (b3b368a18 2025-01-05)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../../../static.files/storage-59e33391.js"></script><script defer src="../../../static.files/src-script-56102188.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">obddimal/core/</div>ite.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
+<a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -80,7 +81,19 @@
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! The ITE operator
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a></pre></div><pre class="rust"><code><span class="doccomment">//! The ITE operator
 </span><span class="kw">use </span><span class="kw">crate</span>::core::{
     bdd_manager::DDManager,
     bdd_node::{DDNode, NodeID, ONE, ZERO},
@@ -111,55 +124,68 @@
 
 <span class="kw">impl </span>DDManager {
     <span class="kw">pub fn </span>ite(<span class="kw-2">&amp;mut </span><span class="self">self</span>, f: NodeID, g: NodeID, h: NodeID) -&gt; NodeID {
-        <span class="kw">let </span>(f, g, h) = normalize_ite_args(f, g, h);
-        <span class="kw">match </span>(f, g, h) {
-            (<span class="kw">_</span>, NodeID(<span class="number">1</span>), NodeID(<span class="number">0</span>)) =&gt; f, <span class="comment">// ite(f,1,0)
-            </span>(NodeID(<span class="number">1</span>), <span class="kw">_</span>, <span class="kw">_</span>) =&gt; g,         <span class="comment">// ite(1,g,h)
-            </span>(NodeID(<span class="number">0</span>), <span class="kw">_</span>, <span class="kw">_</span>) =&gt; h,         <span class="comment">// ite(0,g,h)
-            </span>(<span class="kw">_</span>, t, e) <span class="kw">if </span>t == e =&gt; t,       <span class="comment">// ite(f,g,g)
-            </span>(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
-                <span class="kw">let </span>cache = <span class="self">self</span>.ite_c_table.get(<span class="kw-2">&amp;</span>(f, g, h));
+        <span class="kw">let </span><span class="kw-2">mut </span>ite_stack = <span class="macro">vec!</span>[(f, g, h)];
 
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(cached) = cache {
-                    <span class="kw">return </span><span class="kw-2">*</span>cached;
+        <span class="kw">while let </span><span class="prelude-val">Some</span>((f, g, h)) = ite_stack.pop() {
+            <span class="kw">let </span>(f, g, h) = normalize_ite_args(f, g, h);
+
+            <span class="kw">if </span><span class="self">self</span>.ite_c_table.contains_key(<span class="kw-2">&amp;</span>(f, g, h)) {
+                <span class="kw">continue</span>; <span class="comment">// Result already in cache
+            </span>}
+
+            <span class="kw">let </span>result = <span class="kw">match </span>(f, g, h) {
+                (<span class="kw">_</span>, NodeID(<span class="number">1</span>), NodeID(<span class="number">0</span>)) =&gt; <span class="prelude-val">Some</span>(f), <span class="comment">// ite(f,1,0)
+                </span>(NodeID(<span class="number">1</span>), <span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(g),         <span class="comment">// ite(1,g,h)
+                </span>(NodeID(<span class="number">0</span>), <span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(h),         <span class="comment">// ite(0,g,h)
+                </span>(<span class="kw">_</span>, t, e) <span class="kw">if </span>t == e =&gt; <span class="prelude-val">Some</span>(t),       <span class="comment">// ite(f,g,g)
+                </span>(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
+                    <span class="comment">// No special case
+                    </span><span class="kw">let </span>fnode = <span class="self">self</span>.nodes.get(<span class="kw-2">&amp;</span>f).unwrap();
+                    <span class="kw">let </span>gnode = <span class="self">self</span>.nodes.get(<span class="kw-2">&amp;</span>g).unwrap();
+                    <span class="kw">let </span>hnode = <span class="self">self</span>.nodes.get(<span class="kw-2">&amp;</span>h).unwrap();
+
+                    <span class="kw">let </span>top = <span class="self">self</span>.min_by_order(fnode.var, gnode.var, hnode.var);
+
+                    <span class="kw">let </span>fxt = fnode.restrict(top, <span class="kw-2">&amp;</span><span class="self">self</span>.var2level, <span class="bool-val">true</span>);
+                    <span class="kw">let </span>gxt = gnode.restrict(top, <span class="kw-2">&amp;</span><span class="self">self</span>.var2level, <span class="bool-val">true</span>);
+                    <span class="kw">let </span>hxt = hnode.restrict(top, <span class="kw-2">&amp;</span><span class="self">self</span>.var2level, <span class="bool-val">true</span>);
+
+                    <span class="kw">let </span>fxf = fnode.restrict(top, <span class="kw-2">&amp;</span><span class="self">self</span>.var2level, <span class="bool-val">false</span>);
+                    <span class="kw">let </span>gxf = gnode.restrict(top, <span class="kw-2">&amp;</span><span class="self">self</span>.var2level, <span class="bool-val">false</span>);
+                    <span class="kw">let </span>hxf = hnode.restrict(top, <span class="kw-2">&amp;</span><span class="self">self</span>.var2level, <span class="bool-val">false</span>);
+
+                    <span class="kw">if </span><span class="self">self</span>.ite_c_table.contains_key(<span class="kw-2">&amp;</span>(fxt, gxt, hxt))
+                        &amp;&amp; <span class="self">self</span>.ite_c_table.contains_key(<span class="kw-2">&amp;</span>(fxf, gxf, hxf))
+                    {
+                        <span class="kw">let </span>high = <span class="kw-2">*</span><span class="self">self</span>.ite_c_table.get(<span class="kw-2">&amp;</span>(fxt, gxt, hxt)).unwrap();
+                        <span class="kw">let </span>low = <span class="kw-2">*</span><span class="self">self</span>.ite_c_table.get(<span class="kw-2">&amp;</span>(fxf, gxf, hxf)).unwrap();
+
+                        <span class="kw">if </span>low == high {
+                            <span class="prelude-val">Some</span>(low)
+                        } <span class="kw">else </span>{
+                            <span class="prelude-val">Some</span>(<span class="self">self</span>.node_get_or_create(<span class="kw-2">&amp;</span>DDNode {
+                                id: NodeID(<span class="number">0</span>),
+                                var: top,
+                                low,
+                                high,
+                            }))
+                        }
+                    } <span class="kw">else </span>{
+                        ite_stack.push((f, g, h));
+                        ite_stack.push((fxt, gxt, hxt));
+                        ite_stack.push((fxf, gxf, hxf));
+
+                        <span class="prelude-val">None
+                    </span>}
                 }
+            };
 
-                <span class="kw">let </span>fnode = <span class="self">self</span>.nodes.get(<span class="kw-2">&amp;</span>f).unwrap();
-                <span class="kw">let </span>gnode = <span class="self">self</span>.nodes.get(<span class="kw-2">&amp;</span>g).unwrap();
-                <span class="kw">let </span>hnode = <span class="self">self</span>.nodes.get(<span class="kw-2">&amp;</span>h).unwrap();
-
-                <span class="kw">let </span>top = <span class="self">self</span>.min_by_order(fnode.var, gnode.var, hnode.var);
-
-                <span class="kw">let </span>fxt = fnode.restrict(top, <span class="kw-2">&amp;</span><span class="self">self</span>.var2level, <span class="bool-val">true</span>);
-                <span class="kw">let </span>gxt = gnode.restrict(top, <span class="kw-2">&amp;</span><span class="self">self</span>.var2level, <span class="bool-val">true</span>);
-                <span class="kw">let </span>hxt = hnode.restrict(top, <span class="kw-2">&amp;</span><span class="self">self</span>.var2level, <span class="bool-val">true</span>);
-
-                <span class="kw">let </span>fxf = fnode.restrict(top, <span class="kw-2">&amp;</span><span class="self">self</span>.var2level, <span class="bool-val">false</span>);
-                <span class="kw">let </span>gxf = gnode.restrict(top, <span class="kw-2">&amp;</span><span class="self">self</span>.var2level, <span class="bool-val">false</span>);
-                <span class="kw">let </span>hxf = hnode.restrict(top, <span class="kw-2">&amp;</span><span class="self">self</span>.var2level, <span class="bool-val">false</span>);
-
-                <span class="kw">let </span>high = <span class="self">self</span>.ite(fxt, gxt, hxt);
-                <span class="kw">let </span>low = <span class="self">self</span>.ite(fxf, gxf, hxf);
-
-                <span class="kw">if </span>low == high {
-                    <span class="self">self</span>.ite_c_table.insert((f, g, h), low);
-                    <span class="kw">return </span>low;
-                }
-
-                <span class="kw">let </span>node = DDNode {
-                    id: NodeID(<span class="number">0</span>),
-                    var: top,
-                    low,
-                    high,
-                };
-
-                <span class="kw">let </span>out = <span class="self">self</span>.node_get_or_create(<span class="kw-2">&amp;</span>node);
-
-                <span class="self">self</span>.ite_c_table.insert((f, g, h), out);
-
-                out
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(result) = result {
+                <span class="self">self</span>.ite_c_table.insert((f, g, h), result);
             }
         }
+
+        <span class="kw-2">*</span><span class="self">self</span>.ite_c_table.get(<span class="kw-2">&amp;</span>(f, g, h)).unwrap()
     }
 }
 </code></pre></div></section></main></body></html>
