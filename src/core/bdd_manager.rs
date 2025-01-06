@@ -33,11 +33,11 @@ pub struct DDManager {
     /// Node List
     pub nodes: HashMap<NodeID, DDNode>,
     /// Variable ordering: var2level[v.0] is the depth of variable v in the tree
-    pub(crate) var2level: Vec<usize>,
+    pub var2level: Vec<usize>,
     /// Unique Table for each variable. Note that the indices into this table are the depths of the
     /// variables, not their IDs. The depth of a variable can be determined through
     /// [var2level](`DDManager::var2level`)!
-    pub(crate) level2nodes: Vec<HashSet<DDNode>>,
+    pub level2nodes: Vec<HashSet<DDNode>>,
     /// Computed Table for ITE: maps (f,g,h) to ite(f,g,h)
     pub(super) ite_c_table: HashMap<(NodeID, NodeID, NodeID), NodeID>,
     /// Computed Table for Apply: maps (op,u,v) to apply(op,u,v)
@@ -178,20 +178,26 @@ impl DDManager {
         // Ensure there is space for var2level[target]
         self.var2level.resize(target.0 + 1, 0);
 
+        // Remove terminal nodes if already existent to make sure they end up at the lowest level
+        // after this operation.
+        let terminals = self.level2nodes.pop();
+
         // Fill newly created space:
-        let mut y = old_size;
         for x in old_size..self.var2level.len() {
-            // var2level[x] = x
-            self.var2level[x] = y;
-            y += 1;
+            self.var2level[x] = x;
             // Add newly created level to level2nodes
-            while self.level2nodes.len() <= y {
+            while self.level2nodes.len() <= x {
                 self.level2nodes.push(HashSet::default());
             }
         }
 
         // VarID 0 (terminal nodes) at the very bottom of the tree
-        self.var2level[0] = y;
+        self.var2level[0] = self.var2level.len();
+        if let Some(terminals) = terminals {
+            self.level2nodes.push(terminals);
+        } else {
+            self.level2nodes.push(HashSet::default());
+        }
     }
 
     /// Insert Node. ID is assigned for nonterminal nodes (var != 0).
@@ -277,15 +283,7 @@ impl DDManager {
             high: NodeID(1),
         };
 
-        if self.var2level.len() > var.0 {
-            let x = self.level2nodes[self.var2level[var.0]].get(&v);
-
-            if let Some(x) = x {
-                return x.id;
-            }
-        }
-
-        self.add_node(v)
+        self.node_get_or_create(&v)
     }
 
     pub fn nith_var(&mut self, var: VarID) -> NodeID {
@@ -296,15 +294,7 @@ impl DDManager {
             high: NodeID(0),
         };
 
-        if self.var2level.len() > var.0 {
-            let x = self.level2nodes[self.var2level[var.0]].get(&v);
-
-            if let Some(x) = x {
-                return x.id;
-            }
-        }
-
-        self.add_node(v)
+        self.node_get_or_create(&v)
     }
 
     //------------------------------------------------------------------------//
@@ -451,11 +441,11 @@ impl DDManager {
         zero_side
     }
 
-    pub fn verify(&self, f: NodeID, trues: &[usize]) -> bool {
+    pub fn evaluate(&self, f: NodeID, trues: &[VarID]) -> bool {
         let mut values: Vec<bool> = vec![false; self.level2nodes.len() + 1];
 
         for x in trues {
-            let x: usize = *x;
+            let x: usize = x.0;
 
             values[x] = x < values.len();
         }
@@ -511,16 +501,19 @@ impl DDManager {
     pub fn purge_retain_multi(&mut self, roots: &[NodeID]) {
         let keep = self.get_reachable(roots);
 
-        let mut garbage = self.nodes.clone();
-
-        garbage.retain(|&x, _| !keep.contains(&x) && x.0 > 1);
-
-        for x in &garbage {
-            self.level2nodes[self.var2level[x.1.var.0]].remove(x.1);
-            self.nodes.remove(x.0);
+        let garbage: Vec<_> = self
+            .nodes
+            .keys()
+            .filter(|&node_id| !keep.contains(node_id) && *node_id > NodeID(1))
+            .cloned()
+            .collect();
+        for node_id in &garbage {
+            let node = self.nodes.get(node_id).unwrap();
+            self.level2nodes[self.var2level[node.var.0]].remove(node);
+            self.nodes.remove(node_id);
         }
 
-        self.ite_c_table.retain(|_, x| keep.contains(x));
+        self.retain_c_table(keep);
     }
 
     /// Removes nodes which do not belong to any of the BDDs for which views exist from the
@@ -528,6 +521,23 @@ impl DDManager {
     pub fn clean(&mut self) {
         self.views.remove_expired();
         self.purge_retain_multi(&self.get_roots());
+    }
+
+    /// Does the same as clear_c_table, but keeps entries that only reference the nodes given in
+    /// `keep`.
+    pub fn retain_c_table(&mut self, keep: HashSet<NodeID>) {
+        self.ite_c_table
+            .retain(|(node_id_1, node_id_2, node_id_3), node_id_4| {
+                keep.is_superset(
+                    &[*node_id_1, *node_id_2, *node_id_3, *node_id_4]
+                        .into_iter()
+                        .collect(),
+                )
+            });
+        self.apply_c_table
+            .retain(|(_, node_id_1, node_id_2), node_id_3| {
+                keep.is_superset(&[*node_id_1, *node_id_2, *node_id_3].into_iter().collect())
+            });
     }
 
     pub fn clear_c_table(&mut self) {
@@ -540,11 +550,12 @@ impl fmt::Debug for DDManager {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "DDManager [{} nodes, unique table size {}, cache sizes: {} (ite), {} (apply)]",
+            "DDManager [{} nodes, unique table size {}, cache sizes: {} (ite), {} (apply); Views: {}]",
             self.nodes.len(),
             self.level2nodes.iter().map(|s| s.len()).sum::<usize>(),
             self.ite_c_table.len(),
             self.apply_c_table.len(),
+            self.views.len(),
         )
     }
 }

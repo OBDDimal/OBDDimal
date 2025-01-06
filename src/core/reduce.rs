@@ -454,12 +454,12 @@ mod tests {
 
     use std::fs;
 
-    use num_bigint::BigUint;
+    use malachite::Natural;
 
     /// This tests that reducing the "sandwich" bdd does not fail and does not break it
     #[test]
     fn reduce_sandwich() {
-        let expected = BigUint::parse_bytes(b"2808", 10).unwrap();
+        let expected = Natural::from(2808usize);
 
         let mut instance = dimacs::parse_dimacs(
             &fs::read_to_string("examples/sandwich.dimacs").expect("Failed to read dimacs file."),

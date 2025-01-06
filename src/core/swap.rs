@@ -140,7 +140,7 @@ impl DDManager {
 mod tests {
     use std::fs;
 
-    use num_bigint::BigUint;
+    use malachite::Natural;
 
     use crate::core::{
         bdd_manager::DDManager, bdd_node::VarID, order::var2level_to_ordered_varids,
@@ -165,7 +165,7 @@ mod tests {
     fn swap_sandwich_top_to_bottom() {
         let _ = env_logger::builder().is_test(true).try_init();
 
-        let expected = BigUint::parse_bytes(b"2808", 10).unwrap();
+        let expected = Natural::from(2808usize);
 
         let mut instance = dimacs::parse_dimacs(
             &fs::read_to_string("examples/sandwich.dimacs").expect("Failed to read dimacs file."),

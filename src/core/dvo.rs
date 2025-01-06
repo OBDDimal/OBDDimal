@@ -197,7 +197,7 @@ impl DDManager {
 mod tests {
     use std::fs;
 
-    use num_bigint::BigUint;
+    use malachite::Natural;
 
     use crate::core::{
         bdd_manager::DDManager, bdd_node::VarID, order::var2level_to_ordered_varids,
@@ -207,7 +207,7 @@ mod tests {
     fn sift_sandwich_single() {
         let _ = env_logger::builder().is_test(true).try_init();
 
-        let expected = BigUint::parse_bytes(b"2808", 10).unwrap();
+        let expected = Natural::from(2808usize);
 
         // Build BDD
         let mut instance = dimacs::parse_dimacs(
@@ -236,7 +236,7 @@ mod tests {
     fn sift_sandwich_all() {
         let _ = env_logger::builder().is_test(true).try_init();
 
-        let expected = BigUint::parse_bytes(b"2808", 10).unwrap();
+        let expected = Natural::from(2808usize);
 
         // Build BDD
         let mut instance = dimacs::parse_dimacs(

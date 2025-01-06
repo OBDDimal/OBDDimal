@@ -5,3 +5,4 @@ perf.data*
 .vscode
 *.dot
 *.pdf
+eval_views

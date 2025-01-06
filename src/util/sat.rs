@@ -1,13 +1,9 @@
 //! Satisfyability count, active nodes count
 
-use num_bigint::BigUint;
-use num_traits::{One, Zero};
+use malachite::{num::arithmetic::traits::Pow, Natural};
 
 use crate::{
-    core::{
-        bdd_manager::DDManager,
-        bdd_node::{NodeID, VarID},
-    },
+    core::{bdd_manager::DDManager, bdd_node, bdd_node::NodeID},
     misc::hash_select::HashMap,
 };
 
@@ -16,55 +12,52 @@ impl DDManager {
         node.0 != 0
     }
 
-    pub fn sat_count(&self, f: NodeID) -> BigUint {
-        self.sat_count_rec(f, &mut HashMap::default())
+    pub fn sat_count(&self, f: NodeID) -> Natural {
+        self.sat_count_with_cache(f, &mut HashMap::default())
     }
 
-    fn sat_count_rec(&self, f: NodeID, cache: &mut HashMap<NodeID, BigUint>) -> BigUint {
-        let mut total: BigUint = Zero::zero();
-        let node_id = f;
+    pub(crate) fn sat_count_with_cache(
+        &self,
+        f: NodeID,
+        cache: &mut HashMap<NodeID, Natural>,
+    ) -> Natural {
+        let node_sat = self.sat_count_from(f, cache);
 
-        if node_id == NodeID(0) {
-            return Zero::zero();
-        } else if node_id == NodeID(1) {
-            return One::one();
-        } else {
-            let node = &self.nodes.get(&node_id).unwrap();
+        let jump = self.var2level[self.nodes.get(&f).unwrap().var.0] - 1;
+        let fac = Natural::from(2usize).pow(jump as u64);
 
-            let low = &self.nodes.get(&node.low).unwrap();
-            let high = &self.nodes.get(&node.high).unwrap();
+        node_sat * fac
+    }
 
-            let low_jump = if low.var == VarID(0) {
-                self.var2level.len() - self.var2level[node.var.0] - 1
-            } else {
-                self.var2level[low.var.0] - self.var2level[node.var.0] - 1
-            };
+    #[inline]
+    fn sat_count_from(&self, from_node: NodeID, cache: &mut HashMap<NodeID, Natural>) -> Natural {
+        let reachable = self.get_reachable(&[from_node]);
 
-            let high_jump = if high.var == VarID(0) {
-                self.var2level.len() - self.var2level[node.var.0] - 1
-            } else {
-                self.var2level[high.var.0] - self.var2level[node.var.0] - 1
-            };
+        cache.insert(NodeID(0), Natural::from(0usize));
+        cache.insert(NodeID(1), Natural::from(1usize));
 
-            let low_fac = BigUint::parse_bytes(b"2", 10).unwrap().pow(low_jump as u32);
-            let high_fac = BigUint::parse_bytes(b"2", 10)
-                .unwrap()
-                .pow(high_jump as u32);
+        (self.var2level[self.nodes.get(&from_node).unwrap().var.0]
+            ..self.var2level[bdd_node::ZERO.var.0])
+            .rev()
+            .flat_map(|level| &self.level2nodes[level])
+            .filter(|node| reachable.contains(&node.id))
+            .for_each(|node| {
+                let mut total = Natural::from(0usize);
 
-            total += match cache.get(&node.low) {
-                Some(x) => x * low_fac,
-                None => self.sat_count_rec(node.low, cache) * low_fac,
-            };
+                let low_var = &self.nodes.get(&node.low).unwrap().var;
+                let low_jump = self.var2level[low_var.0] - self.var2level[node.var.0] - 1;
+                let low_fac = Natural::from(2usize).pow(low_jump as u64);
+                total += cache.get(&node.low).unwrap() * low_fac;
 
-            total += match cache.get(&node.high) {
-                Some(x) => x * high_fac,
-                None => self.sat_count_rec(node.high, cache) * high_fac,
-            };
-        };
+                let high_var = &self.nodes.get(&node.high).unwrap().var;
+                let high_jump = self.var2level[high_var.0] - self.var2level[node.var.0] - 1;
+                let high_fac = Natural::from(2usize).pow(high_jump as u64);
+                total += cache.get(&node.high).unwrap() * high_fac;
 
-        cache.insert(f, total.clone());
+                cache.insert(node.id, total);
+            });
 
-        total
+        cache.get(&from_node).unwrap().clone()
     }
 
     pub fn count_active(&self, f: NodeID) -> usize {

@@ -16,15 +16,17 @@ type NodeList = HashMap<isize, (VarID, isize, isize)>;
 /// Stores a BCDD (quiet similar to its representation in the .dddmp file)
 ///
 /// * `roots` - The root nodes of the BCDD (may be inverted)
-/// * `varcount` - The number of variables in the BCDD
 /// * `varorder` - The order of the variables of the BCDD
 /// * `nodes` - Maps Node IDs to a tuple containing their Variable and the IDs of the high and low successors (negative ID if inverted edge)
+/// * `terminal_ids` - The ids of the terminal node(s) of the BCDD, first one is the high node (always there), the second one the low node if it exists
+/// * `add` - Signals that the add flag was set in the file (which means that no complemented edges exist in it)
 ///
 struct Bcdd {
     roots: Vec<isize>,
     varorder: Vec<usize>,
     nodes: NodeList,
-    terminal_id: isize,
+    terminal_ids: (isize, Option<isize>),
+    add: bool,
 }
 
 /// Represents a parent node, containing the ID of the node.
@@ -70,6 +72,9 @@ impl DDManager {
             })
             .collect::<HashMap<String, Vec<String>>>();
 
+        // Check for .add flag
+        let add = header.contains_key(".add");
+
         // Verify file integrity
         let nodecount = {
             let Some(value) = header.get(".nnodes") else {
@@ -87,6 +92,16 @@ impl DDManager {
             };
             if value.len() != 1 {
                 Err(".nsuppvars line invalid!".to_string())
+            } else {
+                Ok(value[0].parse::<usize>().map_err(|e| e.to_string())?)
+            }
+        }?;
+        let varcount_with_free = {
+            let Some(value) = header.get(".nvars") else {
+                return Err(".nvars missing!".to_string());
+            };
+            if value.len() != 1 {
+                Err(".nvars line invalid!".to_string())
             } else {
                 Ok(value[0].parse::<usize>().map_err(|e| e.to_string())?)
             }
@@ -115,11 +130,26 @@ impl DDManager {
                 return Err(".permids line invalid!".to_string());
             };
 
-            let mut order: Vec<usize> = vec![0; ids.iter().max().unwrap() + 2usize];
+            let mut order: Vec<usize> = vec![0; varcount_with_free + 1usize];
+            let mut free_vars: HashSet<usize> = (1..(varcount_with_free + 1usize)).collect();
+            let mut free_levels: HashSet<usize> = (1..(varcount_with_free + 1usize)).collect();
             permids.iter().enumerate().for_each(|(i, permid)| {
-                order[ids[i] + 1usize] = *permid + 1;
+                let var_id = ids[i] + 1usize;
+                let level = *permid + 1;
+                order[var_id] = level;
+                free_vars.remove(&var_id);
+                free_levels.remove(&level);
             });
-            order[0] = permids.iter().max().unwrap() + 1usize;
+            order[0] = varcount_with_free + 1usize;
+
+            // Add levels to free variables
+            free_vars
+                .iter()
+                .zip(free_levels.iter())
+                .for_each(|(var_id, level)| {
+                    order[*var_id] = *level;
+                });
+
             Ok::<Vec<usize>, String>(order)
         }?;
 
@@ -139,7 +169,7 @@ impl DDManager {
         }?;
 
         // Parse node list
-        let (nodes, terminal_id) = Self::parse_bcdd_nodelist(lines, nodecount)?;
+        let (nodes, terminal_ids) = Self::parse_bcdd_nodelist(lines, nodecount, add)?;
 
         // Check if root nodes are valid:
         for r in roots.iter() {
@@ -152,7 +182,8 @@ impl DDManager {
             roots,
             varorder,
             nodes,
-            terminal_id,
+            terminal_ids,
+            add,
         })
     }
 
@@ -160,18 +191,20 @@ impl DDManager {
     ///
     ///  * `lines` - An iterator over the lines of the file, the header including the **.nodes** mark should already be consumed
     ///  * `expected_nodecount` - The number of nodes that is expected to be parsed (used for sanity checks)
+    ///  * `add` - Whether the add flag was set in the file (which means that no complemented edges exist in it)
     ///
     fn parse_bcdd_nodelist<I>(
         lines: &mut std::iter::Peekable<I>,
         expected_nodecount: usize,
-    ) -> Result<(NodeList, isize), String>
+        add: bool,
+    ) -> Result<(NodeList, (isize, Option<isize>)), String>
     where
         I: std::iter::Iterator<Item = String>,
     {
         if lines.peek().is_none() {
             return Err("Node list missing in dddmp file!".to_string());
         }
-        let mut terminal_id = None;
+        let mut terminal_ids = (None, None);
         let nodes = lines
             .take_while(|line| line.trim() != ".end")
             .filter(|line| !line.trim().is_empty())
@@ -184,7 +217,16 @@ impl DDManager {
                     let high = line[3].parse::<isize>().map_err(|e| e.to_string())?;
                     let low = line[4].parse::<isize>().map_err(|e| e.to_string())?;
                     let var_id = if line[1] == "T" {
-                        terminal_id = Some(id);
+                        if !add {
+                            terminal_ids = (Some(id), None);
+                        } else {
+                            terminal_ids =
+                                match line[2].parse::<isize>().map_err(|e| e.to_string())? {
+                                    0 => (terminal_ids.0, Some(id)),
+                                    1 => (Some(id), terminal_ids.1),
+                                    _ => return Err("Terminal Node not supported".to_string()),
+                                }
+                        }
                         VarID(0)
                     } else {
                         VarID(line[1].parse::<usize>().map_err(|e| e.to_string())? + 1usize)
@@ -193,12 +235,19 @@ impl DDManager {
                 }
             })
             .try_collect::<NodeList>()?;
+
         if nodes.len() != expected_nodecount {
             Err("Node list ended unexpectedly!".to_string())
-        } else if terminal_id.is_none() {
+        } else if terminal_ids.0.is_none() || (add && terminal_ids.1.is_none()) {
             Err("Terminal node missing!".to_string())
         } else {
-            Ok((nodes, terminal_id.unwrap()))
+            let terminal_ids = if !add {
+                (terminal_ids.0.unwrap(), None)
+            } else {
+                (terminal_ids.0.unwrap(), terminal_ids.1)
+            };
+
+            Ok((nodes, terminal_ids))
         }
     }
 
@@ -207,11 +256,15 @@ impl DDManager {
     /// * `bcdd` - The BCDD to be converted
     ///
     fn convert_bcdd_to_bdd(bcdd: &Bcdd) -> (DDManager, Vec<NodeID>) {
-        let bdd_nodes = Self::convert_bcdd_to_bdd_nodes(
-            Self::create_bcdd_node_parent_information(bcdd),
-            Self::create_bcdd_layer_to_nodes(bcdd),
-            bcdd,
-        );
+        let bdd_nodes = if !bcdd.add {
+            Self::convert_bcdd_to_bdd_nodes(
+                Self::create_bcdd_node_parent_information(bcdd),
+                Self::create_bcdd_layer_to_nodes(bcdd),
+                bcdd,
+            )
+        } else {
+            bcdd.nodes.clone()
+        };
 
         // Convert NodeIDs:
         let convert_node_id = |i: &isize| NodeID(*i as usize);
@@ -224,14 +277,20 @@ impl DDManager {
                 )
             })
             .collect::<HashMap<NodeID, (VarID, NodeID, NodeID)>>();
+
         let roots = bcdd
             .roots
             .iter()
             .map(convert_node_id)
             .collect::<Vec<NodeID>>();
+
         let terminals = (
-            convert_node_id(&bcdd.terminal_id),
-            convert_node_id(&-bcdd.terminal_id),
+            convert_node_id(&bcdd.terminal_ids.0),
+            convert_node_id(&if !bcdd.add {
+                -bcdd.terminal_ids.0
+            } else {
+                bcdd.terminal_ids.1.unwrap()
+            }),
         );
 
         DDManager::default().load_bdd_from_nodelist(
@@ -250,6 +309,8 @@ impl DDManager {
     fn create_bcdd_node_parent_information(
         bcdd: &Bcdd,
     ) -> HashMap<isize, (HashSet<ParentNode>, HashSet<ParentNode>)> {
+        debug_assert!(!bcdd.add);
+
         let mut node_parent_information = bcdd
             .nodes
             .keys()
@@ -258,7 +319,7 @@ impl DDManager {
         bcdd.nodes
             .iter()
             .flat_map(|(p, (_, c1, c2))| [(*p, *c1), (*p, *c2)])
-            .filter(|(p, _)| *p != bcdd.terminal_id)
+            .filter(|(p, _)| *p != bcdd.terminal_ids.0)
             .for_each(|(p, c)| {
                 let info = node_parent_information.get_mut(&c.abs()).unwrap();
                 if c < 0 {
@@ -283,9 +344,11 @@ impl DDManager {
     /// * `bcdd` - The BCDD containing the nodes
     ///
     fn create_bcdd_layer_to_nodes(bcdd: &Bcdd) -> HashMap<usize, HashSet<isize>> {
+        debug_assert!(!bcdd.add);
+
         bcdd.nodes
             .iter()
-            .filter(|(n, _)| **n != bcdd.terminal_id)
+            .filter(|(n, _)| **n != bcdd.terminal_ids.0)
             .map(|(n, (v, _, _))| (bcdd.varorder[v.0], n))
             .fold(HashMap::default(), |mut layer_to_nodes, (l, n)| {
                 if let Some(nodes) = layer_to_nodes.get_mut(&l) {
@@ -310,6 +373,8 @@ impl DDManager {
         layer_to_nodes: HashMap<usize, HashSet<isize>>,
         bcdd: &Bcdd,
     ) -> NodeList {
+        debug_assert!(!bcdd.add);
+
         let mut bdd_nodes = HashMap::default();
 
         let mut layers = bcdd.varorder.clone();
@@ -318,7 +383,7 @@ impl DDManager {
             .iter()
             .filter(|layer| layer_to_nodes.contains_key(layer))
             .flat_map(|layer| layer_to_nodes.get(layer).unwrap())
-            .filter(|node_id| **node_id != bcdd.terminal_id)
+            .filter(|node_id| **node_id != bcdd.terminal_ids.0)
             .for_each(|node_id| {
                 let node_info = *bcdd.nodes.get(node_id).unwrap();
                 let parents_info = node_parent_information.get(node_id).unwrap();
@@ -354,8 +419,8 @@ impl DDManager {
             });
 
         // Add 0 and 1 nodes:
-        bdd_nodes.insert(bcdd.terminal_id, (VarID(0), 1, 1));
-        bdd_nodes.insert(-bcdd.terminal_id, (VarID(0), 0, 0));
+        bdd_nodes.insert(bcdd.terminal_ids.0, (VarID(0), 1, 1));
+        bdd_nodes.insert(-bcdd.terminal_ids.0, (VarID(0), 0, 0));
 
         bdd_nodes
     }
@@ -363,31 +428,99 @@ impl DDManager {
 
 #[cfg(test)]
 mod test {
+    use malachite::Natural;
+
     use crate::core::bdd_manager::DDManager;
 
     #[test]
+    fn dddmp_file_read_soletta() {
+        dddmp_file_read_compare_with_add(
+            "examples/soletta.dddmp".to_string(),
+            "examples/soletta_nce.dddmp".to_string(),
+            None,
+        )
+    }
+
+    #[test]
+    fn dddmp_file_read_busybox() {
+        dddmp_file_read_compare_with_add(
+            "examples/busybox.dddmp".to_string(),
+            "examples/busybox_nce.dddmp".to_string(),
+            None,
+        )
+    }
+
+    #[test]
+    fn dddmp_file_read_uclibc() {
+        dddmp_file_read_compare_with_add(
+            "examples/uclibc.dddmp".to_string(),
+            "examples/uclibc_nce.dddmp".to_string(),
+            None,
+        )
+    }
+
+    #[test]
+    fn dddmp_file_read_fiasco() {
+        dddmp_file_read_compare_with_add(
+            "examples/fiasco.dddmp".to_string(),
+            "examples/fiasco_nce.dddmp".to_string(),
+            None,
+        )
+    }
+
+    #[inline]
+    fn dddmp_file_read_compare_with_add(
+        dddmp_file: String,
+        dddmp_add_file: String,
+        ssat_expected: Option<Natural>,
+    ) {
+        let (man_complemented, bdds_complemented) =
+            DDManager::load_from_dddmp_file(dddmp_file).unwrap();
+        let root_complemented = bdds_complemented[0];
+        let ssat_complemented = man_complemented.sat_count(root_complemented);
+
+        let (man_non_complemented, bdds_non_complemented) =
+            DDManager::load_from_dddmp_file(dddmp_add_file).unwrap();
+        let root_non_complemented = bdds_non_complemented[0];
+        let ssat_non_complemented = man_non_complemented.sat_count(root_non_complemented);
+
+        if ssat_expected.is_some() {
+            assert_eq!(&ssat_complemented, ssat_expected.as_ref().unwrap());
+            assert_eq!(&ssat_non_complemented, ssat_expected.as_ref().unwrap());
+        } else {
+            assert_eq!(ssat_non_complemented, ssat_complemented);
+        }
+    }
+
+    #[test]
     fn dddmp_file_read_sandwich() {
-        let (man, bdds) =
-            DDManager::load_from_dddmp_file("examples/sandwich.dimacs.dddmp".to_string()).unwrap();
-        let root = bdds[0];
-        assert_eq!(man.sat_count(root), 2808usize.into());
+        dddmp_file_read_verify_ssat(
+            "examples/sandwich.dimacs.dddmp".to_string(),
+            2808usize.into(),
+        )
     }
 
     #[test]
     fn dddmp_file_read_jhipster() {
-        let (man, bdds) =
-            DDManager::load_from_dddmp_file("examples/JHipster.dimacs.dddmp".to_string()).unwrap();
-        let root = bdds[0];
-        assert_eq!(man.sat_count(root), 26256usize.into());
+        dddmp_file_read_verify_ssat(
+            "examples/JHipster.dimacs.dddmp".to_string(),
+            26256usize.into(),
+        )
     }
 
     #[test]
     fn dddmp_file_read_berkeleydb() {
-        let (man, bdds) =
-            DDManager::load_from_dddmp_file("examples/berkeleydb.dimacs.dddmp".to_string())
-                .unwrap();
+        dddmp_file_read_verify_ssat(
+            "examples/berkeleydb.dimacs.dddmp".to_string(),
+            4080389785u64.into(),
+        )
+    }
+
+    #[inline]
+    fn dddmp_file_read_verify_ssat(dddmp_file: String, ssat_expected: Natural) {
+        let (man, bdds) = DDManager::load_from_dddmp_file(dddmp_file).unwrap();
         let root = bdds[0];
-        assert_eq!(man.sat_count(root), 4080389785u64.into());
+        assert_eq!(man.sat_count(root), ssat_expected);
     }
 
     #[test]

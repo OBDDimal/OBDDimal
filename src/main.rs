@@ -48,12 +48,12 @@ fn main() {
 #[cfg(test)]
 mod tests {
 
-    use num_bigint::BigUint;
+    use malachite::Natural;
 
     use super::*;
 
-    fn build_verify_ssat(filepath: &str, target: &[u8]) {
-        let expected = BigUint::parse_bytes(target, 10).unwrap();
+    fn build_verify_ssat(filepath: &str, target: &str) {
+        let expected = target.parse::<Natural>().unwrap();
 
         let mut instance = dimacs::parse_dimacs(
             &fs::read_to_string(filepath)
@@ -67,22 +67,22 @@ mod tests {
 
     #[test]
     fn sandwich_ssat() {
-        build_verify_ssat("examples/sandwich.dimacs", b"2808")
+        build_verify_ssat("examples/sandwich.dimacs", "2808")
     }
 
     #[test]
     fn berkeleydb_ssat() {
-        build_verify_ssat("examples/berkeleydb.dimacs", b"4080389785")
+        build_verify_ssat("examples/berkeleydb.dimacs", "4080389785")
     }
 
     #[test]
     fn trivial_ssat() {
-        build_verify_ssat("examples/trivial.dimacs", b"5")
+        build_verify_ssat("examples/trivial.dimacs", "5")
     }
 
     #[test]
     #[ignore]
     fn busybox_ssat() {
-        build_verify_ssat("examples/busybox.dimacs", b"2061138519356781760670618805653750167349287991336595876373542198990734653489713239449032049664199494301454199336000050382457451123894821886472278234849758979132037884598159833615564800000000000000000000")
+        build_verify_ssat("examples/busybox.dimacs", "2061138519356781760670618805653750167349287991336595876373542198990734653489713239449032049664199494301454199336000050382457451123894821886472278234849758979132037884598159833615564800000000000000000000")
     }
 }
