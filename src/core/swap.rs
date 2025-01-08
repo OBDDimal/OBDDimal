@@ -2,13 +2,15 @@
 
 use std::{
     borrow::Borrow,
-    collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
 };
 
-use crate::core::{
-    bdd_manager::DDManager,
-    bdd_node::{DDNode, NodeID, VarID},
+use crate::{
+    core::{
+        bdd_manager::DDManager,
+        bdd_node::{DDNode, NodeID, VarID},
+    },
+    misc::hash_select::{HashMap, HashSet},
 };
 
 /// Holds the context of multiple swap operations
@@ -33,8 +35,8 @@ impl Default for SwapContext {
     fn default() -> Self {
         SwapContext {
             all_swaps_in_result: Vec::new(),
-            new_nodes: HashSet::new(),
-            new_level2nodes: HashMap::new(),
+            new_nodes: HashSet::default(),
+            new_level2nodes: HashMap::default(),
             node_id_counter: 2,
             referenced_above: None,
         }
@@ -48,8 +50,8 @@ impl SwapContext {
         context
     }
     pub fn precalc_references(&mut self, manager: &DDManager, from: usize, to: usize) {
-        let mut referenced_above = HashSet::new();
-        let mut in_range = HashSet::new();
+        let mut referenced_above = HashSet::default();
+        let mut in_range = HashSet::default();
         for level in from..=to {
             for node in manager.level2nodes[level].iter() {
                 in_range.insert(node.id);
@@ -378,8 +380,8 @@ impl DDManager {
         });
 
         // Create new level2nodes entries
-        let mut new_upper_level = HashSet::<NodeEnum>::new();
-        let mut new_lower_level = HashSet::<NodeEnum>::new();
+        let mut new_upper_level = HashSet::<NodeEnum>::default();
+        let mut new_lower_level = HashSet::<NodeEnum>::default();
 
         // Create new nodes
         let mut new_nodes = prev_swap.new_nodes.clone();
@@ -561,7 +563,7 @@ impl DDManager {
         let (referenced_above, from) = prev_swap
             .referenced_above
             .clone()
-            .unwrap_or((HashSet::new(), 0));
+            .unwrap_or((HashSet::default(), 0));
 
         for lower_level_id in lower_level_ids.clone().iter().filter(|id| match id {
             IDEnum::OldID(id) => referenced_above.contains(id),
@@ -680,7 +682,7 @@ impl DDManager {
             self.var2level[var_b.0].cmp(&self.var2level[var_a.0])
         });
 
-        let mut id2id = HashMap::<IDEnum, NodeID>::new();
+        let mut id2id = HashMap::<IDEnum, NodeID>::default();
 
         new_levels.iter().for_each(|(var, level_nodes)| {
             let level = self.var2level[var.0];
